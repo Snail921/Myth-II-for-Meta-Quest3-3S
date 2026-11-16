@@ -1,0 +1,16 @@
+{
+  "level": "Flight From Covenant",
+  "map_key": "3330666c",
+  "image": "Flight From Covenant.png",
+  "aliases": [
+    "Flight From Covenant"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "3e6ab26fe367c8e0a0364e7a5f3ca079dcfe7841ffc88231991580afb04df44d",
+  "design": "Dawn escape from ruined Covenant as the Watcher fills the sky with dust and smoke. Pale peach-grey horizon beneath a cold blue-grey smoky sky, diffuse first sunlight, dark earthy plains disappearing into dust haze. No large flames.",
+  "generation_tool": "built-in image_gen"
+}

@@ -1,0 +1,14 @@
+{
+  "map_display_name": "Gonen’s Bridge",
+  "map_tag": "neme",
+  "image": "Gonen’s Bridge.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "a96d1db9e35fe68d6f7883dc9726271fd2f88a6cd01638a6f2aee4cdd1d9ed4b",
+  "narrative_and_art_direction": "Sep 15 explicitly this night, retreat across Cloudspine foothills. Restrained dramatic moonlit cloudscape, cold grey brown hills and broad valley, faint distant amber atmospheric glow, very dark slate blue sky. No buildings or fires."
+}

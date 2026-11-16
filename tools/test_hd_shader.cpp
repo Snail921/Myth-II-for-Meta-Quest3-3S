@@ -1,0 +1,7 @@
+#include <EGL/egl.h>
+#include <GLES3/gl3.h>
+#include <cstdio>
+#include <cassert>
+#include "../src/vr/color_pipeline.h"
+int main(){EGLDisplay d=eglGetDisplay(EGL_DEFAULT_DISPLAY);assert(eglInitialize(d,0,0));EGLint attrs[]={EGL_SURFACE_TYPE,EGL_PBUFFER_BIT,EGL_RENDERABLE_TYPE,EGL_OPENGL_ES3_BIT,EGL_RED_SIZE,8,EGL_GREEN_SIZE,8,EGL_BLUE_SIZE,8,EGL_ALPHA_SIZE,8,EGL_NONE};EGLConfig c;EGLint n;assert(eglChooseConfig(d,attrs,&c,1,&n)&&n);EGLint ctx[]={EGL_CONTEXT_CLIENT_VERSION,3,EGL_NONE},sa[]={EGL_WIDTH,8,EGL_HEIGHT,8,EGL_NONE};auto x=eglCreateContext(d,c,EGL_NO_CONTEXT,ctx);auto s=eglCreatePbufferSurface(d,c,sa);assert(eglMakeCurrent(d,s,s,x));
+ auto shader=[](GLenum type,const char*src){GLuint sh=glCreateShader(type);glShaderSource(sh,1,&src,0);glCompileShader(sh);int ok;glGetShaderiv(sh,GL_COMPILE_STATUS,&ok);if(!ok){char log[4096];glGetShaderInfoLog(sh,sizeof(log),0,log);puts(log);}assert(ok);return sh;};GLuint p=glCreateProgram();glAttachShader(p,shader(GL_VERTEX_SHADER,mythVertexShader));glAttachShader(p,shader(GL_FRAGMENT_SHADER,mythFragmentShader));glLinkProgram(p);GLint ok;glGetProgramiv(p,GL_LINK_STATUS,&ok);assert(ok);glUseProgram(p);assert(glGetUniformLocation(p,"softOnly")>=0);assert(glGetError()==GL_NO_ERROR);puts("PASS Quest GLES common shader with HD opaque/soft-alpha separation");eglMakeCurrent(d,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);eglDestroySurface(d,s);eglDestroyContext(d,x);eglTerminate(d);}

@@ -1,0 +1,12 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.mythvr.viewer" android:versionCode="1" android:versionName="0.1">
+ <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29" />
+ <uses-feature android:name="android.hardware.vr.headtracking" android:version="1" android:required="true" />
+ <uses-permission android:name="android.permission.INTERNET" />
+ <application android:label="Myth II VR Bridge" android:hasCode="false" android:debuggable="true" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" android:allowBackup="false">
+  <meta-data android:name="com.oculus.supportedDevices" android:value="quest2|questpro|quest3|quest3s" />
+  <activity android:name="android.app.NativeActivity" android:exported="true" android:launchMode="singleTask" android:screenOrientation="landscape" android:configChanges="orientation|keyboardHidden|screenSize">
+   <meta-data android:name="android.app.lib_name" android:value="mythvr" />
+   <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/><category android:name="com.oculus.intent.category.VR"/></intent-filter>
+  </activity>
+ </application>
+</manifest>

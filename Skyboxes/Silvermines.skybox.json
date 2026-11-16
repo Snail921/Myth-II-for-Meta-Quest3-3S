@@ -1,0 +1,16 @@
+{
+  "level": "Silvermines",
+  "map_key": "33317369",
+  "image": "Silvermines.png",
+  "aliases": [
+    "Silvermines"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "c9c9fe0a45cfef211c61ec1302f79a2e295ed85d337af6e13aeb8043ac88b7c3",
+  "design": "Late November evening infiltration of abandoned Silvermines, dusk blue overhead fading to a restrained dusty mauve horizon, thin cold clouds, grey-brown barren plains and soft mist. Ominous but readable, no buildings.",
+  "generation_tool": "built-in image_gen"
+}

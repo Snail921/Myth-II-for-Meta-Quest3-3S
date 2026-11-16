@@ -1,0 +1,16 @@
+{
+  "level": "Force Ten from Stoneheim",
+  "map_key": "33306674",
+  "image": "Force Ten from Stoneheim.png",
+  "aliases": [
+    "Force Ten from Stoneheim"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "7e10f9ccfbaa35e173e15fa311fee8d1ad4eb32c42737f3d3f911f6037613232",
+  "design": "November Plain of Scales before winter, cool blue-grey sky with wind-stretched clouds, low pale sun, muted ochre and olive flat plains in distance. A desperate mission to destroy a World Knot.",
+  "generation_tool": "built-in image_gen"
+}

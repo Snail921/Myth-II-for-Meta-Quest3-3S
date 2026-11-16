@@ -1,0 +1,14 @@
+{
+  "map_display_name": "Through the Ermine",
+  "map_tag": "11an",
+  "image": "Through the Ermine.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "317f9ccb2722d8927847ecb1ddfedb3dcfd0b8dddeb4442be4ed0358c4bddab7",
+  "narrative_and_art_direction": "Nov 30 dense fir forest of Ermine, explicitly night fallen and camp until dawn. Dark blue-black night sky with thin layered clouds, faint few stars, moon veiled at light direction. Blue dark distant fir-covered hills and subdued mist in valleys. Low contrast forest horizon."
+}

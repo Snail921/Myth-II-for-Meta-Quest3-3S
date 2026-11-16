@@ -1,0 +1,2148 @@
+#!/usr/bin/env python3
+from collections import OrderedDict, Counter, defaultdict
+import enum
+import datetime
+import json
+import os
+import pathlib
+import re
+import struct
+import sys
+
+import codec
+import myth_headers
+import mesh_tag
+import mesh2trades
+import mons_tag
+import pref2info
+import utils
+import loadtags
+import game_headers
+import player_headers
+import scrapegos
+
+DEBUG = (os.environ.get('DEBUG') == '1')
+DEBUG_CMDS = (os.environ.get('DEBUG_CMDS') == '1')
+DEBUG_MOVEMENT = (os.environ.get('DEBUG_MOVEMENT') == '1')
+DEBUG_PICKUP = (os.environ.get('DEBUG_PICKUP') == '1')
+DEBUG_STATS = (os.environ.get('DEBUG_STATS') == '1')
+
+HEADER_SIZE = 2606
+
+class Commands(enum.Enum):
+    # used by the server when no one is giving orders (0-1)
+    NULL = 0
+    SYNC = enum.auto()
+    
+    # monster commands (2-8)
+    GENERAL = enum.auto()
+    MOVEMENT = enum.auto()
+    TARGET = enum.auto()
+    ATTACK_LOCATION = enum.auto() # a specific (x,y,z) point
+    PICK_UP = enum.auto() # an object_index/object_identifier pair
+    RENAME = enum.auto()
+    ROTATION = enum.auto()
+    
+    # player commands (9-14)
+    DROP_PLAYER = enum.auto()
+    CHAT = enum.auto()
+    DETACH = enum.auto()
+    UNIT_ADJUSTMENT = enum.auto()
+    SKETCH = enum.auto()
+    ALLY = enum.auto()
+    
+    # commands intended only to encode information in saved games (15-16)
+    PRESET_SELECTION = enum.auto()
+    SYNC_FORMATION = enum.auto()
+
+    # extra commands hacked on by rank amateurs (17-20)
+    INVENTORY = enum.auto()
+    INVENTORY_DROP = enum.auto()
+    INVENTORY_PREV = enum.auto()
+    INVENTORY_NEXT = enum.auto()
+
+    FORCED_ENDGAME = enum.auto()
+    ADD_PLAYER = enum.auto()
+
+    PAUSE = enum.auto()
+    GAME_SPEED = enum.auto()
+    SAVE_LOADED = enum.auto()
+    REPLACE_PLAYER = enum.auto()
+    SET_TEAM_CAPTAIN = enum.auto()
+
+def is_monster_command(command):
+    return not is_system_command(command)
+
+def is_system_command(command):
+    return command.verb in [
+        Commands.NULL,
+        Commands.FORCED_ENDGAME,
+        Commands.PAUSE,
+        Commands.GAME_SPEED,
+    ]
+
+class GeneralCommands(enum.Enum):
+    STOP = 0
+    SCATTER = enum.auto()
+    RETREAT = enum.auto()
+    SPECIAL_ABILITY = enum.auto() # immediate (suicide, place satchel charge, etc.)
+    GUARD = enum.auto()
+    TAUNT = enum.auto()
+    CELEBRATE = enum.auto()
+
+class TargetFlags(enum.Flag):
+    CLOSE = enum.auto() # close distance with target
+    SPECIAL_ABILITY = enum.auto()
+    DONT_OVERRIDE_LOCAL_AI = enum.auto()
+    ATTACK_CLOSEST = enum.auto()
+    DONT_OVERRIDE_EXISTING_TARGET = enum.auto()
+    USE_COMMAND = enum.auto()
+    PLAYER_INITIATED = enum.auto()
+    ATTACK_INDIVIDUAL = enum.auto()
+    USE_CLOSEST_ATTACK = enum.auto()
+    USE_184_MATCHING = enum.auto()
+
+class AttackLocationFlags(enum.Flag):
+    SPECIAL_ABILITY = enum.auto()
+    IGNORE_MODEL_COLLISION = enum.auto()
+    FROM_MAP_ACTION = enum.auto()
+
+class ChatFlags(enum.Flag):
+    PRIVATE = enum.auto()
+
+CommandHeaderFmt = ('CommandHeader', [
+    ('h', 'size'),
+    ('b', 'verb', Commands),
+    ('b', 'player_index'),
+    ('l', 'time'),
+])
+
+RecoHeaderFmt = ('RecoHeader', [
+    ('h', 'version'),
+    ('h', 'type'),
+    ('l', 'data_offset'),
+    ('l', 'recording_ending_time'),
+
+    ('l', 'snapshot_offset'),
+    ('l', 'snapshot_length'),
+    
+    ('l', 'monster_initializers_offset'),
+    ('l', 'monster_initializers_length'),
+    
+    ('l', 'monster_placement_offset'),
+    ('l', 'monster_placement_length'),
+])
+
+RecordingBlockHeaderFmt = ('RecordingBlockHeader', [
+    ('L', 'flags'),
+    ('h', 'size'), # in byte
+    ('h', 'command_count'),
+])
+
+MonsterInitializerFmt = ('MonsterInitializer', [
+    ('L', 'flags'),
+    ('L', 'owner_player_identifier'),
+    ('4s', 'unit_tag'),
+    ('4s', 'monster_tag'),
+    
+    ('b', 'experience'),
+    ('B', 'battles_survived'),
+    ('B', 'color_table_permutation'),
+    ('B', 'original_name_string_index'),
+    
+    ('2x', None),
+    
+    ('18s', 'name'),
+])
+
+
+def fetch_metaserver_stats(
+    file_path, metaserver,
+    metaserver_game=None, metaserver_tourney=None, metaserver_round=None
+):
+    if metaserver == 'bagrada':
+        return fetch_bagrada_stats(file_path, metaserver_game)
+    elif metaserver == 'gos' and metaserver_game and metaserver_round:
+        return fetch_gos_stats(metaserver_game, metaserver_tourney, metaserver_round)
+
+def fetch_gos_stats(gos_game_id, gos_tourney_id, gos_round_id):
+    # http://gateofstorms.net/games/417677/
+    gos_game = scrapegos.parse_game(gos_tourney_id, gos_round_id, gos_game_id)
+
+    metaserver_teams = []
+    place_counts = {}
+    for gos_team in gos_game.teams:
+        place = gos_team['place']
+        if place not in place_counts:
+            place_counts[place] = 0
+        place_counts[place] += 1
+
+    for gos_team in gos_game.teams:
+        metaserver_players = []
+        for gos_player in gos_team['players']:
+            metaserver_players.append({
+                'userId': int(gos_player['metaserver_player']) if 'metaserver_player' in gos_player else None,
+                'nickName': gos_player['name'],
+                'teamName': gos_team['name'],
+                'unitsKilled': int(gos_player['killed']),
+                'unitsLost': int(gos_player['lost']),
+                'damageGiven': int(gos_player['dmg_given']),
+                'damageTaken': int(gos_player['dmg_taken']),
+                'host': gos_game.host == gos_player['name'],
+                'dropped': gos_player.get('status') == 'Dropped',
+            })
+        place = gos_team['place']
+        metaserver_teams.append({
+            'gameId': int(gos_game_id),
+            'teamName': gos_team['name'],
+            'players': metaserver_players,
+            'place': int(place),
+            'placeTie': place_counts[place] > 1,
+            'eliminated': gos_team.get('status') == 'Eliminated',
+        })
+    if len(gos_game.spectators):
+        gos_spectators = [{
+            'userId': int(gos_spectator['metaserver_player']) if 'metaserver_player' in gos_spectator else None,
+            'nickName': gos_spectator['name'],
+            'host': gos_game.host == gos_spectator['name'],
+        } for gos_spectator in gos_game.spectators]
+        metaserver_teams.append({
+            'gameId': int(gos_game_id),
+            'players': gos_spectators,
+            'spectators': True,
+        })
+
+    gos_start, gos_end = gos_start_end(gos_game.start, gos_game.duration)
+    metaserver_stats = {
+        'metaserver': 'gos',
+        'id': int(gos_game_id),
+        'teams': metaserver_teams,
+        'startDatetime': gos_start,
+        'endDatetime': gos_end,
+    }
+    return metaserver_stats
+
+def gos_start_end(startString, durationString):
+    start = datetime.datetime.strptime(startString, '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+    h, m, s = map(int, durationString.split(':'))
+    end = start + datetime.timedelta(hours=h, minutes=m, seconds=s)
+
+    startDatetime = start.isoformat(timespec='milliseconds')
+    endDatetime = end.isoformat(timespec='milliseconds')
+    return startDatetime, endDatetime
+
+BAGRADA_MATCH = r'bagrada\d{4,4}_\d{2,2}_\d{2,2}__\d{2,2}_\d{2,2}_\d{2,2}_\d{2,3}.m2rec'
+
+# TODO handle this elsewhere
+BAGRADA_STAT_OVERRIDES = {
+    81761: {
+        'missing': {
+            1: [{
+                # spy
+                "userId": 34,
+                "nickName": "|ispy",
+                "teamName": "|icasual show ponies",
+                "primaryColor": 8727773,
+                "secondaryColor": 15649327,
+                "coatOfArmsBitmapIndex": 48,
+                "gameVersion": 2185,
+                "buildNumber": 471,
+                "host": False,
+                "captain": True,
+                "dropped": False,
+                "unitsKilled": 1,
+                "unitsLost": 1,
+                "damageGiven": 1,
+                "damageTaken": 1,
+            }]
+        },
+        89: { # Funk
+            "unitsKilled": 0,
+            "unitsLost": 6,
+            "damageGiven": 5,
+            "damageTaken": 25,
+        },
+        103: { # Dantski
+            "unitsKilled": 3,
+            "unitsLost": 11,
+            "damageGiven": 16,
+            "damageTaken": 45,
+        },
+        25: { # Gekko
+            "unitsKilled": 4,
+            "unitsLost": 10,
+            "damageGiven": 21,
+            "damageTaken": 42,
+        },
+        22: { # Killerking
+            "unitsKilled": 0,
+            "unitsLost": 9,
+            "damageGiven": 11,
+            "damageTaken": 39,
+        },
+        59: { # Overdose
+            "unitsKilled": 6,
+            "unitsLost": 14,
+            "damageGiven": 24,
+            "damageTaken": 58,
+        },
+        52: { # karma
+            "unitsKilled": 13,
+            "unitsLost": 2,
+            "damageGiven": 64,
+            "damageTaken": 48,
+        },
+        47: { # Walter Wight
+            "unitsKilled": 2,
+            "unitsLost": 3,
+            "damageGiven": 25,
+            "damageTaken": 32,
+        },
+    },
+}
+
+def metaserver_stat_hardcodes(metaserver_stats):
+    game_id = metaserver_stats.get('id')
+    if game_id in BAGRADA_STAT_OVERRIDES:
+        for team in metaserver_stats['teams']:
+            team['spectators'] = False
+            for player in team['players']:
+                if player['userId'] in BAGRADA_STAT_OVERRIDES[game_id]:
+                    playerStats = BAGRADA_STAT_OVERRIDES[game_id][player['userId']]
+                    for k, v in playerStats.items():
+                        player[k] = v
+        if 'missing' in BAGRADA_STAT_OVERRIDES[game_id]:
+            for team_idx, missing in BAGRADA_STAT_OVERRIDES[game_id]['missing'].items():
+                metaserver_stats['teams'][team_idx]['players'] += missing
+
+def fetch_bagrada_stats(file_path, bagrada_game=None):
+    file_name = pathlib.Path(file_path).name
+    if not bagrada_game and not re.match(BAGRADA_MATCH, file_name):
+        return
+    # https://bagrada.net/rank-server/api/public/games/73403
+    # https://bagrada.net/rank-server/api/public/games?recordingFileName=bagrada2025_06_22__20_39_32_13.m2rec
+    url = 'https://bagrada.net/rank-server/api/public/games'
+    data = {}
+    if bagrada_game:
+        url = f'{url}/{bagrada_game}'
+    else:
+        data['recordingFileName'] = file_name
+    (status, headers, response_text) = utils.http_request(url, 'GET', data)
+    result = json.loads(response_text)
+    if result:
+        base_result = {'metaserver': 'bagrada'}
+        if bagrada_game and 'game' in result:
+            return base_result | result['game']
+        elif 'content' in result and len(result['content']) == 1:
+            return base_result | result['content'][0]
+
+def player_by_name(name, players):
+    if not name:
+        return None
+    return next((
+        (pi, p) for pi, p in (players).items() if p.appearance.name == name
+    ), None)
+
+def player_by_metaserver_id(metaserver_id, players):
+    if not metaserver_id:
+        return None
+    return next((
+        (pi, p) for pi, p in (players).items() if p.metaserver_player_id == metaserver_id
+    ), None)
+
+def process_metaserver_stats(metaserver_stats, players, players_idx):
+    if not metaserver_stats or 'teams' not in metaserver_stats:
+        return
+    info = {
+        'team_info': {},
+        'player_stats': {},
+        'overall_stats': {
+            'kills': 0,
+            'losses': 0,
+            'dmg_out': 0,
+            'dmg_in': 0,
+        },
+        'host': None,
+        'tie': False,
+        'tie_teams': [],
+        'winning_metaserver_captain': None,
+    }
+
+    metaserver_stat_hardcodes(metaserver_stats)
+
+    winning_metaserver_captains = []
+    for metaserver_team in metaserver_stats['teams']:
+        spectators = metaserver_team.get('spectators', False)
+        if 'players' in metaserver_team:
+            # Check players for host first
+            host = next((
+                m_p for m_p in metaserver_team['players'] if m_p.get('host')
+            ), None)
+            if host:
+                info['host'] = {
+                    'name': host.get('nickName', 'Unknown'),
+                    'metaserver_player': host.get('userId', None),
+                    'observer': spectators,
+                }
+            # Only continue for non spectator teams
+            if not spectators:
+                process_team_stats(
+                    info, winning_metaserver_captains, # these get modified by the function
+                    metaserver_team, players, players_idx
+                )
+
+    calculate_extra_stats(info['overall_stats'])
+
+    if len(winning_metaserver_captains):
+        if info['tie']:
+            info['tie_teams'] = winning_metaserver_captains
+        else:
+            info['winning_metaserver_captain'] = winning_metaserver_captains[0]
+
+    metaserver_stats['processed'] = info
+
+def process_team_stats(info, winning_metaserver_captains, metaserver_team, players, players_idx):
+    team_info = {
+        "stats": {
+            'kills': 0,
+            'losses': 0,
+            'dmg_out': 0,
+            'dmg_in': 0,
+        },
+    }
+    if 'place' in metaserver_team:
+        team_info["place"] = metaserver_team["place"]
+    if 'placeTie' in metaserver_team:
+        team_info["place_tie"] = metaserver_team["placeTie"]
+    if 'eliminated' in metaserver_team:
+        team_info["eliminated"] = metaserver_team["eliminated"]
+    captain_id = None
+    for metaserver_player in metaserver_team['players']:
+        if 'playerIdx' in metaserver_player:
+            meta_idx = metaserver_player.get('playerIdx')
+            p_res = (players_idx[meta_idx], players[players_idx[meta_idx]])
+        else:
+            # Find player by metaserver_player_id
+            p_res = player_by_metaserver_id(metaserver_player.get('userId'), players)
+        if not p_res:
+            p_res = player_by_name(metaserver_player.get('nickName'), players)
+        if p_res:
+            (player_id, player) = p_res
+            metaserver_player_stats = {}
+            captain_id = player.team_captain_identifier
+            if captain_id == player_id:
+                if team_info["place"] == 1:
+                    winning_metaserver_captains.append(metaserver_player['userId'])
+                    if team_info["place_tie"]:
+                        info['tie'] = True
+                        team_info['tied_winner'] = True
+                    else:
+                        team_info['winner'] = True
+            metaserver_player_stats = {}
+            if 'unitsKilled' in metaserver_player:
+                metaserver_player_stats['kills'] = metaserver_player['unitsKilled']
+                team_info['stats']['kills'] += metaserver_player['unitsKilled']
+                info['overall_stats']['kills'] += metaserver_player['unitsKilled']
+            if 'unitsLost' in metaserver_player:
+                metaserver_player_stats['losses'] = metaserver_player['unitsLost']
+                team_info['stats']['losses'] += metaserver_player['unitsLost']
+                info['overall_stats']['losses'] += metaserver_player['unitsLost']
+            if 'damageGiven' in metaserver_player:
+                metaserver_player_stats['dmg_out'] = metaserver_player['damageGiven']
+                team_info['stats']['dmg_out'] += metaserver_player['damageGiven']
+                info['overall_stats']['dmg_out'] += metaserver_player['damageGiven']
+            if 'damageTaken' in metaserver_player:
+                metaserver_player_stats['dmg_in'] = metaserver_player['damageTaken']
+                team_info['stats']['dmg_in'] += metaserver_player['damageTaken']
+                info['overall_stats']['dmg_in'] += metaserver_player['damageTaken']
+            calculate_extra_stats(metaserver_player_stats)
+            info['player_stats'][player_id] = metaserver_player_stats
+    if captain_id is not None:
+        calculate_extra_stats(team_info['stats'])
+        info['team_info'][captain_id] = team_info
+
+def calculate_extra_stats(stats):
+    if 'dmg_out' in stats and 'dmg_in' in stats:
+        stats['dmg_ratio'] = round(stats['dmg_out'] / max(1, stats['dmg_in']), 2)
+    if 'kills' in stats and 'dmg_in' in stats:
+        stats['kill_loss_ratio'] = round(stats['kills'] / max(1, stats['losses']), 2)
+
+def print_metaserver_info(teams_idx, teams, players, game_stats):
+    game_header = game_stats['header']['game']
+    if game_header['host'] is not None:
+        print(
+            f'Host: {utils.strip_format(game_header['host']['name'])}\n'
+        )
+    metaserver = game_header.get('metaserver')
+    if metaserver:
+        if 'game_name' in game_header and game_header['game_name']:
+            print(game_header['game_name'])
+        if 'room_type' in game_header:
+            if game_header['room_type'] == 2:
+                print('Room: Ranked')
+            else:
+                print('Room: Normal')
+        start = datetime.datetime.fromisoformat(game_header['start']).astimezone()
+        end = datetime.datetime.fromisoformat(game_header['end']).astimezone()
+        date_part = start.strftime("%a %b %d, %Y")
+        time_range = f"{start.strftime('%I:%M %p')} – {end.strftime('%I:%M %p %Z (%z)')}"
+        print(f"{date_part} {time_range}")
+        print(f'{metaserver}: {game_header.get('metaserver_url')}')
+
+        print('\n---\n')
+
+def parse_reco_head(game_directory, reco_file, head_only=False):
+    length = (myth_headers.TAG_HEADER_SIZE + HEADER_SIZE) if head_only else None
+    data = utils.load_file(reco_file, length)
+    header = myth_headers.parse_header(data)
+    reco_data = data[myth_headers.TAG_HEADER_SIZE:]
+
+    if DEBUG:
+        print(header)
+        reco_size = len(reco_data)
+        print(reco_size)
+
+    # RecoHeader
+    # NewGameParamDataFmt
+    # NewGameDataFmt
+    # SaveGameHeader
+
+    offset = 0
+    reco = codec.codec(RecoHeaderFmt)(reco_data)
+
+    if DEBUG:
+        print(f'# {reco._name} [{offset}]')
+        for i, (f, val) in enumerate(reco._asdict().items()):
+            print(f'{f:<42} {utils.val_repr(val)}')
+
+    offset += reco._data_size()
+    game_param = game_headers.parse_params(reco_data[offset:])
+    game_param = game_param._replace(
+        plugin_data=pref2info.parse_pref_plugins(game_param.plugin_data, game_param.plugin_count)
+    )
+
+    if DEBUG:
+        print(f'\n# {game_param._name} [{offset}]')
+        for i, (f, val) in enumerate(game_param._asdict().items()):
+            print(f'{f:<42} {utils.val_repr(val)}')
+
+    offset += game_param._data_size()
+    game_data = game_headers.parse_data(reco_data[offset:])
+    game_data = game_data._replace_raw(
+        players=game_data.players[:game_data.player_count]
+    )
+
+    if DEBUG:
+        print(f'\n# {game_data._name} [{offset}]')
+        for i, (f, val) in enumerate(game_data._asdict().items()):
+            if f == 'players':
+                for pi, player in enumerate(val):
+                    print(f'players: {pi:<33} {utils.val_repr(player)}')
+            else:
+                print(f'{f:<42} {utils.val_repr(val)}')
+
+    offset += game_data._data_size()
+    save_game = game_headers.parse_save(reco_data[offset:])
+
+    if DEBUG:
+        print(f'\n# {save_game._name} [{offset}]')
+        for i, (f, val) in enumerate(save_game._asdict().items()):
+            print(f'{f:<42} {utils.val_repr(val)}')
+
+    offset += save_game._data_size()
+    if DEBUG:
+        print('header offset', offset)
+
+    return (header, reco_data, reco, game_param, game_data, save_game)
+
+def prompt(text):
+    response = input(
+        f"{text} [Y/n]: "
+    ).strip().lower()
+    return response in {"", "y", "yes"}
+
+def get_plugins(game_directory, game_param):
+    plugin_names = [codec.decode_string(p[0]) for p in game_param.plugin_data]
+    for plugin in plugin_names:
+        while not pathlib.Path(game_directory, 'plugins', plugin).exists():
+            print(f'Missing plugin: {plugin}')
+            game_headers.print_plugins(game_param.plugin_data, True)
+            if not prompt("Reload?"):
+                raise ValueError(f'Missing plugin: {plugin}')
+    return plugin_names
+
+
+def parse_reco_file(
+    game_directory, reco_file,
+    metaserver_stats=None
+):
+    (header, reco_data, reco, game_param, game_data, save_game) = parse_reco_head(game_directory, reco_file)
+    plugin_names = get_plugins(game_directory, game_param)
+    (game_version, tags, entrypoint_map, data_map, cutscenes) = loadtags.load_tags(game_directory, plugin_names)
+
+    return parse_timeline(
+        game_version,
+        header, tags, data_map, game_data,
+        game_param, reco, reco_data,
+        metaserver_stats
+    )
+
+def parse_mons_initializers(tags, data_map, reco, reco_data):
+    mons_start = reco.monster_initializers_offset
+    mons_end = mons_start + reco.monster_initializers_length
+
+    print('monster_initializers')
+    monster_initializers = codec.list_codec(None, MonsterInitializerFmt)(reco_data[mons_start:mons_end])
+    for i, mons_init in enumerate(monster_initializers):
+        (mons_loc, mons_header, mons_data) = loadtags.get_tag_info(
+            tags, data_map, 'mons', codec.decode_string(mons_init.monster_tag)
+        )
+
+        (unit_loc, unit_header, unit_data) = loadtags.get_tag_info(
+            tags, data_map, 'unit', codec.decode_string(mons_init.unit_tag)
+        )
+        print(
+            f'{i:>2} [{mons_init.experience}] '
+            f'{unit_header.name} / {mons_header.name}'
+        )
+
+def init_alliance(player, alliance_dict):
+    if player.unique_identifier not in alliance_dict:
+        alliance_dict[player.unique_identifier] = {
+            'mutual': [],
+            'incoming': [],
+            'outgoing': [],
+        }
+
+def process_alliances(game_stats, teams_idx, alliances):
+    alliance_dict = {}
+    for (cap_1, cap_2) in alliances:
+        init_alliance(cap_1, alliance_dict)
+        init_alliance(cap_2, alliance_dict)
+        alliance_dict[cap_1.unique_identifier]['outgoing'].append(cap_2)
+        alliance_dict[cap_2.unique_identifier]['incoming'].append(cap_1)
+    for cap_id, ally_dict in alliance_dict.items():
+        for ally_cap in ally_dict['outgoing'][:]:
+            if ally_cap in ally_dict['incoming']:
+                ally_dict['mutual'].append(ally_cap)
+                ally_dict['outgoing'].remove(ally_cap)
+                ally_dict['incoming'].remove(ally_cap)
+
+    for team_index, team_data in game_stats['header']['teams'].items():
+        team_data['alliances'] = {
+            k: [v.team_index for v in l] for k, l in alliance_dict.get(teams_idx[team_index], {}).items()
+        }
+    return alliance_dict
+
+def format_alliances(alliances):
+    if alliances:
+        ally_names = [f' 🤝 {player_name(ally_cap)}' for ally_cap in alliances['mutual']]
+        ally_names += [f' 🫱 {player_name(ally_cap)}' for ally_cap in alliances['outgoing']]
+        ally_names += [f' 🫲 {player_name(ally_cap)}' for ally_cap in alliances['incoming']]
+        if len(ally_names):
+            return ''.join(ally_names)
+    return ''
+
+
+def print_teams(teams, players, players_idx, alliances={}, dropped_players=[]):
+    print('Teams\n')
+    for cap_id, team_players in teams.items():
+        cap = players[cap_id]
+        print(f'[{cap.team_index}] {utils.strip_format(cap.appearance.team_name)}{format_alliances(alliances.get(cap_id))}')
+        for p_i, player_id in enumerate(team_players):
+            player = players[player_id]
+            dropped = ' (dropped)' if player_id in dropped_players else ''
+            print(
+                f'{players_idx.index(player_id):>2}: '
+                f'{player_headers.colors(cap)[0]}'
+                f'{player_headers.colors(player)[0]} '
+                f'{"*" if cap_id == player.unique_identifier else " "} '
+                f'{player.unique_identifier:<2} '
+                f'{player_name(player)}'
+                f'{dropped}'
+            )
+        print('---')
+
+def player_name(player):
+    return utils.strip_order(utils.strip_format(player.appearance.name))
+
+def setup_teams(game_data, game_param, palette, mesh_header):
+    players = OrderedDict()
+    players_idx = []
+    observers = {}
+    computer_players = {}
+    # Filter out observers and set up indexes
+    # players: player objects by id in consistent order
+    # players_idx: player_ids by index
+    # observers: observer player_ids
+    for player in game_data.players:
+        player_id = player.unique_identifier
+        if player.type == 0:
+            if player_headers.is_observer(player) or player.team_captain_identifier in observers:
+                observers[player_id] = player
+            else:
+                players_idx.append(player_id)
+                players[player_id] = player
+        else:
+            computer_players[player_id] = player
+
+    # Don't trust game_param.maximum_teams, scan marker palette to determine team count
+    if mesh_tag.is_single_player(mesh_header):
+        max_teams = 1
+    else:
+        max_teams = max([
+            unit_palette['team_index'] + 1 for unit_palette in palette[mesh_tag.MarkerType.UNIT]
+        ])
+
+    # TODO subtract prohibited teams for this game type if defined by the map action
+
+    initial_rand = game_param.random_seed
+
+    while True:
+        # Build teammate and solo lists
+        team_players = {}
+        solo_players = []
+        for player_id, player in players.items():
+            captain_id = player.team_captain_identifier
+            if captain_id > -1:
+                if captain_id not in team_players:
+                    team_players[captain_id] = []
+                team_players[captain_id].append(player_id)
+            else:
+                solo_players.append(player_id)
+
+        if DEBUG:
+            print('[solo_players]', [f'{player_id} {player_name(players[player_id])}' for player_id in solo_players])
+            for captain_id, team_mates in team_players.items():
+                print(f'[team_players] {captain_id}', [f'{player_id} {player_name(players[player_id])}' for player_id in team_mates])
+            print(f'= max={max_teams} captains={len(team_players)}')
+
+        # Disband smallest teams if we have too many
+        while len(team_players) > max_teams:
+            if DEBUG:
+                print('> too many captains, disbanding')
+            # Find first smallest team captain
+            smallest_team_captain = None
+            smallest_team_player_count = 16
+
+            for player_id, player in players.items():
+                cap_id = player.team_captain_identifier
+                if cap_id in team_players and len(team_players[cap_id]) < smallest_team_player_count:
+                    if DEBUG:
+                        print('smallest candidate', len(team_players[cap_id]), cap_id, player_id, player_name(player))
+                    smallest_team_captain = cap_id
+                    smallest_team_player_count = len(team_players[cap_id])
+
+            if DEBUG:
+                print('smallest team', smallest_team_player_count, smallest_team_captain, player_name(players[smallest_team_captain]))
+
+            # Unset smallest captain from players, remove the lookup and add to solo players
+            for player_id, player in players.items():
+                if player_id == smallest_team_captain:
+                    if DEBUG:
+                        print('>> disband team', player_id, player_name(player))
+                    del team_players[player_id]
+                if player.team_captain_identifier == smallest_team_captain:
+                    if DEBUG:
+                        print('>> make solo', player_id, player_name(player))
+                    players[player_id] = player._replace(team_captain_identifier=-1)
+                    solo_players.append(player_id)
+
+        # No more teams to disband and not enough players to make new teams, we're done
+        if DEBUG:
+            print(f'= max={max_teams} teams={len(team_players)} solos={len(solo_players)} teams+solos={len(team_players) + len(solo_players)}')
+        if (len(team_players) + len(solo_players)) <= max_teams:
+            if DEBUG:
+                print('> no more teams to create, done')
+            break
+
+        if len(team_players) < max_teams:
+            if DEBUG:
+                print('> promote solos')
+            # Promote solos to captains if we can fill more teams
+            if len(solo_players):
+                # Pop a *random* solo
+                (r, initial_rand) = utils.myth_random(initial_rand)
+                idx = r % len(solo_players)
+                random_solo_id = solo_players.pop(idx)
+                if DEBUG:
+                    print('>> promote solo to cap', random_solo_id, player_name(players[random_solo_id]))
+                # Add to team and set captain
+                team_players[random_solo_id] = [random_solo_id]
+                players[random_solo_id] = players[random_solo_id]._replace(
+                    team_captain_identifier=random_solo_id
+                )
+            else:
+                # No players to promote, we're done
+                break
+        else:
+            if DEBUG:
+                print('> add solos to teams')
+            # Add solos to teams if we can't fill more teams
+            weakest_team_size = 16
+            weakest_captains = []
+            for player_id, player in players.items():
+                if player_id in team_players:
+                    team_mate_count = len(team_players[player_id])
+                    if team_mate_count <= weakest_team_size:
+                        if team_mate_count < weakest_team_size:
+                            weakest_captains = []    
+                        weakest_team_size = team_mate_count
+                        weakest_captains.append(player_id)
+
+            if DEBUG:
+                [print(f'[weakest captains] {captain_id} {player_name(players[captain_id])}') for captain_id in weakest_captains]
+
+            if len(solo_players) and len(weakest_captains):
+                # Pop a random solo
+                (r, initial_rand) = utils.myth_random(initial_rand)
+                idx = r % len(solo_players)
+                random_solo_id = solo_players.pop(idx)
+                if DEBUG:
+                    print(f'>> add solo to team [solo]: {random_solo_id} {player_name(players[random_solo_id])}')
+                # Get a *random* weakest captain
+                (r, initial_rand) = utils.myth_random(initial_rand)
+                idx = r % len(weakest_captains)
+                random_weakest_captain = weakest_captains[idx]
+                if DEBUG:
+                    print(f'>> add solo to team [team]: {random_weakest_captain} {player_name(players[random_weakest_captain])}')
+
+                players[random_solo_id] = players[random_solo_id]._replace(
+                    team_captain_identifier=random_weakest_captain
+                )
+                team_players[random_weakest_captain].append(random_solo_id)
+            else:
+                # No solos or weak captains, we're done
+                break
+
+    # end while
+
+    # TODO arbitrate colors (actual_player_count)
+
+    # Create empty team slots for each team
+    # teams_idx: actual teams slots for the game, to be filled with captain ids
+    teams_idx = max_teams * [None]
+
+    # Assign captains and remaining solos to teams
+    # teams: lookup from captain id to list of player ids
+    teams = {}
+    team_rand = game_param.initial_team_random_seed
+    for player_id, player in players.items():
+        if player_id in solo_players or player_id in team_players:
+            # Choose a random starting team index
+            (r, team_rand) = utils.myth_random(team_rand)
+            original_team_index = r % max_teams
+            if DEBUG:
+                print(f'= starting random team index {original_team_index}')
+            team_index = original_team_index
+            while True:
+                # If team is unclaimed it will be None
+                if teams_idx[team_index] is None:
+                    # Set team_index, assign captain to teams_idx, and initialize teams players
+                    if DEBUG:
+                        print(f'>> team={team_index} assign captain: {player_id} {player_name(player)}')
+                    players[player_id] = player._replace(team_index=team_index)
+                    teams_idx[team_index] = player_id
+                    teams[player_id] = [player_id]
+                    break
+                if DEBUG:
+                    print(f'team={team_index} already claimed, increment')
+                team_index = (team_index + 1) % max_teams
+                if original_team_index == team_index:
+                    if DEBUG:
+                        print(f'! team={team_index} looped back to start={original_team_index}, break')
+                    break
+        else:
+            # Not a team captain, make sure team_index is unset just in case it was set in the film
+            players[player_id] = player._replace(team_index=-1)
+
+    # Assign non captain team mates to teams
+    for player_id, player in players.items():
+        captain_id = player.team_captain_identifier
+        # If not in team and has captain
+        if player.team_index < 0 and captain_id > -1:
+            # Set team_index to captain team_index and add to team players
+            if DEBUG:
+                print(f'team={players[captain_id].team_index} assign player: {player_id} {player_name(player)}')
+            players[player_id] = player._replace(team_index=players[captain_id].team_index)
+            teams[captain_id].append(player_id)
+
+    return (players, players_idx, teams, teams_idx, observers, computer_players)
+
+def get_trades(
+    palette, mesh_header,
+    game_type, game_type_units,
+    level_name, game_param, game_time,
+    unit_counts, players_idx, captain
+):
+    # mesh2trades.print_game_info(mesh_header, level_name, game_type, game_param.difficulty_level, game_time)
+
+    (trade_info, units, mismatch) = mesh2trades.parse_game_teams(
+        game_type, game_type_units,
+        unit_counts, captain.team_index, adjust=True
+    )
+    (_diffs, _trade_info, trade_data) = trade_info
+
+    team_markers = {}
+    # Build monster index
+    for tag_id, u in units.items():
+        if u['count']:
+            for unit_palette in palette[mesh_tag.MarkerType.UNIT]:
+                if unit_palette['team_index'] == captain.team_index and unit_palette['tag'] == tag_id:
+                    markers = unit_palette['markers']
+                    if mesh_tag.is_reinforcements(unit_palette):
+                        continue
+                    selected = 0
+                    for marker in sorted_markers(markers, game_param):
+                        if marker['palette_index'] in u['palette_index']:
+                            marker['player_id'] = captain.unique_identifier
+                            marker['player_index'] = players_idx.index(captain.unique_identifier)
+                            team_markers[marker['marker_id']] = marker
+                            selected += 1
+                            if selected >= u['count']:
+                                break
+    return (trade_info, units, team_markers)
+
+def get_marker(marker_id, units):
+    for game_type, team in units.items():
+        for team_id, team_units in team.items():
+            for tag_id, unit in team_units.items():
+                for marker in unit['markers']:
+                    if marker['marker_id'] == marker_id:
+                        return (tag_id, team_id, marker)
+    return (None, None, None)
+
+
+
+def get_computers(tags, data_map, palette, mesh_header):
+    computer_markers = {}
+    computer_monsters = {}
+    sp = mesh_tag.is_single_player(mesh_header)
+    for tag_id, unit_palette in enumerate(palette[mesh_tag.MarkerType.UNIT]):
+        if (sp and unit_palette['team_index'] != 0) or unit_palette['team_index'] < 0:
+            markers = unit_palette['markers']
+            for marker_id, marker in markers.items():
+                tag_id = marker['tag']
+                if tag_id not in computer_monsters:
+                    mons_dict = mons_tag.unit_stats(tags, data_map, tag_id)
+                    computer_monsters[tag_id] = mons_dict
+                computer_markers[marker['marker_id']] = tag_id
+    return (computer_markers, computer_monsters)
+
+def get_ambients(tags, data_map, palette):
+    ambients = {}
+    ambient_monsters = {}
+    for tag_id, unit_palette in enumerate(palette[mesh_tag.MarkerType.UNIT]):
+        if unit_palette['team_index'] == -1:
+            markers = unit_palette['markers']
+            for marker_id, marker in markers.items():
+                tag_id = marker['tag']
+                if tag_id not in ambient_monsters:
+                    mons_dict = mons_tag.unit_stats(tags, data_map, tag_id)
+                    ambient_monsters[tag_id] = mons_dict
+                ambients[marker['marker_id']] = tag_id
+    return (ambients, ambient_monsters)
+
+def init_cmd_counters():
+    return {
+        'player': Counter(),
+        'team': Counter(),
+        'overall': 0,
+    }
+
+def parse_timeline(
+    game_version,
+    reco_header, tags, data_map, game_data,
+    game_param, reco, reco_data,
+    metaserver_stats
+):
+    # Get mesh tag data
+    (mesh_tag_location, mesh_tag_header, mesh_tag_data) = loadtags.get_tag_info(
+        tags, data_map, 'mesh', codec.decode_string(game_param.scenario_tag)
+    )
+    try:
+        mesh_header = mesh_tag.parse_header(mesh_tag_data)
+    except (struct.error, UnicodeDecodeError):
+        print("Error loading mesh")
+        sys.exit(1)
+
+    (palette, orphans) = mesh_tag.parse_markers(mesh_header, mesh_tag_data)
+
+    level_name = mesh_tag.get_level_name(mesh_header, tags, data_map)
+
+    overhead_map_data = loadtags.get_tag_data(
+        tags, data_map, '.256', codec.decode_string(
+            mesh_header.overhead_map_collection_tag
+        )
+    )
+
+    cmap_export = mesh_tag.export_colormap(tags, data_map, mesh_header)
+
+    (ambients, ambient_monsters) = get_ambients(tags, data_map, palette)
+    (computer_markers, computer_monsters) = get_computers(tags, data_map, palette, mesh_header)
+    
+    game_type_choice = mesh_tag.NetgameFlagInfo[game_param.scoring]
+    game_time = game_param.time_limit/30/60
+    planning_ticks = game_param.pregame_time_limit
+
+    locations = mesh_tag.netgame_locations(mesh_header, game_type_choice, palette, tags, data_map)
+
+    # Set up teams
+    (
+        players, players_idx, teams, teams_idx, observers, computer_players
+    ) = setup_teams(
+        game_data, game_param, palette, mesh_header
+    )
+    if DEBUG:
+        print_teams(teams, players, players_idx)
+    process_metaserver_stats(metaserver_stats, players, players_idx)
+
+    chat_lines = []
+    counters = {
+        'command': init_cmd_counters(),
+        'engage': init_cmd_counters(),
+        'chat': init_cmd_counters(),
+    }
+    self_heal_kill_dmg = defaultdict(Counter)
+    block_header_codec = codec.codec(RecordingBlockHeaderFmt)
+    command_header_codec = codec.codec(CommandHeaderFmt)
+    block_offset = reco.data_offset
+    splits = None
+    game_type = mesh_tag.NetgameNames[game_type_choice]
+    game_type_ambients = mesh2trades.get_ambients(game_type_choice, palette)
+    num_ambients = sum(game_type_ambients.values())
+    map_name = mesh_tag.get_level_name(mesh_header, tags, data_map, strip_format=True)
+    game_type_map_slug = f'{utils.slugify(game_type, strip_bracketed=False)}-{utils.slugify(map_name, strip_bracketed=False)}'
+    game_header = {
+        'time_limit': game_param.time_limit,
+        'planning_time': planning_ticks,
+        'game_type': game_type,
+        'map_name': map_name,
+        'game_type_map_slug': game_type_map_slug,
+        'mesh_id': str(mesh_tag_header.tag_id),
+        'plugins': game_headers.plugin_details(game_param.plugin_data, find=True),
+        'difficulty': mesh_tag.difficulty(game_param.difficulty_level),
+        'host': None,
+        'locations': locations,
+        'dimensions': list(mesh_tag.mesh_dimensions(mesh_header)),
+        'stats': {}
+    }
+    metaserver_player_stats = {}
+    metaserver_team_info = {}
+    metaserver_player_id_lookup = {}
+    if metaserver_stats:
+        for team in metaserver_stats['teams']:
+            for player in team['players']:
+                if 'playerIdx' in player:
+                    metaserver_player_id_lookup[player['playerIdx']] = player['userId']
+
+        metaserver_url = None
+        metaserver_game = metaserver_stats.get('id')
+        if metaserver_game:
+            if metaserver_stats['metaserver'] == 'bagrada':
+                metaserver_url = f'https://bagrada.net/webui/games/{metaserver_game}'
+            elif metaserver_stats['metaserver'] == 'gos':
+                metaserver_url = f'http://gateofstorms.net/games/{metaserver_game}'
+        game_header = game_header | {
+            'game_name': metaserver_stats.get('gameName', '').rstrip(),
+            'room_type': metaserver_stats.get('roomType'),
+            'start': metaserver_stats.get('startDatetime'),
+            'end': metaserver_stats.get('endDatetime'),
+            'metaserver': metaserver_stats['metaserver'],
+            'metaserver_url': metaserver_url,
+            'metaserver_game': metaserver_game,
+        }
+        if 'processed' in metaserver_stats:
+            game_header['host'] = metaserver_stats['processed']['host']
+            game_header['tie'] = metaserver_stats['processed']['tie']
+            game_header['tie_teams'] = metaserver_stats['processed']['tie_teams']
+            game_header['winning_metaserver_captain'] = metaserver_stats['processed']['winning_metaserver_captain']
+
+            game_header['stats'] = metaserver_stats['processed']['overall_stats']
+            metaserver_player_stats = metaserver_stats['processed']['player_stats']
+            metaserver_team_info = metaserver_stats['processed']['team_info']
+    game_stats = {
+        'header': {
+            'game': game_header,
+            'num_ambients': num_ambients,
+            'teams': {
+                team_index: {
+                    'name': utils.strip_format(players[cap_id].appearance.team_name),
+                    'captain': {
+                        'player': cap_id,
+                        'metaserver_player': metaserver_player_id_lookup.get(
+                            players_idx.index(cap_id),
+                            players[cap_id].metaserver_player_id
+                        ),
+                        'name': utils.strip_format(players[cap_id].appearance.name),
+                    },
+                    'color': player_headers.colors_rgb(players[cap_id]),
+                    'players': {
+                        player_id: {
+                            'name': utils.strip_format(player.appearance.name),
+                            'metaserver_player': metaserver_player_id_lookup.get(
+                                players_idx.index(player_id),
+                                player.metaserver_player_id
+                            ),
+                            'color': player_headers.colors_rgb(player),
+                            'stats': metaserver_player_stats.get(player_id, {}),
+                            'captain': player_id == cap_id,
+                            'medals': [],
+                        }
+                        for player_id, player in players.items() if player.team_index == team_index
+                    },
+                    'stats': metaserver_team_info.get(cap_id, {}).get('stats', {})
+                } | {k: v for k, v in metaserver_team_info.get(cap_id, {}).items() if k != 'stats'}
+                for team_index, cap_id in enumerate(teams_idx) if cap_id is not None
+            },
+        },
+        'commands': [],
+        'chat': [],
+    }
+
+    game_types, game_type_units = mesh2trades.parse_game_type_units(
+        game_version,
+        tags, data_map, palette, mesh_header,
+        level_name, game_param.difficulty_level, game_type_choice
+    )
+
+    monsters = {}
+    trades = {}
+    alliance_pairs = []
+    dropped_players = []
+    movement_data = []
+    last_positions = {}
+
+    if len(game_types):
+        parse_game_type = game_types[0]
+    else:
+        parse_game_type = 'all'
+    
+    for team_index, cap_id in enumerate(teams_idx):
+        if cap_id is not None:
+            (trade_info, team_units, team_markers) = get_trades(
+                palette, mesh_header,
+                parse_game_type, game_type_units,
+                level_name, game_param, game_time,
+                [], players_idx, players[cap_id]
+            )
+            monsters[team_index] = team_markers
+            trades[team_index] = (trade_info, team_units)
+            if DEBUG:
+                print('trades', team_index, team_units.keys())
+    if DEBUG:
+        print_trades(teams_idx, trades)
+    
+    observer_count = len(observers)
+    player_count = len(players)
+    # minimum_build = min([p.build_number for p in players.values()])
+    # print('players', player_count)
+    # print('observers', observer_count, observers)
+
+    prev_command_time = None
+    abort = False
+    while block_offset < len(reco_data):
+        if abort:
+            break
+        block_header = block_header_codec(reco_data[block_offset:])
+        if DEBUG_CMDS:
+            print(block_header)
+
+        commands_start = block_offset + block_header._data_size()
+        commands_end = commands_start + block_header.size
+        commands_data = reco_data[commands_start:commands_end]
+        if len(commands_data) != block_header.size:
+            print(f'Corrupt command data size={block_header} length={len(commands_data)}')
+            break
+
+        command_offset = 0
+        for command_i in range(block_header.command_count):
+            command_header = command_header_codec(commands_data[command_offset:])
+            command_data_start = command_offset + command_header._data_size()
+            if not command_header.size:
+                print('Corrupt command block. length:', len(commands_data[command_offset:]), command_header)
+                abort = True
+                break
+            command_data_end = command_offset + command_header.size
+            command_data = commands_data[command_data_start:command_data_end]
+
+            (pt, remaining) = time_vars(command_header.time, game_param)
+
+            if DEBUG_CMDS:
+                print(command_i, tick_to_time(pt, remaining), command_header, prev_command_time, planning_ticks)
+
+            player = None
+            # This changed after 1.8.4
+            if game_param.version <= 2184:
+                player_idx = command_header.player_index
+                player_id = players_idx[player_idx] if player_idx < len(players_idx) else None
+            else:
+                player_id = command_header.player_index
+                player_idx = players_idx.index(player_id) if player_id in players_idx else None
+
+            if player_id in players:
+                player = players[player_id]
+                if DEBUG_CMDS:
+                    print(f'- player_id={player_id} (idx={player_idx}) team={player.team_index}')
+            if player_id in observers:
+                if DEBUG_CMDS:
+                    print(f'- player_id={player_id} (idx={player_idx}) (observer)')
+            if command_header.verb == Commands.UNIT_ADJUSTMENT:
+                (unit_adjust_flags, unit_count) = struct.unpack('>h h', command_data[:4])
+                unit_counts = codec.list_pack('unit_counts', unit_count, '>h')(command_data[4:])
+                (trade_info, team_units, team_markers) = get_trades(
+                    palette, mesh_header,
+                    parse_game_type, game_type_units,
+                    level_name, game_param, game_time,
+                    unit_counts, players_idx, player
+                )
+                monsters[player.team_index] = team_markers
+                trades[player.team_index] = (trade_info, team_units)
+                if DEBUG:
+                    print('trades', player.team_index, team_units.keys())
+                if DEBUG_CMDS:
+                    print(
+                        f'{tick_to_time(pt, command_header.time)}: '
+                        f'[player={player.unique_identifier:<2} team_index={player.team_index}] '
+                        f'Adjust Units={unit_counts} '
+                        f'{player_name(player)}'
+                    )
+                    (diffs, trade, trade_data) = trade_info
+                    print('\n'.join(trade))
+
+            elif command_header.verb == Commands.DETACH:
+                (detach_flags, player_index, monster_count) = struct.unpack('>h h h', command_data[:6])
+                monster_ids = codec.list_pack('monster_ids', monster_count, '>h')(command_data[6:])
+                detached = []
+                if DEBUG_CMDS:
+                    print(
+                        f'from_id={player_id} '
+                        f'to_idx={player_index} to_id={players_idx[player_index]} '
+                        f'team_index={player.team_index} '
+                        f'monster_teams={list(monsters.keys())} '
+                        f'players_idx={players_idx} ({len(players_idx)})'
+                    )
+                    print('team_monsters', list(monsters[player.team_index].keys()))
+                for monster_id in monster_ids:
+                    if monster_id in monsters[player.team_index]:
+                        monsters[player.team_index][monster_id]['player_id'] = players_idx[player_index]
+                        monsters[player.team_index][monster_id]['player_index'] = player_index
+                        detached.append(str(monsters[player.team_index][monster_id]['tag']))
+                    else:
+                        (marker_tag, marker_team, marker) = get_marker(monster_id, game_type_units)
+                        print(
+                            f'{tick_to_time(pt, command_header.time)}: '
+                            f'! {monster_id} {marker_tag}({marker_team}) '
+                            f'{command_header.player_index:<2} {command_header.verb} '
+                            f'missing from team {player.team_index} monsters'
+                        )
+                if DEBUG_CMDS:
+                    to_player = player_name(players[players_idx[player_index]])
+                    print(
+                        f'{tick_to_time(pt, command_header.time)}: '
+                        f'[player={player.unique_identifier:<2} team_index={player.team_index}] '
+                        f'DETACH {player_name(player)} '
+                        f'-> {to_player}[{player_index}] id={players_idx[player_index]} ' 
+                        f'{dict(Counter(detached)), monster_ids}'
+                    )
+                # TODO log_command
+            elif command_header.verb == Commands.ALLY:
+                (ally_flags, ally_team1, ally_team2) = struct.unpack('>h 2x h h', command_data)
+                cap_id_1 = players.get(teams_idx[ally_team1])
+                cap_id_2 = players.get(teams_idx[ally_team2])
+                alliance = (cap_id_1, cap_id_2)
+                formed = True
+                if alliance in alliance_pairs:
+                    alliance_pairs.remove(alliance)
+                    formed = False
+                else:
+                    alliance_pairs.append(alliance)
+                chat_line = {
+                    "header": command_header,
+                    "pt": pt,
+                    "player": player,
+                    "cap": players.get(player.team_captain_identifier),
+                    "alliance": alliance,
+                    "alliance_formed": formed,
+                }
+                add_chat_line(chat_line, chat_lines, player_id, last_positions)
+
+            elif command_header.verb == Commands.CHAT:
+                (chat_flags,) = struct.unpack('>h', command_data[:2])
+                chat_message = codec.decode_string(command_data[2:])
+
+                chat_line = {
+                    "header": command_header,
+                    "pt": pt,
+                    "player": player,
+                    "cap": players.get(player.team_captain_identifier),
+                    "flags": chat_flags,
+                    "message": chat_message
+                }
+                add_chat_line(chat_line, chat_lines, player_id, last_positions)
+
+                counters['chat']['player'][player_id] += 1
+                counters['chat']['team'][player.team_index] += 1
+                counters['chat']['overall'] += 1
+                if DEBUG_CMDS:
+                    print(
+                        f'{tick_to_time(pt, command_header.time)}: '
+                        f'{chat_message}'
+                    )
+
+            elif command_header.verb in [
+                Commands.MOVEMENT,
+                Commands.GENERAL,
+                Commands.TARGET,
+                Commands.PICK_UP,
+                Commands.ATTACK_LOCATION,
+                Commands.ROTATION,
+            ]:  
+                if DEBUG_CMDS:
+                    print(
+                        f'{tick_to_time(pt, command_header.time)}: '
+                        f'{command_header.verb} '
+                    )
+
+                position = None
+                if command_header.verb == Commands.MOVEMENT:
+                    if player:
+                        (
+                            movement_command, command_monsters, waypoints, centerpoint
+                        ) = parse_movement(
+                            pt, command_header,
+                            command_data, monsters, game_type_units, computer_markers, player
+                        )
+                        if len(waypoints):
+                            wp = waypoints[-1]
+                            position = [wp.x, wp.y]
+                            if not pt:
+                                last_positions[player_id] = (
+                                    command_header.time, mesh_tag.normalise_position(mesh_header, position)
+                                )
+                            movement_data.append({
+                                "header": command_header,
+                                "pt": pt,
+                                "player": player,
+                                "team": player.team_index,
+                                "movement": movement_command,
+                                "monsters": command_monsters,
+                                "centerpoint": centerpoint,
+                                "waypoints": waypoints
+                            })
+                if command_header.time > planning_ticks:
+                    cmd = log_command(
+                        mesh_header, players, observers, player_id, monsters, game_type_units,
+                        computer_markers, computer_monsters, trades,
+                        command_header, command_data, position, self_heal_kill_dmg, pt, planning_ticks
+                    )
+                    if cmd:
+                        if cmd.get('self_heal_kill'):
+                            validate_self_heal_kill_dmg(self_heal_kill_dmg, players_idx, monsters, trades)
+                        game_stats['commands'].append(cmd)
+
+                    if player:
+                        # init team and player indexes
+                        counters['command']['player'][player_id] += 1
+                        counters['command']['team'][player.team_index] += 1
+                        counters['command']['overall'] += 1
+                        if is_engagement(cmd):
+                            counters['engage']['player'][player_id] += 1
+                            counters['engage']['team'][player.team_index] += 1
+                            counters['engage']['overall'] += 1
+
+            elif command_header.verb == Commands.ADD_PLAYER:
+                add_player_data = player_headers.add_player(command_data)
+                if add_player_data.team_index == -1:
+                    observers[add_player_data.unique_identifier] = add_player_data
+                    observer_count += 1
+                else:
+                    player_count += 1
+                chat_line = {
+                    "header": command_header,
+                    "pt": pt,
+                    "player": add_player_data,
+                    "num_players": player_count,
+                    "num_observers": observer_count,
+                }
+                add_chat_line(chat_line, chat_lines, player_id, last_positions)
+                if DEBUG_CMDS:
+                    print(
+                        f'{tick_to_time(pt, command_header.time)}: '
+                        f'{command_header.verb} '
+                        f'{add_player_data}'
+                    )
+            elif command_header.verb == Commands.DROP_PLAYER:
+                chat_line = {
+                    "header": command_header,
+                    "pt": pt,
+                }
+                dropped_players.append(player_id)
+
+                if DEBUG_CMDS:
+                    print(
+                        f'{tick_to_time(pt, command_header.time)}: '
+                        f'{command_header.verb}'
+                    )
+                if player or player_id in observers:
+                    if player_id in observers:
+                        chat_line['player'] = observers[player_id]
+                        observer_count -= 1
+                    else:
+                        chat_line['player'] = player
+                        chat_line['cap'] = players.get(player.team_captain_identifier)
+                        player_count -= 1
+
+                    chat_line["num_players"] = player_count
+                    chat_line["num_observers"] = observer_count
+                    add_chat_line(chat_line, chat_lines, player_id, last_positions)
+                else:
+                    if DEBUG_CMDS:
+                        print('invalid player id', player_id, command_header)
+            else:
+                if DEBUG_CMDS:
+                    print(
+                        f'{tick_to_time(pt, command_header.time)}: '
+                        f'{command_header.verb} {command_data.hex()}'
+                    )
+
+            if pt_over(prev_command_time, command_header.time, game_param):
+                splits = get_splits(monsters, trades)
+                if DEBUG_CMDS:
+                    print_splits(players, players_idx, teams_idx, trades, splits, num_ambients)
+
+            prev_command_time = command_header.time
+            command_offset = command_data_end
+
+        block_offset = commands_end
+        if DEBUG_CMDS:
+            print('block_offset', block_offset)
+
+    # end blocks
+
+    process_chat(game_stats, chat_lines, planning_ticks)
+    process_splits(game_stats, trades, splits, players_idx)
+    process_counters(game_stats, players, counters, self_heal_kill_dmg)
+    alliances = process_alliances(game_stats, teams_idx, alliance_pairs)
+
+    return (
+        reco_header, players, players_idx, monsters,
+        teams, teams_idx, alliances, dropped_players,
+        game_param.plugin_data, mesh_tag_header, mesh_header, level_name,
+        game_time, game_type_choice, game_param.difficulty_level,
+        overhead_map_data, cmap_export, chat_lines, movement_data, trades, splits, game_stats
+    )
+
+def add_chat_line(chat_line, chat_lines, player_id, last_positions):
+    if player_id in last_positions:
+        (last_pos_time, last_pos) = last_positions.get(player_id)
+        if (chat_line['header'].time - last_pos_time) < 1800: # 1 minute in ticks
+            chat_line["last_position"] = last_pos
+    chat_lines.append(chat_line)
+
+def process_chat(game_stats, chat_lines, planning_ticks):
+    for line in chat_lines:
+        chat_message = {
+            'time': line['header'].time - planning_ticks,
+            'player': line['player'].unique_identifier,
+        }
+        if "last_position" in line:
+            chat_message["last_position"] = line["last_position"]
+
+        if line['header'].verb == Commands.ALLY:
+            chat_message['type'] = 'ally'
+            chat_message['alliance_formed'] = line['alliance_formed']
+            chat_message['alliance'] = [p.unique_identifier for p in line['alliance']]
+
+        if line['header'].verb == Commands.ADD_PLAYER:
+            chat_message['type'] = 'join'
+            chat_message['num_players'] = line['num_players']
+            chat_message['num_observers'] = line['num_observers']
+
+        if line['header'].verb == Commands.DROP_PLAYER:
+            chat_message['type'] = 'drop'
+            chat_message['num_players'] = line['num_players']
+            chat_message['num_observers'] = line['num_observers']
+
+        if line['header'].verb == Commands.CHAT:
+            chat_message['type'] = 'chat'
+            chat_message['message'] = line['message']
+            whisper = 'flags' in line and ChatFlags.PRIVATE in ChatFlags(line['flags'])
+            chat_message['whisper'] = whisper
+
+        game_stats['chat'].append(chat_message)
+
+def validate_self_heal_kill_dmg(self_heal_kill_dmg, players_idx, monsters, trades):
+    for player_id, self_heal_kill_dmg_pallette in self_heal_kill_dmg.items():
+        palette_max_dmg_counter = Counter()
+
+        for team_index, team_monsters in monsters.items():
+            (trade_info, units) = trades[team_index]
+            for marker_id, marker in team_monsters.items():
+                tag_id = marker['tag']
+                if player_id == players_idx[marker['player_index']]:
+                    palette_max_dmg_counter[tag_id] += units[tag_id]['cost']
+
+        for tag_id, self_heal_kill_dmg_item in self_heal_kill_dmg_pallette.items():
+            self_heal_kill_dmg_pallette[tag_id] = min(self_heal_kill_dmg_item, palette_max_dmg_counter[tag_id])
+
+def is_engagement(cmd):
+    if cmd and cmd['action'] in ["ATTACK", "ATTACK_SPECIAL", "GROUND_SPECIAL", "GROUND"]:
+        return True
+    return False
+
+def process_splits(game_stats, trades, splits, players_idx):
+    # Add trades and splits to game_stats
+    for team_index, team_data in game_stats['header']['teams'].items():
+        ((diffs, trade, trade_data), units) = trades[team_index]
+        team_data['trade'] = []
+        for tag_id, unit in units.items():
+            team_data['trade'].append({
+                'name': mesh2trades.unit_name(unit, count=1),
+                'count': unit['count'],
+                'cost': unit['cost'],
+                'class': mesh2trades.unit_class_name(unit),
+            })
+
+        if splits:
+            split = splits[team_index]
+            team_data['trade_value'] = split['total']
+            for player_index in sorted(split['allocation'].keys()):
+                player_id = players_idx[player_index]
+                player_data = team_data['players'][player_id]
+                player_data['unit_allocation'] = {
+                    'cost': 0,
+                    'units': [],
+                }
+                for tag_id, player_markers in split['allocation'][player_index].items():
+                    player_data['unit_allocation']['cost'] += (
+                        units[tag_id]['cost'] * len(player_markers)
+                    )
+                    unit_name = mesh2trades.unit_name(units[tag_id], count=1)
+                    player_data['unit_allocation']['units'].append({
+                        'name': unit_name,
+                        'count': len(player_markers),
+                        'cost': units[tag_id]['cost'],
+                        'class': mesh2trades.unit_class_name(unit),
+                    })
+                player_data['unit_allocation']['percent'] = round(
+                    100 * player_data['unit_allocation']['cost'] / split['total']
+                )
+
+def process_medal(medals, player_stats, stat_name, player_val):
+    # Medal winners needs to have made at least 10 engagements in a game
+    if player_stats['actions_engage'] < 5:
+        return
+    # Aggression (engagement) medals must have a minimum assertiveness of 0.15
+    if stat_name == 'actions_engage' and player_stats.get('dmg_action_ratio_engage', 0) < 0.15:
+        return
+
+    if player_stats[stat_name] > medals[stat_name][0]:
+        medals[stat_name] = (player_stats[stat_name], [player_val])
+    elif player_stats[stat_name] == medals[stat_name][0]:
+        medals[stat_name][1].append(player_val)
+
+def process_counters(game_stats, players, counters, self_heal_kill_dmg):
+    # Add command counts to game_stats
+    # calculate dmg/action, effectiveness, dominance, etc
+    # chat
+    # self_heal_kill_dmg
+    # medals
+    # winner
+    total_dmg_action = None
+    total_dmg_action_engage = None
+    total_dmg_cost = None
+    overall_stats = game_stats['header']['game']['stats']
+    overall_stats['actions'] = counters['command']['overall']
+    overall_stats['actions_engage'] = counters['engage']['overall']
+    overall_stats['chat'] = counters['chat']['overall']
+    overall_stats['self_heal_kill_dmg'] = 0
+    overall_value = 0
+
+    # Prefill self_heal_kill_dmg stats before we calculate dmg ratios
+    # Also collect overall trade values for dmg_cost index
+    for team_index, stat_team in game_stats['header']['teams'].items():
+        team_stats = stat_team['stats']
+        team_stats['self_heal_kill_dmg'] = 0
+        overall_value += stat_team.get('trade_value', 0)
+        for player_id, stat_player in stat_team['players'].items():
+            player_self_heal_kill_dmg = self_heal_kill_dmg[player_id].total()
+            stat_player['stats']['self_heal_kill_dmg'] = player_self_heal_kill_dmg
+            team_stats['self_heal_kill_dmg'] += player_self_heal_kill_dmg
+            overall_stats['self_heal_kill_dmg'] += player_self_heal_kill_dmg
+
+    if 'dmg_out' in overall_stats:
+        # Adjust for self_heal_kill_dmg
+        # TODO maybe restrict this to the first minute of the game
+        # to avoid rewarding accidental later game thrall kills???
+        # if so, check team and player adjustments too
+        if overall_stats['self_heal_kill_dmg']:
+            total_dmg_out_adjusted = overall_stats['dmg_out'] + overall_stats['self_heal_kill_dmg']
+            overall_stats['dmg_out_adjusted'] = True
+            overall_stats['dmg_out_orig'] = overall_stats['dmg_out']
+            overall_stats['dmg_out'] = total_dmg_out_adjusted
+
+        total_dmg_action = (
+            overall_stats['dmg_out'] / max(1, overall_stats['actions'])
+        )
+        total_dmg_action_engage = (
+            overall_stats['dmg_out'] / max(1, overall_stats['actions_engage'])
+        )
+        total_dmg_cost = (
+            overall_stats['dmg_out'] / max(1, overall_value)
+        )
+        overall_stats['dmg_action'] = round(total_dmg_action, 3)
+        overall_stats['dmg_action_engage'] = round(total_dmg_action_engage, 3)
+        overall_stats['dmg_cost'] = round(total_dmg_cost, 2)
+
+    medals = {
+        'dmg_out': (0, []),
+        'actions': (0, []),
+        'actions_engage': (0, []),
+        'dmg_action_ratio_engage': (0, []),
+        'dmg_cost_ratio': (0, []),
+    }
+
+    for team_index, stat_team in game_stats['header']['teams'].items():
+        team_stats = stat_team['stats']
+        team_stats['chat'] = counters['chat']['team'][team_index]
+        team_stats['actions'] = counters['command']['team'][team_index]
+        team_stats['actions_engage'] = counters['engage']['team'][team_index]
+
+        team_dmg_action = None
+        team_dmg_cost = None
+        if 'dmg_out' in team_stats:
+            # Adjust for self_heal_kill_dmg
+            if team_stats['self_heal_kill_dmg']:
+                team_dmg_out_adjusted = team_stats['dmg_out'] + team_stats['self_heal_kill_dmg']
+                team_stats['dmg_out_adjusted'] = True
+                team_stats['dmg_out_orig'] = team_stats['dmg_out']
+                team_stats['dmg_out'] = team_dmg_out_adjusted
+
+            if trade_value := stat_team.get('trade_value'):
+                team_dmg_cost = team_stats['dmg_out'] / max(1, trade_value)
+                team_stats['dmg_cost'] = round(team_dmg_cost, 2)
+                if total_dmg_cost is not None:
+                    team_stats['dmg_cost_ratio'] = round(team_dmg_cost / max(1, total_dmg_cost), 2)
+            team_dmg_action = (
+                team_stats['dmg_out'] / max(1, team_stats['actions'])
+            )
+            team_dmg_action_engage = (
+                team_stats['dmg_out'] / max(1, team_stats['actions_engage'])
+            )
+            team_stats['dmg_action'] = round(team_dmg_action, 3)
+            team_stats['dmg_action_engage'] = round(team_dmg_action_engage, 3)
+            # Team effectiveness (vs overall) (dominance)
+            if total_dmg_action is not None:
+                team_stats['dmg_action_ratio'] = round(team_dmg_action / max(1, total_dmg_action), 2)
+                team_stats['dmg_action_ratio_engage'] = round(team_dmg_action_engage / max(1, total_dmg_action_engage), 2)
+
+        for player_id, stat_player in stat_team['players'].items():
+            player = players[player_id]
+            player_val = (player_id, player)
+            player_stats = stat_player['stats']
+            player_stats['chat'] = counters['chat']['player'][player_id]
+            player_stats['actions'] = counters['command']['player'][player_id]
+            player_stats['actions_engage'] = counters['engage']['player'][player_id]
+
+            if player_id in self_heal_kill_dmg:
+                player_stats['self_heal_kill_dmg'] = self_heal_kill_dmg[player_id].total()
+
+            # actions_engage medal
+            process_medal(medals, player_stats, 'actions', player_val)
+            process_medal(medals, player_stats, 'actions_engage', player_val)
+
+            if 'dmg_out' in player_stats:
+                # Adjust for self_heal_kill_dmg
+                if player_self_heal_kill_dmg := player_stats.get('self_heal_kill_dmg', 0):
+                    dmg_out_adjusted = player_stats['dmg_out'] + player_self_heal_kill_dmg
+                    player_stats['dmg_out_adjusted'] = True
+                    player_stats['dmg_out_orig'] = player_stats['dmg_out']
+                    player_stats['dmg_out'] = dmg_out_adjusted
+
+                # dmg_out medal
+                process_medal(medals, player_stats, 'dmg_out', player_val)
+
+                if 'unit_allocation' in stat_team['players'][player_id]:
+                    player_cost = stat_team['players'][player_id]['unit_allocation']['cost']
+                    if player_cost:
+                        player_dmg_cost = player_stats['dmg_out'] / max(1, player_cost)
+                        player_stats['dmg_cost'] = round(player_dmg_cost, 2)
+                        if total_dmg_cost is not None:
+                            player_stats['dmg_cost_ratio'] = round(player_dmg_cost / max(1, total_dmg_cost), 2)
+                            # dmg_cost_ratio medal
+                            process_medal(medals, player_stats, 'dmg_cost_ratio', player_val)
+                        if team_dmg_cost is not None:
+                            player_stats['dmg_cost_ratio_team'] = round(player_dmg_cost / max(1, team_dmg_cost), 2)
+                player_dmg_action = (
+                    player_stats['dmg_out'] / max(1, player_stats['actions'])
+                )
+                player_dmg_action_engage = (
+                    player_stats['dmg_out'] / max(1, player_stats['actions_engage'])
+                )
+                player_stats['dmg_action'] = round(player_dmg_action, 3)
+                player_stats['dmg_action_engage'] = round(player_dmg_action_engage, 3)
+                if total_dmg_action is not None:
+                    # Effectiveness (vs overall)
+                    player_stats['dmg_action_ratio'] = round(player_dmg_action / max(1, total_dmg_action), 2)
+                    player_stats['dmg_action_ratio_engage'] = round(player_dmg_action_engage / max(1, total_dmg_action_engage), 2)
+                    # dmg_action_ratio_engage medal
+                    process_medal(medals, player_stats, 'dmg_action_ratio_engage', player_val)
+                    # reprocess actions_engage
+                    process_medal(medals, player_stats, 'actions_engage', player_val)
+                if team_dmg_action is not None:
+                    # Effectiveness (vs team)
+                    player_stats['dmg_action_ratio_team'] = round(player_dmg_action / max(1, team_dmg_action), 2)
+
+    for medal_stat, (value, medal_winners) in medals.items():
+        for (player_id, player) in medal_winners:
+            game_stats['header']['teams'][player.team_index]['players'][player_id]['medals'].append(medal_stat)
+
+
+def parse_command_monsters(pt, command_header, game_type_units, data, monsters, computer_markers, player=None):
+    command_monsters = {}
+    (monster_count,) = struct.unpack('>h', data[:2])
+    end = 2 + (monster_count * 2)
+    monster_ids = codec.list_pack('monster_ids', monster_count, '>h')(data[2:end])
+    for monster_id in monster_ids:
+        if monster_id < 0:
+            # Happens for e.g. frenzied myrks
+            # Their id gets reset to INT16_MIN -32768 and then incremented
+            if 'custom' not in command_monsters:
+                command_monsters['custom'] = {}
+            if 'Frenzied' not in command_monsters['custom']:
+                command_monsters['custom']['Frenzied'] = 0
+            command_monsters['custom']['Frenzied'] += 1
+        elif player:
+            if monster_id in monsters[player.team_index]:
+                monster = monsters[player.team_index][monster_id]
+                monster['used'] = True
+                tag_id = monster['tag']
+                if tag_id not in command_monsters:
+                    command_monsters[tag_id] = 0
+                command_monsters[tag_id] += 1
+            else:
+                # This can happen if you have allied units selected when issuing a command
+                if DEBUG:
+                    (marker_tag, marker_team, marker) = get_marker(monster_id, game_type_units)
+                    print(
+                        f'{tick_to_time(pt, command_header.time)}: '
+                        f'! {monster_id} {marker_tag}({marker_team}) '
+                        f'{command_header.player_index:<2} {command_header.verb} '
+                        f'missing from team {player.team_index} monsters'
+                    )
+                if 'invalid' not in command_monsters:
+                    command_monsters['invalid'] = []
+                command_monsters['invalid'].append(monster_id)
+        else:
+            found = False
+            for team_index, team_monsters in monsters.items():
+                if monster_id in team_monsters:
+                    found = True
+                    monster = team_monsters[monster_id]
+                    monster['used'] = True
+                    tag_id = monster['tag']
+                    target_player = monster['player_id']
+                    if target_player not in command_monsters:
+                        command_monsters[target_player] = {}
+                    if tag_id not in command_monsters[target_player]:
+                        command_monsters[target_player][tag_id] = 0
+                    command_monsters[target_player][tag_id] += 1
+            if not found:
+                if monster_id in computer_markers:
+                    tag_id = computer_markers[monster_id]
+                    if 'ambient' not in command_monsters:
+                        command_monsters['ambient'] = {}
+                    if tag_id not in command_monsters['ambient']:
+                        command_monsters['ambient'][tag_id] = 0
+                    command_monsters['ambient'][tag_id] += 1
+                else:
+                    (marker_tag, marker_team, marker) = get_marker(monster_id, game_type_units)
+                    print(
+                        f'{tick_to_time(pt, command_header.time)}: '
+                        f'! {monster_id} {marker_tag}({marker_team}) '
+                        f'{command_header.player_index:<2} {command_header.verb} '
+                        f'missing from all team monsters and computers'
+                    )
+                    if 'invalid' not in command_monsters:
+                        command_monsters['invalid'] = []
+                    command_monsters['invalid'].append(monster_id)
+
+    return (command_monsters, end)
+
+class MovementFlags(enum.Flag):
+    LOOP = enum.auto()
+    LOOP_BACK_AND_FORTH = enum.auto()
+    PRESERVES_TARGET_INDEX = enum.auto()
+    FORMATION = enum.auto()
+    FINAL_FACING = enum.auto()
+    RUN = enum.auto()
+    LAST_WAYPOINT_IS_CENTERPOINT = enum.auto()
+    USES_184_MATCHING = enum.auto()
+
+MovementCommandFmt = ('MovementCommand', [
+    ('h', 'flags', MovementFlags),
+    ('H', 'formation_index'),
+    ('H', 'final_facing', codec.Angle),
+    ('2x', None)
+])
+
+def parse_movement(pt, command_header, command_data, monsters, game_type_units, computer_markers, player):
+    movement_command = codec.codec(MovementCommandFmt)(command_data[:8])
+
+    (command_monsters, offset) = parse_command_monsters(
+        pt, command_header, game_type_units,
+        command_data[8:], monsters, computer_markers, player
+    )
+
+    waypoint_data = command_data[offset+8:]
+    (waypoint_count,) = struct.unpack('>h', waypoint_data[:2])
+    waypoint_end = 2 + (waypoint_count * 8)
+    waypoints = codec.list_codec(waypoint_count, codec.WorldPoint2DFmt)(waypoint_data[2:waypoint_end])
+    centerpoint = None
+    if MovementFlags.USES_184_MATCHING in movement_command.flags:
+        centerpoint = codec.codec(codec.WorldPoint2DFmt)(waypoint_data[waypoint_end:])
+    if DEBUG_MOVEMENT:
+        formation = '-'
+        if MovementFlags.FORMATION in movement_command.flags:
+            formation = movement_command.formation_index
+        wp = ' '.join([f'{i}={w.x:07.3f},{w.y:07.3f}' for i, w in enumerate(waypoints)])
+        center = f'c={centerpoint.x:07.3f},{centerpoint.y:07.3f}' if centerpoint else ''
+        print(f'{formation} {waypoint_count} {wp} {center}')
+    return movement_command, command_monsters, waypoints, centerpoint
+
+def log_command(
+    mesh_header, players, observers, player_id, monsters, game_type_units,
+    computer_markers, computer_monsters, trades,
+    command_header, command_data, position, self_heal_kill_dmg, pt, planning_ticks=0
+):
+    if player_id not in players:
+        if DEBUG_CMDS:
+            if player_id in observers:
+                print('observer command', player_id, command_header)
+            else:
+                print('invalid player id', player_id, command_header)
+        return
+    player = players[player_id]
+    action = command_header.verb.name
+    extra_data = {}
+    command_monsters = {}
+    target_monsters = {}
+    match command_header.verb:
+        case Commands.GENERAL:
+            (general_flags, general_type) = struct.unpack('>h h', command_data[:4])
+            action = GeneralCommands(general_type).name
+            if action == 'TAUNT':
+                return
+            (command_monsters, _offset) = parse_command_monsters(
+                pt, command_header, game_type_units,
+                command_data[4:], monsters, computer_markers, player
+            )
+        case Commands.TARGET:
+            (target_flags,) = struct.unpack('>h', command_data[:2])
+            target_flags = TargetFlags(target_flags)
+            if TargetFlags.SPECIAL_ABILITY in target_flags:
+                action = 'ATTACK_SPECIAL'
+            # elif TargetFlags.ATTACK_INDIVIDUAL in target_flags:
+            #     action = 'ATTACK_ONE'
+            else:
+                action = 'ATTACK'
+            (command_monsters, offset) = parse_command_monsters(
+                pt, command_header, game_type_units,
+                command_data[2:], monsters, computer_markers, player
+            )
+            (target_monsters, _offset2) = parse_command_monsters(
+                pt, command_header, game_type_units,
+                command_data[offset+2:], monsters, computer_markers
+            )
+        case Commands.ATTACK_LOCATION:
+            (attack_location_flags, x, y, z) = struct.unpack('>h 2x L L L', command_data[:16])
+            position = [codec.World(x), codec.World(y)]
+            attack_location_flags = AttackLocationFlags(attack_location_flags)
+            (command_monsters, _offset) = parse_command_monsters(
+                pt, command_header, game_type_units,
+                command_data[16:], monsters, computer_markers, player
+            )
+            if AttackLocationFlags.SPECIAL_ABILITY in attack_location_flags:
+                action = 'GROUND_SPECIAL'
+            else:
+                action = 'GROUND'
+        case Commands.PICK_UP:
+            (pickup_flags, object_idx, object_id) = struct.unpack('>h 2x H H', command_data[:8])
+            (command_monsters, _offset) = parse_command_monsters(
+                pt, command_header, game_type_units,
+                command_data[8:], monsters, computer_markers, player
+            )
+        case Commands.ROTATION:
+            action = 'MOVEMENT'
+    if action == 'MOVEMENT':
+        (command_monsters, _offset) = parse_command_monsters(
+            pt, command_header, game_type_units,
+            command_data[8:], monsters, computer_markers, player
+        )
+    if len(command_monsters):
+        (trade_info, units) = trades[player.team_index]
+        expanded_monsters = {}
+        if 'invalid' in command_monsters:
+            expanded_monsters['invalid'] = command_monsters['invalid']
+            del command_monsters['invalid']
+        if 'custom' in command_monsters:
+            for custom_name, count in command_monsters['custom'].items():
+                expanded_monsters[custom_name] = count
+            del command_monsters['custom']
+        for tag_id, count in command_monsters.items():
+            unit = units[tag_id]
+            if action == 'ATTACK_SPECIAL' and unit['special_heals']:
+                action = 'HEAL'
+            monster_name = mesh2trades.unit_name(unit, 1)
+            expanded_monsters[monster_name] = count
+        extra_data['monsters'] = expanded_monsters
+    if len(target_monsters):
+        expanded_target_monsters = {}
+        if 'invalid' in target_monsters:
+            expanded_target_monsters['invalid'] = target_monsters['invalid']
+            del target_monsters['invalid']
+        if 'custom' in target_monsters:
+            if 'custom' not in expanded_target_monsters:
+                expanded_target_monsters['custom'] = {}
+            for k, v in target_monsters['custom'].items():
+                expanded_target_monsters['custom'][k] = v
+            del target_monsters['custom']
+        if 'ambient' in target_monsters:
+            if 'custom' not in expanded_target_monsters:
+                expanded_target_monsters['custom'] = {}
+            for tag_id, count in target_monsters['ambient'].items():
+                expanded_target_monsters['custom'][
+                    mesh2trades.unit_name(computer_monsters[tag_id], 1)
+                ] = count
+            del target_monsters['ambient']
+        for target_player_id, target_player_monsters in target_monsters.items():
+            ((diffs, trade, trade_data), units) = trades[players[target_player_id].team_index]
+
+            expanded_target_monsters[target_player_id] = {}
+            for tag_id, count in target_player_monsters.items():
+                target_unit = units[tag_id]
+                if (
+                    action == 'HEAL' and
+                    target_unit['heal_kills'] and
+                    target_player_id == player_id
+                ):
+                    self_heal_kill_dmg[player_id][tag_id] += count * target_unit['cost']
+                    extra_data['self_heal_kill'] = True
+                expanded_target_monsters[target_player_id][
+                    mesh2trades.unit_name(target_unit, 1)
+                ] = count
+        extra_data['targets'] = expanded_target_monsters
+    if position:
+        extra_data['position'] = mesh_tag.normalise_position(mesh_header, position)
+    return {
+        'time': command_header.time - planning_ticks,
+        'player': player_id,
+        'action': action,
+    } | extra_data
+
+def print_trades(teams_idx, trades):
+    for team_index, cap_id in enumerate(teams_idx):
+        if cap_id is not None:
+            ((diffs, trade, trade_data), units) = trades[team_index]
+            print('\n'.join(trade))
+
+def get_splits(monsters, trades):
+    splits = {}
+    for team_index, team_monsters in monsters.items():
+        (trade_info, units) = trades[team_index]
+        team_allocation = {}
+        total_value = 0
+        for marker_id, marker in team_monsters.items():
+            tag_id = marker['tag']
+            player_monsters = team_allocation.get(marker['player_index'], {})
+            player_markers = player_monsters.get(tag_id, [])
+            player_markers.append(marker_id)
+            player_monsters[tag_id] = player_markers
+            team_allocation[marker['player_index']] = player_monsters
+            total_value += units[tag_id]['cost']
+
+        splits[team_index] = {'total': total_value, 'allocation': team_allocation}
+    return splits
+
+def print_team_split(trade, cap, team_split, players, players_idx):
+    ((diffs, trade, trade_data), units) = trade
+    print(
+        f'{player_headers.colors(cap)[0]} '
+        f'{utils.strip_format(cap.appearance.team_name)}\n'
+    )
+    print('\n'.join(trade))
+    print('Unit Splits at end of Planning Time\n')
+    for player_index in sorted(team_split['allocation'].keys()):
+        player_value = 0
+        player_monsters = team_split['allocation'][player_index]
+        marker_list = []
+        for tag_id, player_markers in player_monsters.items():
+            player_value += (units[tag_id]['cost'] * len(player_markers))
+            unit_name = mesh2trades.unit_name(units[tag_id], count=len(player_markers))
+            marker_list.append(f'{len(player_markers)} {unit_name}')
+        player = players[players_idx[player_index]]
+        print(
+            f'{player_headers.colors(cap)[0]}'
+            f'{player_headers.colors(player)[0]} '
+            f'{"*" if player.team_captain_identifier == player.unique_identifier else " "} '
+            f'{player_name(player)[:12]:<12} '
+            f'{round(100*player_value/team_split['total']):>2}% | '
+            f'{" / ".join(marker_list)}'
+        )
+    print('\n---\n')
+
+def print_splits(players, players_idx, teams_idx, trades, splits, num_ambients):
+    if not splits:
+        return
+    for team_index, team_split in splits.items():
+        print_team_split(
+            trades[team_index], players[teams_idx[team_index]], team_split, players, players_idx
+        )
+
+    total_units = 0
+    for team_id, ((diffs, trade, trade_data), units) in trades.items():
+        total_team_units = sum([tt['count'] for tt in trade_data])
+        total_units += total_team_units
+
+    total_markers = total_units + num_ambients
+    total_marker_warning = ''
+    if total_markers > 400:
+        total_marker_warning = f' \x1b[91mover 400 - check for unused units\x1b[0m'
+    print(f'Total units (all teams): {total_units} + ambients ({num_ambients}) = total markers: {total_markers}{total_marker_warning}')
+
+def print_combined_stats(reco_header, players, players_idx, teams, teams_idx, alliances, dropped_players, game_stats):
+    print('Stats\n')
+
+    # Ordered by team
+    for team_index, team_data in game_stats['header']['teams'].items():
+        cap_id = teams_idx[team_index]
+        cap = players[cap_id]
+        place_str = f'Place: {team_data['place']}) ' if 'place' in team_data else ''
+        print(
+            f'{2*player_headers.colors(cap)[0]} '
+            f'{place_str}'
+            f'{utils.strip_format(cap.appearance.team_name)}'
+            f'{format_alliances(alliances.get(cap_id))}'
+        )
+        team_dmg_action = None
+        ts = team_data['stats']
+        dominance = ''
+        if 'dmg_action_ratio' in ts:
+            dominance = f'Dominance:     {ts['dmg_action_ratio']:6.2f} '
+        team_actions = ''
+        if 'actions' in ts:
+            team_actions = f'Actions: {ts['actions']:>5}/{ts.get('actions_engage', 0):>5} '
+        team_dmg_action = ts.get('dmg_action')
+        print(
+            f'{2*player_headers.colors(cap)[0]} '
+            f'= '
+            f'Team Stats === | '
+            f'{team_actions}'
+            f'{format_stats(ts, team_dmg_action)} '
+            f'{dominance}'
+        )
+        for player_id, player_data in team_data['players'].items():
+            player = players[player_id]
+            player_stats = ''
+            # Players can have missing stats on the metaserver
+            ps = player_data['stats']
+            effectiveness = ''
+            if 'dmg_action_ratio_engage' in ps:
+                effectiveness = f'Effectiveness: {ps['dmg_action_ratio_engage']:6.2f}'
+            medals = ''
+            if medal_count := len(player_data['medals']):
+                medals = f' {medal_count * "🎖️"}'
+            player_stats = (
+                f'{format_stats(ps, ps.get('dmg_action'))} '
+                f'{effectiveness}{medals}'
+            )
+            dropped = '!' if player_id in dropped_players else ' '
+            print(
+                f'{player_headers.colors(cap)[0]}'
+                f'{player_headers.colors(player)[0]} '
+                f'{"*" if player.team_captain_identifier == player.unique_identifier else dropped} '
+                f'{player_name(player)[:12]:<14} | '
+                f'Actions: {ps.get('actions', 0):>5}/{ps.get('actions_engage', 0):>5} '
+                f'{player_stats}'
+            )
+            if DEBUG_STATS and medal_count:
+                print(player_data['medals'])
+        print('\n---\n')
+
+def format_stats(stats, dmg_action):
+    if 'dmg_out' not in stats:
+        return ''
+    dmg_action_val = ''
+    if dmg_action is not None:
+        dmg_action_val = f' DMG/Action: {dmg_action:6.3f}'
+    return (
+        f'Kills: {stats['kills']:>3} '
+        f'Losses: {stats['losses']:>3} '
+        f'DMG: {stats['dmg_out']:>4} '
+        f'DMG taken: {stats['dmg_in']:>4} '
+        f'DMG ratio: {stats['dmg_ratio']:5.2f} '
+        f'K/L: {stats['kill_loss_ratio']:5.2f}'
+        f'{dmg_action_val}'
+    )
+
+def print_chat(chat_lines, players):
+    print('Chat\n')
+    for line in chat_lines:
+        whisper = '[whisper] ' if 'flags' in line and ChatFlags.PRIVATE in ChatFlags(line['flags']) else ''
+        player = line['player']
+        player_color = player_headers.colors(player)[0]
+        name = player_name(player)
+        cap_color = player_headers.colors(line['cap'])[0] if ('cap' in line and line['cap']) else player_color
+        chat_message = ''
+        if line['header'].verb == Commands.ALLY:
+            ally_1 = line['alliance'][0]
+            ally_2 = line['alliance'][1]
+            ally_1_color = player_headers.colors(ally_1)[0]
+            ally_2_color = player_headers.colors(ally_2)[0]
+            ally_action = 'allied with' if line['alliance_formed'] else 'broke alliance with'
+            ally_emoji = '🤝' if line['alliance_formed'] else '⚔️'
+            chat_message = f" {ally_1_color}{ally_2_color} {ally_emoji} {player_name(ally_1)} {ally_action} {player_name(ally_2)}"
+        if line['header'].verb == Commands.ADD_PLAYER:
+            chat_message = f" => joined {line['num_players']}/{line['num_observers']}"
+        if line['header'].verb == Commands.DROP_PLAYER:
+            chat_message = f" <= left {line['num_players']}/{line['num_observers']}"
+        if line['header'].verb == Commands.CHAT:
+            chat_message = f" | {whisper} {utils.ansi_format(line['message'])}"
+        print(
+            f'{tick_to_time(line['pt'], line['header'].time)}: '
+            f'{cap_color}'
+            f'{player_color} '
+            f'{name[:12]:<12} '
+            f'{chat_message}'
+        )
+    print('\n---\n')
+
+def sorted_markers(markers, game_param):
+    return sorted(markers.values(), key=lambda m: (game_param.difficulty_level < m['min_difficulty'], mesh_tag.MarkerFlag.IS_INVISIBLE in m['flags']))
+
+def time_vars(command_time, game_param):
+    planning_ticks = game_param.pregame_time_limit
+    total_ticks = game_param.time_limit + planning_ticks
+    if command_time <= planning_ticks:
+        pt = True
+        remaining = planning_ticks - command_time
+    else:
+        pt = False
+        remaining = total_ticks - command_time
+
+    return (pt, remaining)
+
+def pt_over(prev_command_time, command_time, game_param):
+    if not prev_command_time:
+        return False
+    # Add 2s, late adjusts can come in slightly after pt is over
+    # Add further 30s to account for late splits
+    planning_ticks = game_param.pregame_time_limit + 60 + 900
+    return prev_command_time <= planning_ticks and command_time > planning_ticks
+
+def tick_to_time(pt, ticks):
+    seconds = ticks / 30
+    mins = round(seconds // 60)
+    secs = round(seconds % 60)
+    return f'{"PT " if pt else "   "}{mins:02}m{secs:02}s'

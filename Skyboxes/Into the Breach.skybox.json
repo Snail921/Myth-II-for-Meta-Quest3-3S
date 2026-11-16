@@ -1,0 +1,13 @@
+{
+  "map_display_name": "Into the Breach",
+  "map_tag": "thkm",
+  "projection": "equirectangular",
+  "image": "Into the Breach.png",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "a5dfbf15492c27b3dd205c9c7a1d96bc13bb3f5518cae287436d2bcef4c10b6d"
+}

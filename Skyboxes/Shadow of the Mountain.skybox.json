@@ -1,0 +1,16 @@
+{
+  "level": "Shadow of the Mountain",
+  "map_key": "6d326d65",
+  "image": "Shadow of the Mountain.png",
+  "aliases": [
+    "Shadow of the Mountain"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "af65965c4d1bc2cbcefb6465982c6141c60d7089f3c3dbb2a190492e1bf28675",
+  "design": "November volcanic eruption thirty miles away, sky choked with broad ash-grey clouds tinged faintly rusty amber from distant heat. Dark earth and warm haze at flat horizon, tense last stand. No nearby volcano, lava or painted falling ash.",
+  "generation_tool": "built-in image_gen"
+}

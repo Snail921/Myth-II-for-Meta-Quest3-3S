@@ -1,0 +1,16 @@
+{
+  "level": "Training Map",
+  "map_key": "3330746d",
+  "image": "Training Map.png",
+  "aliases": [
+    "Training Map"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "ae5dabe77f41233eb39b8b0b8244624b5f1ba8f533513e20a3cad4882f66e72a",
+  "design": "Welcoming temperate training ground, clear blue midday sky with soft white cumulus and fine high cloud, quiet olive-brown grassy plains, subtle distant haze.",
+  "generation_tool": "built-in image_gen"
+}

@@ -1,0 +1,16 @@
+{
+  "level": "UTBx A Bombing on the Wall",
+  "map_key": "34316364",
+  "image": "UTBx A Bombing on the Wall.png",
+  "aliases": [
+    "UTBx A Bombing on the Wall"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "0818365b3d83499c69e53f3d12016b1662b063a839f3038c7884c7c408b5e897",
+  "design": "Borderlands battlefield, temperate blue sky with elegant stretched white cloud and soft afternoon sun, muted green-brown plains fading into bluish haze. No walls or buildings.",
+  "generation_tool": "built-in image_gen"
+}

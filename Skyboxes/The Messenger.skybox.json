@@ -1,0 +1,16 @@
+{
+  "level": "The Messenger",
+  "map_key": "30306772",
+  "image": "The Messenger.png",
+  "aliases": [
+    "The Messenger"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "ce4d7f783705055398aafd129b32e8e798b65f684078fa129624dae15fd0fd1b",
+  "design": "Journey to the Cavanaugh beachhead, damp coastal evening with grey rain clouds and a narrow pale golden western gap. Low flat olive grass and slate-blue distant water dissolve into sea mist. Political intrigue and anticipation, no ships or buildings.",
+  "generation_tool": "built-in image_gen"
+}

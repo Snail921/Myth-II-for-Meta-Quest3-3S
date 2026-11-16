@@ -1,0 +1,16 @@
+{
+  "level": "Ambush at Devil’s Overlook",
+  "map_key": "3330616d",
+  "image": "Ambush at Devil’s Overlook.png",
+  "aliases": [
+    "Ambush at Devil’s Overlook"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "4204f44640134614d0bbf4238853e006bdfd49e1020e46594d67159fbff08b88",
+  "design": "Two days of heavy November snow at Bagrada, seamless leaden white-grey sky with layered cold cloud, icy blue haze and a flat snow-muted distant floor. Bitter cold and hushed ambush tension, no tall mountains or foreground flakes.",
+  "generation_tool": "built-in image_gen"
+}

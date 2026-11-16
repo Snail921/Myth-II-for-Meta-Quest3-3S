@@ -1,0 +1,14 @@
+{
+  "map_display_name": "Limbs, Heads and Smoking Craters",
+  "map_tag": "21md",
+  "image": "Limbs, Heads and Smoking Craters.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "2ec99ab892b5ea979d67dce6dc16a3d0ff30f97379e43d4a1bd5fbe45eac7c53",
+  "narrative_and_art_direction": "Apr 21 just after escape, munitions attack. Hour unspecified; artistic early daylight continuing pre-dawn atmosphere of prior map. Gold-grey clouds gradually clearing, olive ochre scrub plains and low Cloudspine foothills, atmospheric distance haze. No baked explosions, armies or buildings."
+}

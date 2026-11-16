@@ -1,0 +1,16 @@
+{
+  "level": "The Five Champions",
+  "map_key": "33306368",
+  "image": "The Five Champions.png",
+  "aliases": [
+    "The Five Champions"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "d2bab1a3b66eadd246a481fe9c5e8c36b0f82180c8c81299fef041a24f216416",
+  "design": "Night insertion into the rough Barrier desert in November. Deep clear indigo night, restrained stars and a small veiled moon, dry tan-grey plains extremely subdued under moonlight, broad horizon haze. No mountains or structures.",
+  "generation_tool": "built-in image_gen"
+}

@@ -1,0 +1,13 @@
+{
+  "map_display_name": "The Great Library",
+  "map_tag": "08li",
+  "projection": "equirectangular",
+  "image": "The Great Library.png",
+  "runtime_yaw_degrees": 0,
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "c275fb2187cab1765729d7394df2b7b94e01caa1bfc5eac76747359a4aa9b128",
+  "generation_tool": "built-in image_gen"
+}

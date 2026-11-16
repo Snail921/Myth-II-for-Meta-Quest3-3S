@@ -1,0 +1,1550 @@
+#!/usr/bin/env python3
+from collections import OrderedDict
+import enum
+import hashlib
+import json
+import math
+import os
+import struct
+import tag2png
+
+import codec
+import myth_headers
+import loadtags
+import utils
+import myth_tags
+import mons_tag
+import myth_collection
+
+DEBUG = (os.environ.get('DEBUG') == '1')
+DEBUG_ACTIONS = (os.environ.get('DEBUG_ACTIONS') == '1')
+DEBUG_MARKERS = (os.environ.get('DEBUG_MARKERS') == '1')
+
+MESH_HEADER_SIZE = 1024
+ACTION_HEAD_SIZE = 64
+WORLD_POINT_SF = 512
+FIXED_SF = 1 << 16
+ANGLE_SF = FIXED_SF / 360
+TIME_SF = 30
+
+class MeshCellTerrain(enum.Enum):
+    MEDIA_DWARF_DEPTH = 0
+    MEDIA_HUMAN_DEPTH = enum.auto()
+    MEDIA_GIANT_DEPTH = enum.auto()
+    MEDIA_DEEP = enum.auto()
+    SLOPED = enum.auto()
+    STEEP = enum.auto()
+    GRASS = enum.auto()
+    DESERT = enum.auto()
+    ROCKY = enum.auto()
+    MARSH = enum.auto()
+    SNOW = enum.auto()
+    FOREST = enum.auto()
+    LOATHING_SPECIAL = enum.auto()
+    UNUSED = enum.auto()
+    WALKING_IMPASSABLE = enum.auto()
+    FLYING_IMPASSABLE = enum.auto()
+
+MeshCellTerrainColors = {
+    MeshCellTerrain.MEDIA_DWARF_DEPTH: (255,255,0),
+    MeshCellTerrain.MEDIA_HUMAN_DEPTH: (255,165,0),
+    MeshCellTerrain.MEDIA_GIANT_DEPTH: (255,0,0),
+    MeshCellTerrain.MEDIA_DEEP: (128,0,128),
+    MeshCellTerrain.SLOPED: (100,100,100),
+    MeshCellTerrain.STEEP: (255,192,203),
+    MeshCellTerrain.GRASS: (255,255,255, 0),
+    MeshCellTerrain.DESERT: (245,245,150),
+    MeshCellTerrain.ROCKY: (200,200,200),
+    MeshCellTerrain.MARSH: (215,175,135),
+    MeshCellTerrain.SNOW: (200,230,250),
+    MeshCellTerrain.FOREST: (100,200,100),
+    MeshCellTerrain.LOATHING_SPECIAL: (0,255,255),
+    MeshCellTerrain.UNUSED: (255,0,255),
+    MeshCellTerrain.WALKING_IMPASSABLE: (0,0,255),
+    MeshCellTerrain.FLYING_IMPASSABLE: (0,0,0),
+}
+
+class MeshCellFlag(enum.Flag, boundary=enum.CONFORM):
+    VERTEX_IS_MEDIA_BIT = enum.auto()
+    CELL_WAS_OR_IS_ON_FIRE_BIT = enum.auto()
+    VERTEX_IS_ANIMATED_MEDIA_BIT = enum.auto()
+    CELL_TRIANGLE0_IS_MEDIA_BIT = enum.auto()
+    CELL_TRIANGLE1_IS_MEDIA_BIT = enum.auto()
+    CELL_HAS_REFLECTION_BIT = enum.auto()
+    CELL_IS_NOT_RENDERED_BIT = enum.auto()
+
+MeshCellFmt = ('MeshCell', [
+    ('h', 'height', codec.World),
+    ('b', 'normal1'),
+    ('b', 'normal2'),
+    ('B', 'flags', MeshCellFlag),
+    ('B', 'terrain_type', lambda b: (MeshCellTerrain((b >> 4) & 0x0F), MeshCellTerrain(b & 0x0F))),
+    ('H', 'first_object_index'),
+    ('h', 'media_height', codec.World),
+    ('H', 'model_index'),
+])
+
+# 887E <- action_id
+# 0000 <- expiration_mode
+# 61636C69 <- action_type
+# 0000 0001 <- flags
+# 0000 0000 <- trigger_time_lower_bound
+# 0000 0000 <- trigger_time_delta
+# 0002 <- num_params
+# 002C <- size
+# 0000 320C <- offset
+# 0000 <- indent
+# unused
+# 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+
+class ActionExpiration(enum.Enum):
+    TRIGGER = 0
+    EXECUTION = enum.auto()
+    SUCCESSFUL_EXECUTION = enum.auto()
+    NEVER = enum.auto()
+    FAILED_EXECUTION = enum.auto()
+
+class ActionFlag(enum.Flag):
+    INITIALLY_ACTIVE = enum.auto()
+    ACTIVATES_ONLY_ONCE = enum.auto()
+    NO_INITIAL_DELAY = enum.auto()
+    ONLY_INITIAL_DELAY = enum.auto()
+    DELETED_ON_DEACTIVATION = enum.auto()
+
+ActionHeadFmt = ('ActionHead', [
+    ('H', 'id'),
+    ('H', 'expiration_mode', ActionExpiration),
+    ('4s', 'type', codec.decode_string_none, codec.encode_string_none),
+    ('L', 'flags', ActionFlag),
+    ('L', 'trigger_time_lower_bound', TIME_SF),
+    ('L', 'trigger_time_delta', TIME_SF),
+    ('H', 'num_params'),
+    ('H', 'size'),
+    ('L', 'offset'),
+    ('H', 'indent'),
+    ('34x', None),
+])
+
+class MeshFlags(enum.Flag, boundary=enum.CONFORM):
+    BODY_COUNT = enum.auto()
+    STEAL_THE_BACON = enum.auto()
+    LAST_MAN_ON_THE_HILL = enum.auto()
+    SCAVENGER_HUNT = enum.auto()
+    FLAG_RALLY = enum.auto()
+    CAPTURE_THE_FLAG = enum.auto()
+    BALLS_ON_PARADE = enum.auto()
+    TERRITORIES = enum.auto()
+    CAPTURES = enum.auto()
+    KING_OF_THE_HILL = enum.auto()
+    STAMPEDE = enum.auto()
+    ASSASSIN = enum.auto()
+    HUNTING = enum.auto()
+    CUSTOM = enum.auto()
+    KING_OF_THE_HILL_TFL = enum.auto() # Currently non functional?
+    KING_OF_THE_MAP = enum.auto() # Currently non functional?
+    SINGLE_PLAYER_MAP = enum.auto()
+    SUPPORTS_UNIT_TRADING = enum.auto()
+    SUPPORTS_VETERANS = enum.auto()
+    HAS_LIMITED_TERRAIN_VISIBILITY = enum.auto()
+    IS_COMPLETE = enum.auto()
+    CAN_BE_USED_BY_DEMO = enum.auto()
+    LEAVES_OVERHEAD_MAP_CLOSED = enum.auto()
+    IS_TRAINING_MAP = enum.auto()
+    CAN_CATCH_FIRE = enum.auto()
+    HAS_CEILING = enum.auto()
+    HAS_TERRAIN_FOLLOWING_CAMERA = enum.auto()
+    OVERHEAD_MAP_DOESNT_SCROLL = enum.auto()
+    MODELS_DONT_LIMIT_RENDERING = enum.auto()
+    USES_ANTICLUMP = enum.auto()
+    USES_VTFL = enum.auto()
+    REQUIRES_PLUGIN = enum.auto()
+
+class ExtraFlags(enum.Flag):
+    LAST_LEVEL = enum.auto()
+    PREGAME_CUTSCENE_BEFORE_NARRATION = enum.auto()
+    PREGAME_CUTSCENE_AFTER_NARRATION = enum.auto()
+    SECRET_LEVEL = enum.auto()
+
+MeshHeaderFmt = ('MeshHeader', [
+    ('4s', 'landscape_collection_tag'),
+    ('4s', 'media_tag'),
+    ('H', 'submesh_width'),
+    ('H', 'submesh_height'),
+    ('L', 'mesh_offset'),
+    ('L', 'mesh_size'),
+    ('4x', None), # runtime: mesh_ptr
+    ('L', 'data_offset'),
+    ('L', 'data_size'),
+    ('4x', None), # runtime: data_ptr
+    ('L', 'marker_palette_entries'),
+    ('L', 'marker_palette_offset'),
+    ('L', 'marker_palette_size'),
+    ('4x', None), # runtime: marker_palette_ptr
+    ('L', 'marker_count'),
+    ('L', 'markers_offset'),
+    ('L', 'markers_size'),
+    ('4x', None), # runtime: markers_ptr
+    ('4s', 'mesh_lighting_tag'),
+    ('4s', 'connector_tag'),
+    ('L', 'flags', MeshFlags),
+    ('4s', 'particle_system_tag'),
+    ('L', 'team_count'),
+    ('h', 'dark_fraction', codec.ShortFixed),
+    ('h', 'light_fraction', codec.ShortFixed),
+    ('8s', 'dark_color', codec.Color),
+    ('8s', 'light_color', codec.Color),
+    ('l', 'transition_point', codec.Fixed),
+    ('h', 'ceiling_height'),
+    ('B', 'min_vtfl_version'),
+    ('B', 'max_vtfl_version'),
+    ('8s', 'edge_of_mesh_buffer_zones'),
+    ('4s', 'global_ambient_sound_tag'),
+    ('L', 'map_action_count'),
+    ('L', 'map_actions_offset'),
+    ('L', 'map_action_buffer_size'),
+    ('4s', 'map_description_string_list_tag'),
+    ('4s', 'postgame_collection_tag'),
+    ('4s', 'pregame_collection_tag'),
+    ('4s', 'overhead_map_collection_tag'),
+    ('4s', 'next_mesh'),
+    ('4s', 'next_mesh_alternate'),
+    ('4s', 'cutscene_tag_pregame'),
+    ('4s', 'cutscene_tag_success'),
+    ('4s', 'cutscene_tag_failure'),
+    ('4s', 'pregame_storyline_tag'),
+    ('4s', 'storyline_string_tags_2'),
+    ('4s', 'storyline_string_tags_3'),
+    ('4s', 'storyline_string_tags_4'),
+    ('L', 'media_coverage_region_offset'),
+    ('L', 'media_coverage_region_size'),
+    ('4x', None), # runtime: media_coverage_region_ptr
+    ('L', 'mesh_LOD_data_offset'),
+    ('L', 'mesh_LOD_data_size'),
+    ('4x', None), # runtime: mesh_LOD_data_ptr
+    ('8s', 'global_tint_color', codec.Color),
+    ('h', 'global_tint_fraction'),
+    ('H', 'pad'),
+    ('4s', 'wind_tag'),
+    ('4s', 'screen_collection_tags_1'),
+    ('4s', 'screen_collection_tags_2'),
+    ('4s', 'screen_collection_tags_3'),
+    ('8s', 'blood_color'),
+    ('4s', 'picture_caption_string_list_tag'),
+    ('4s', 'narration_sound_tag'),
+    ('4s', 'win_ambient_sound_tag'),
+    ('4s', 'loss_ambient_sound_tag'),
+    ('L', 'reverb_environment'),
+    ('f', 'reverb_volume'),
+    ('f', 'reverb_decay_time'),
+    ('f', 'reverb_damping'),
+    ('L', 'connector_count'),
+    ('l', 'connectors_offset'),
+    ('L', 'connectors_size'),
+    ('4x', None), # runtime: connectors_ptr
+    ('64s', 'cutscene_file_pregame', codec.String),
+    ('64s', 'cutscene_file_success', codec.String),
+    ('64s', 'cutscene_file_failure', codec.String),
+    ('4s', 'hints_string_list_tag'),
+    ('8s', 'fog_color'),
+    ('f', 'fog_density'),
+    ('4s', 'difficulty_level_override_string_list_tag'),
+    ('4s', 'team_names_override_string_list_tag'),
+    ('32s', 'plugin_name'),
+    ('L', 'extra_flags', ExtraFlags),
+    ('4s', 'win_narration_collection_tag'),
+    ('4s', 'loss_narration_collection_tag'),
+    ('4s', 'win_narration_storyline_tag_tag'),
+    ('4s', 'loss_narration_storyline_tag'),
+    ('4s', 'win_narration_caption_string_list_tag'),
+    ('4s', 'loss_narration_caption_string_list_tag'),
+    ('4s', 'win_narration_sound_tag'),
+    ('4s', 'loss_narration_sound_tag'),
+    ('f', 'minimum_zoom_factor'),
+    ('406x', None), # unused
+
+    # runtime data - not valid on disk
+    ('2x', None), # connector_type;
+    ('2x', None), # map_description_string_index;
+    ('2x', None), # overhead_map_collection_index;
+    ('2x', None), # landscape_collection_index;
+    ('2x', None), # global_ambient_sound_index;
+    ('2x', None), # media_type;
+    ('2x', None), # hints_string_list_index;
+
+    ('4s', 'editor_data_cookie'),
+    ('L', 'editor_data_size'),
+    ('L', 'editor_data_offset'),
+    ('4x', None), # editor_data_unused
+])
+
+MeshHeaderFmtTFL = ('MeshHeader', [
+    ('4s', 'landscape_collection_tag'),
+    ('4s', 'media_tag'),
+    ('H', 'submesh_width'),
+    ('H', 'submesh_height'),
+    ('L', 'mesh_offset'),
+    ('L', 'mesh_size'),
+    ('4x', None), # runtime: mesh_ptr
+    ('L', 'data_offset'),
+    ('L', 'data_size'),
+    ('4x', None), # runtime: data_ptr
+    ('L', 'marker_palette_entries'),
+    ('L', 'marker_palette_offset'),
+    ('L', 'marker_palette_size'),
+    ('4x', None), # runtime: marker_palette_ptr
+    ('L', 'marker_count'),
+    ('L', 'markers_offset'),
+    ('L', 'markers_size'),
+    ('4x', None), # runtime: markers_ptr
+    ('4s', 'mesh_lighting_tag'),
+    ('4s', 'render_variables_tag'),
+    ('L', 'flags', MeshFlags),
+    ('4s', 'particle_system_tag'),
+    ('L', 'team_count'),
+    ('L', 'teams_offset'),
+    ('L', 'teams_size'),
+    ('4x', None), # runtime: teams_ptr
+    ('L', 'annotation_count'),
+    ('L', 'annotation_offset'),
+    ('L', 'annotation_size'),
+    ('4x', None), # runtime: annotations_ptr
+    ('8s', 'edge_of_mesh_buffer_zones'),
+    ('4s', 'global_ambient_sound_tag'),
+    ('L', 'map_action_count'),
+    ('L', 'map_actions_offset'),
+    ('L', 'map_action_buffer_size'),
+    ('4s', 'map_description_string_list_tag'),
+    ('4s', 'postgame_collection_tag'),
+    ('4s', 'pregame_collection_tag'),
+    ('4s', 'overhead_map_collection_tag'),
+    ('4s', 'next_mesh'),
+    ('4s', 'next_mesh_alternate'),
+    ('4s', 'cutscene_tag_pregame'),
+    ('4s', 'cutscene_tag_success'),
+    ('4s', 'cutscene_tag_failure'),
+    ('4s', 'pregame_storyline_tag'),
+    ('4s', 'storyline_string_tags_2'),
+    ('4s', 'storyline_string_tags_3'),
+    ('4s', 'storyline_string_tags_4'),
+    ('L', 'media_coverage_region_offset'),
+    ('L', 'media_coverage_region_size'),
+    ('4x', None), # runtime: media_coverage_region_ptr
+    ('L', 'mesh_LOD_data_offset'),
+    ('L', 'mesh_LOD_data_size'),
+    ('4x', None), # runtime: mesh_LOD_data_ptr
+    ('8s', 'global_tint_color', codec.Color),
+    ('h', 'global_tint_fraction'),
+    ('H', 'pad'),
+    ('4s', 'wind_tag'),
+    ('4s', 'screen_collection_tags_1'),
+    ('4s', 'screen_collection_tags_2'),
+    ('4s', 'screen_collection_tags_3'),
+    ('8s', 'blood_color'),
+    ('4s', 'picture_caption_string_list_tag'),
+    ('4s', 'narration_sound_tag'),
+    ('4s', 'win_ambient_sound_tag'),
+    ('4s', 'loss_ambient_sound_tag'),
+
+    ('730x', None),
+
+    ('2x', None), # map_description_string_index
+    ('2x', None), # overhead_map_collection_index
+    ('2x', None), # landscape_collection_index
+    ('2x', None), # global_ambient_sound_index
+    ('2x', None), # media_type
+
+    ('16x', None), # editor_data
+])
+
+# nested tags
+# connector_tag       [conn] -> .256
+# media_tag           [medi] -> core -> .256
+# media_tag           [medi] -> lpgr -> .256/phys
+# media_tag           [medi] -> prgr -> meef/soun/lpgr/proj
+# particle_system_tag [part] -> core -> .256
+# particle_system_tag [part] -> lpgr
+
+# markers with nested tags
+# MarkerType.SCENERY
+#     [scen] -> core -> .256
+#     [scen] -> proj
+#     [scen] -> obje
+#     [scen] -> lpgr
+# MarkerType.UNIT
+#     [unit] -> core -> .256
+#     [unit] -> mons ->
+#         lpgr
+#         obje
+#         prgr
+#         proj
+#         soun
+#         stli
+# MarkerType.AMBIENT_SOUND
+#     [amso] -> soun
+# MarkerType.MODEL
+#     [mode] -> geom -> core -> .256
+# MarkerType.PROJECTILE
+#     [proj] ->
+#         .256
+#         arti
+#         geom
+#         ligh
+#         lpgr
+#         obje
+#         prgr
+#         proj
+#         soun
+#         unit
+# MarkerType.LOCAL_PROJECTILE_GROUP
+#     [lpgr] -> .256
+#     [lpgr] -> phys
+# MarkerType.ANIMATION
+#     [anim] -> mode -> geom -> core -> .256
+#     [anim] -> soun
+
+class MarkerType(enum.Enum):
+    OBSERVER = 0
+    SCENERY = enum.auto()
+    UNKNOWN_1 = enum.auto()
+    UNIT = enum.auto()
+    UNKNOWN_2 = enum.auto()
+    AMBIENT_SOUND = enum.auto()
+    MODEL = enum.auto()
+    UNKNOWN_3 = enum.auto()
+    UNKNOWN_4 = enum.auto()
+    PROJECTILE = enum.auto()
+    LOCAL_PROJECTILE_GROUP = enum.auto()
+    ANIMATION = enum.auto()
+Marker2Tag = {
+    MarkerType.SCENERY: 'scen',
+    MarkerType.UNIT: 'unit',
+    MarkerType.AMBIENT_SOUND: 'amso',
+    MarkerType.MODEL: 'mode',
+    MarkerType.PROJECTILE: 'proj',
+    MarkerType.LOCAL_PROJECTILE_GROUP: 'lpgr',
+    MarkerType.ANIMATION: 'anim',
+}
+def param_id_marker(param_type, param_name):
+    if param_type == ParamType.MONSTER_IDENTIFIER:
+        return MarkerType.UNIT
+    if param_type == ParamType.SOUND_SOURCE_IDENTIFIER:
+        return MarkerType.AMBIENT_SOUND
+    if param_type == ParamType.OBJECT_IDENTIFIER:
+        return MarkerType.PROJECTILE
+    if param_type == ParamType.MODEL_IDENTIFIER:
+        return MarkerType.MODEL
+    if param_type == ParamType.LOCAL_PROJECTILE_GROUP_IDENTIFIER:
+        return MarkerType.LOCAL_PROJECTILE_GROUP
+    if param_type == ParamType.MODEL_ANIMATION_IDENTIFIER:
+        return MarkerType.ANIMATION
+
+class MarkerPaletteFlag(enum.Flag, boundary=enum.CONFORM):
+    UNCONTROLLABLE = enum.auto()
+    MAY_BE_TRADED = enum.auto()
+    MAY_USE_VETERANS = enum.auto()
+    MUST_USE_VETERANS = enum.auto()
+    AMBIENT_LIFE = enum.auto()
+    HUNTED_CREATURE = enum.auto()
+MarkerPalleteFlagInfo = {
+    MarkerPaletteFlag.UNCONTROLLABLE: 'uncontrollable',
+    MarkerPaletteFlag.MAY_BE_TRADED: 'can_trade',
+    MarkerPaletteFlag.MAY_USE_VETERANS: 'can_vet',
+    MarkerPaletteFlag.MUST_USE_VETERANS: 'must_vet',
+    MarkerPaletteFlag.AMBIENT_LIFE: 'ambient',
+    MarkerPaletteFlag.HUNTED_CREATURE: 'hunted',
+}
+def palette_flag_info(flag):
+    return [info for f, info in MarkerPalleteFlagInfo.items() if f in flag]
+
+class NetgameFlag(enum.Flag, boundary=enum.CONFORM):
+    BODY_COUNT = enum.auto()
+    STEAL_THE_BACON = enum.auto()
+    LAST_MAN_ON_THE_HILL = enum.auto()
+    SCAVENGER_HUNT = enum.auto()
+    FLAG_RALLY = enum.auto()
+    CAPTURE_THE_FLAG = enum.auto()
+    BALLS_ON_PARADE = enum.auto()
+    TERRITORIES = enum.auto()
+    CAPTURES = enum.auto()
+    KING_OF_THE_HILL = enum.auto()
+    STAMPEDE = enum.auto()
+    ASSASSIN = enum.auto()
+    HUNTING = enum.auto()
+    CUSTOM = enum.auto()
+    KING_OF_THE_HILL_TFL = enum.auto()
+    KING_OF_THE_MAP = enum.auto()
+NetgameFlagInfo = OrderedDict({
+    NetgameFlag.BODY_COUNT: 'bc',
+    NetgameFlag.STEAL_THE_BACON: 'stb',
+    NetgameFlag.LAST_MAN_ON_THE_HILL: 'lmoth',
+    NetgameFlag.SCAVENGER_HUNT: 'scav',
+    NetgameFlag.FLAG_RALLY: 'fr',
+    NetgameFlag.CAPTURE_THE_FLAG: 'ctf',
+    NetgameFlag.BALLS_ON_PARADE: 'balls',
+    NetgameFlag.TERRITORIES: 'terries',
+    NetgameFlag.CAPTURES: 'caps',
+    NetgameFlag.KING_OF_THE_HILL: 'koth',
+    NetgameFlag.STAMPEDE: 'stamp',
+    NetgameFlag.ASSASSIN: 'ass',
+    NetgameFlag.HUNTING: 'hunt',
+    NetgameFlag.CUSTOM: 'custom',
+    NetgameFlag.KING_OF_THE_HILL_TFL: 'koth_tfl',
+    NetgameFlag.KING_OF_THE_MAP: 'kotm',
+})
+NetgameNames = OrderedDict({
+    'bc': 'Body Count',
+    'stb': 'Steal the Bacon',
+    'lmoth': 'Last Man on the Hill',
+    'scav': 'Scavenger Hunt',
+    'fr': 'Flag Rally',
+    'ctf': 'Capture the Flag',
+    'balls': 'Balls on Parade',
+    'terries': 'Territories',
+    'caps': 'Captures',
+    'koth': 'King of the Hill',
+    'stamp': 'Stampede',
+    'ass': 'Assassin',
+    'hunt': 'Hunting',
+    'custom': 'Custom',
+    'koth_tfl': 'King of the Hill (TFL)',
+    'kotm': 'King of the Map',
+})
+
+def netgame_scoring_key(scoring):
+    return NetgameFlagInfo[utils.flag(NetgameFlag)(scoring)]
+
+def netgame_scoring_name(scoring):
+    return NetgameNames[netgame_scoring_key(scoring)]
+
+def netgame_name(flag):
+    return NetgameNames[NetgameFlagInfo[flag]]
+
+def netgame_flag_info(flag):
+    actual_flag = flag
+    # These flags don't work, we just use the terries and koth_tfl values
+    actual_flag &= ~(NetgameFlag.KING_OF_THE_MAP | NetgameFlag.KING_OF_THE_HILL_TFL)
+    if NetgameFlag.TERRITORIES in flag:
+        actual_flag |= NetgameFlag.KING_OF_THE_MAP
+    if NetgameFlag.KING_OF_THE_HILL in flag:
+        actual_flag |= NetgameFlag.KING_OF_THE_HILL_TFL
+
+    if all([f in actual_flag for f in list(NetgameFlag)]):
+        return ['all']
+    else:
+        return [info for f, info in NetgameFlagInfo.items() if f in actual_flag]
+
+def enabled_netgames(mesh_header):
+    netgames = [
+        v for k, v in NetgameFlagInfo.items()
+        if MeshFlags(k.value) in mesh_header.flags
+    ]
+    if 'koth' in netgames:
+        netgames.append('koth_tfl')
+    if 'terries' in netgames:
+        netgames.append('kotm')
+    return netgames
+
+def normalise_position(mesh_header, position):
+    norm = list(position)
+    width, height = mesh_dimensions(mesh_header)
+    norm[0] = width-norm[0]
+    return [float(p) for p in norm]
+
+def mesh_dimensions(mesh_header):
+    return (
+        mesh_header.submesh_width * 32,
+        mesh_header.submesh_height * 32
+    )
+
+def mesh_cell_count(mesh_header):
+    return mesh_header.submesh_width * mesh_header.submesh_height * 32 * 32
+
+def netgame_location_type(game_type, title_case=False):
+    target = 'Target'
+    if game_type in ['lmoth', 'fr', 'ctf', 'terries', 'koth', 'stamp', 'koth_tfl', 'kotm']:
+        target = 'Flag'
+    if game_type in ['stb', 'scav', 'balls', 'caps']:
+        target = 'Ball'
+    if not title_case:
+        target = target.lower()
+    return target
+
+INTERESTING_PROJECTILES = {
+    'wipp': 'Pus',
+    'arfa': 'Flaming Arrow',
+    'jomr': 'Root',
+}
+
+def proj_type(tag_id, title_case=False):
+    proj = INTERESTING_PROJECTILES.get(tag_id)
+    if proj:
+        if not title_case:
+            proj = proj.lower()
+        return proj
+
+def netgame_locations(mesh_header, game_type, palette, tags, data_map):
+    items = []
+    if MarkerType.OBSERVER in palette:
+        for observer in palette[MarkerType.OBSERVER]:
+            for marker_id, marker in observer['markers'].items():
+                items.append({
+                    'observer': True,
+                    'team': observer['team_index'],
+                    'position': normalise_position(mesh_header, marker['pos']),
+                })
+    if MarkerType.PROJECTILE in palette:
+        for proj in palette[MarkerType.PROJECTILE]:
+            projectile = proj_type(proj['tag'])
+            if projectile:
+                for marker_id, marker in proj['markers'].items():
+                    items.append({
+                        'projectile': True,
+                        'type': projectile,
+                        'team': None,
+                        'min_difficulty': marker['min_difficulty'],
+                        'position': normalise_position(mesh_header, marker['pos']),
+                    })
+    if MarkerType.SCENERY in palette:
+        for scenery in palette[MarkerType.SCENERY]:
+            tag_id = scenery['tag']
+            (location, tag_header, tag_data) = loadtags.get_tag_info(tags, data_map, 'scen', tag_id)
+            scen_tag = myth_tags.parse_scenery(tag_data) if tag_data else None
+            if scen_tag:
+                scen_game_types = netgame_flag_info(scenery['netgame_flags'])
+                gt = game_type
+                if gt == 'kotm':
+                    gt = 'terries'
+                if gt == 'koth_tfl':
+                    gt = 'koth'
+                if 'all' in scen_game_types or gt in scen_game_types:
+                    for marker_id, marker in scenery['markers'].items():
+                        scen_tag_info = myth_tags.scen_netgame_info(scen_tag)
+                        if scen_tag_info:
+                            scoring_type, flag_number = scen_tag_info
+                            scoring_key = netgame_scoring_key(scoring_type)
+                            if scoring_key == gt:
+                                items.append({
+                                    'target': True,
+                                    'type': netgame_location_type(gt),
+                                    'flag_number': flag_number if flag_number > 0 else None,
+                                    'team': scenery['team_index'] if scenery['team_index'] >= 0 else None,
+                                    'neutral': scenery['team_index'] < 0,
+                                    'position': normalise_position(mesh_header, marker['pos']),
+                                })
+    return items
+
+class MarkerFlag(enum.Flag):
+    IS_INVISIBLE = enum.auto()
+    IS_STONE = enum.auto()
+    DETONATES_IMMEDIATELY = enum.auto()
+    IS_INVISIBLE_OBSERVER = enum.auto()
+    IS_NETGAME_TARGET = enum.auto()
+    RESPAWNS = enum.auto()
+    MANUAL_RESPAWN = enum.auto()
+    REMEMBERS_LOCATION = enum.auto()
+    USES_MONSTER_ENTRANCE = enum.auto()
+MarkerFlagInfo = {
+    MarkerFlag.IS_INVISIBLE: 'invis',
+    MarkerFlag.IS_STONE: 'stone',
+    MarkerFlag.DETONATES_IMMEDIATELY: 'detonates',
+    MarkerFlag.IS_INVISIBLE_OBSERVER: 'invis_obs',
+    MarkerFlag.IS_NETGAME_TARGET: 'netgame_targ',
+    MarkerFlag.RESPAWNS: 'respawns',
+    MarkerFlag.MANUAL_RESPAWN: 'respawns_manual',
+    MarkerFlag.REMEMBERS_LOCATION: 'respawns_at_death_loc',
+    MarkerFlag.USES_MONSTER_ENTRANCE: 'monster_entrance',
+}
+def marker_flag_info(flag):
+    return [info for f, info in MarkerFlagInfo.items() if f in flag]
+
+# 00000000 0003 0002 28DD(10461) 0000 0000BC4A(48202) 00008CB9(36025) 000005B7(1463)
+#                    m_id           posx            posy            posz
+# [8x00] 0000(00000) 0000 0000 [20x00] 0000        06EA(i=1770) 7916(30998)
+#        yaw angle (/182.05)           player_idx  data_idx       data_id
+MarkerHeadFmt = ('MarkerHead', [
+    ('L', 'flags', MarkerFlag),
+    ('H', 'type', MarkerType),
+    ('H', 'palette_index'),
+    ('H', 'id'),
+    ('H', 'min_difficulty'),
+    ('L', 'pos_x', WORLD_POINT_SF),
+    ('L', 'pos_y', WORLD_POINT_SF),
+    ('l', 'pos_z', WORLD_POINT_SF),
+    ('8x', None),
+    ('H', 'yaw', ANGLE_SF),
+    ('2x', None),
+    ('2x', None),
+    ('20x', None),
+    ('6x', None),
+])
+
+# type flag tag             team pad  netgame_flags unused_flags  unused                   runtime
+# 0003 0004 64776172 [dwar] 0000 0000 0000          FFFF          0000 0000 0000 0000 0000 0000 0002  0000
+MarkerPaletteEntryFmt = ('MarkerPaletteEntry', [
+    ('H', 'type', MarkerType),
+    ('H', 'flags', MarkerPaletteFlag),
+    ('4s', 'marker_tag'),
+    ('h', 'team_index'),
+    ('2x', None),
+    ('L', 'netgame_flags', NetgameFlag),
+    ('10x', None),
+    ('6x', None),
+])
+
+class ParamType(enum.Enum):
+    FLAG = 0
+    STRING = enum.auto()
+    MONSTER_IDENTIFIER = enum.auto()
+    ACTION_IDENTIFIER = enum.auto()
+    ANGLE = enum.auto()
+    INTEGER = enum.auto()
+    WORLD_DISTANCE = enum.auto()
+    FIELD_NAME = enum.auto()
+    FIXED = enum.auto()
+    PROJECTILE = enum.auto()
+    STRING_LIST = enum.auto()
+    SOUND = enum.auto()
+    PROJECTILE_OR_WORLD_POINT_2D = enum.auto() # TFL = WORLD_POINT_2D / SB = PROJECTILE
+    WORLD_POINT_2D = enum.auto()
+    WORLD_RECTANGLE_2D = enum.auto()
+    OBJECT_IDENTIFIER = enum.auto()
+    MODEL_IDENTIFIER = enum.auto()
+    SOUND_SOURCE_IDENTIFIER = enum.auto()
+    WORLD_POINT_3D = enum.auto()
+    LOCAL_PROJECTILE_GROUP_IDENTIFIER = enum.auto()
+    MODEL_ANIMATION_IDENTIFIER = enum.auto()
+
+Difficulty = [
+    'Timid',
+    'Simple',
+    'Normal',
+    'Heroic',
+    'Legendary',
+]
+
+def difficulty(diff):
+    return Difficulty[diff]
+
+def align(align_bytes, value):
+    return (value + (align_bytes-1)) & (align_bytes * -1)
+
+def parse_header(data):
+    return myth_headers.parse_tag(MeshHeaderFmt, data)
+
+def required_plugin(mesh_header):
+    if MeshFlags.REQUIRES_PLUGIN in mesh_header.flags and mesh_header.plugin_name:
+        return mesh_header.plugin_name
+
+def has_single_player_story(game_version, data):
+    if not data:
+        return False
+    mesh_header = parse_header(data)
+    # Long awaited party in TFL isn't marked as single player (secret)
+    if game_version == 1 and mesh_header.pregame_storyline_tag == b'18al':
+        return True
+    if not is_single_player(mesh_header):
+        return False
+    if codec.all_on(mesh_header.pregame_storyline_tag):
+        return False
+    return True
+
+def is_single_player(header):
+    return MeshFlags.SINGLE_PLAYER_MAP in header.flags
+
+def is_complete(header):
+    return MeshFlags.IS_COMPLETE in header.flags
+
+def is_vtfl(header):
+    return MeshFlags.USES_VTFL in header.flags
+
+def cutscenes(game_version, header):
+    return (
+        codec.decode_string(header.cutscene_file_pregame),
+        codec.decode_string(header.cutscene_file_success)
+    )
+
+def get_offset(offset):
+    return myth_headers.TAG_HEADER_SIZE + MESH_HEADER_SIZE + offset
+
+def get_section_data(mesh_header, section, data):
+    offset = f'{section}_offset'
+    size = 'map_action_buffer_size' if section == 'map_actions' else f'{section}_size'
+    start = get_offset(getattr(mesh_header, offset))
+    end = start + getattr(mesh_header, size)
+    return data[start:end]
+
+def parse_palette_entry(entry):
+    return {
+        'flags': entry.flags,
+        'type': entry.type,
+        'tag': codec.String(entry.marker_tag),
+        'team_index': entry.team_index,
+        'netgame_flags': entry.netgame_flags,
+        'markers': OrderedDict(),
+    }
+
+def is_reinforcements(unit_palette):
+    if MarkerPaletteFlag.MUST_USE_VETERANS in unit_palette['flags']:
+        reinforcements = True
+        for marker in unit_palette['markers'].values():
+            if MarkerFlag.IS_INVISIBLE not in marker['flags']:
+                reinforcements = False
+        return reinforcements
+    return False
+
+# Not scientific, could be tweaked
+def mesh_size(mesh_header):
+    if mesh_header.mesh_size < 440000:
+        return 'small'
+    elif mesh_header.mesh_size < 500000:
+        return 'medium'
+    else:
+        return 'large'
+
+def get_level_name(mesh_header, tags, data_map, strip_format=False):
+    level_name_data = loadtags.get_tag_data(
+        tags, data_map, 'stli', codec.decode_string(
+            mesh_header.map_description_string_list_tag
+        )
+    )
+    if not level_name_data:
+        return ''
+    (level_name_header, level_name_text) = myth_headers.parse_text_tag(level_name_data)
+    level_name = myth_headers.parse_stli(level_name_text)[0]
+    if strip_format:
+        return utils.strip_format(level_name)
+    else:
+        return utils.ansi_format(level_name)
+
+def export_overhead(tags, data_map, mesh_header):
+    overhead_data = loadtags.get_tag_data(
+        tags, data_map, '.256', codec.decode_string(
+            mesh_header.overhead_map_collection_tag
+        )
+    )
+    if overhead_data:
+        overhead_hash = hashlib.md5(overhead_data).hexdigest()[:8]
+        return (overhead_data, overhead_hash)
+
+def export_colormap(tags, data_map, mesh_header):
+    cmap_data = loadtags.get_tag_data(
+        tags, data_map, '.256', codec.decode_string(
+            mesh_header.landscape_collection_tag
+        )
+    )
+    if cmap_data:
+        cmap_hash = hashlib.md5(cmap_data).hexdigest()[:8]
+        return (cmap_data, cmap_hash)
+
+def assemble_colormap(mesh_header, cmap_data):
+    SUBMESH_TEXTURE_WIDTH = 256
+
+    pixel_width = mesh_header.submesh_width * SUBMESH_TEXTURE_WIDTH
+    pixel_height = mesh_header.submesh_height * SUBMESH_TEXTURE_WIDTH
+
+    (_, _, cmap_bitmaps) = tag2png.parse_256_tag(cmap_data)
+
+    final_rows = []
+    shadow_rows = []
+    for submesh_y in range(mesh_header.submesh_height):
+        for y in range(SUBMESH_TEXTURE_WIDTH):
+            pixel_row = []
+            shadow_row = []
+            for submesh_x in range(mesh_header.submesh_width - 1, -1, -1):
+                bitmap_index = ((submesh_y * mesh_header.submesh_width) + submesh_x) * 2
+                shadow_index = bitmap_index + 1
+
+                for (idx, row) in [
+                    (bitmap_index, pixel_row), 
+                    (shadow_index, shadow_row)
+                ]:
+                    (name, width, height, rows) = cmap_bitmaps[idx]
+                    for x in range(len(rows[y]) - 1, -1, -1):
+                        row.append(rows[y][x])
+            final_rows.append(pixel_row)
+            shadow_rows.append(shadow_row)
+
+    return (pixel_width, pixel_height, final_rows, shadow_rows)
+
+def get_game_info(mesh_tag_header, mesh_header, level_name, game_type_choice, difficulty_level, game_time=None):
+    game_time_mins = ''
+    if game_time:
+        game_time_mins = f' - {game_time} mins'
+    game_type = NetgameNames[game_type_choice]
+    diff = difficulty(difficulty_level)
+    size = mesh_size(mesh_header)
+    return f"{game_type}: {level_name} ({mesh_tag_header.tag_id}) [{diff}] ({size}){game_time_mins}"
+
+def parse_oak_editor_data(mesh_header, data):
+    editor_data_start = get_offset(mesh_header.editor_data_offset)
+    editor_data_end = editor_data_start + mesh_header.editor_data_size
+    editor_data = data[editor_data_start:editor_data_end]
+    if mesh_header.editor_data_cookie == b'oake':
+        return json.loads(editor_data)
+    elif mesh_header.editor_data_cookie == b'oak\0':
+        return editor_data.hex()
+        # PYTHON-DEPENDENCIES
+        # import cbor2
+        # return cbor2.loads(editor_data)
+    return None
+
+def terrain_color(terrain_type):
+    color = MeshCellTerrainColors.get(terrain_type)
+    if color is None:
+        val = terrain_type.value * 16
+        color = (val, val, val)
+    if len(color) == 3:
+        color += (255,)
+    return color
+
+def bool_color(value):
+    white = (255,255,255,255)
+    black = (0,0,0,255)
+    return white if value else black
+
+def draw_cell(r, alternate, values, color_map):
+    # Draw an 8x8 pixel cell with 2 triangles
+    left = color_map(values[0])
+    right = color_map(values[1])
+    if not left:
+        left = (0,0,0,255)
+    if not right:
+        right = (0,0,0,255)
+    if alternate:
+        # -------
+        # | L / |
+        # |  /  |
+        # | / R |
+        # -------
+        return ([left] * (8 - r)) + ([right] * r)
+    else:
+        # -------
+        # | \ R |
+        # |  \  |
+        # | L \ |
+        # -------
+        return ([left] * r) + ([right] * (8 - r))
+
+
+def parse_mesh_cells(mesh_header, data):
+    mesh_cells = codec.list_codec(mesh_cell_count(mesh_header), MeshCellFmt)(
+        data, offset=get_offset(mesh_header.mesh_offset)
+    )
+    col_count = mesh_header.submesh_width * 32
+    row_count = mesh_header.submesh_height * 32
+    # print(
+    #     f'cells={len(mesh_cells)} '
+    #     f'{col_count} x {row_count}'
+    # )
+    rows = []
+    for y in range(row_count):
+        row = []
+        for x in range(col_count):
+            row_idx = y * col_count + x
+            cell = mesh_cells[row_idx]
+            alternate = (x ^ y) & 1
+            row.append((alternate, cell))
+        rows.append(row)
+
+    cells_hash = hashlib.md5(mesh_cells.original_data).hexdigest()[:8]
+    return rows, cells_hash
+
+def export_cell_pixels_single(mesh_cells, value_map, color_map):
+    width = len(mesh_cells[0])
+    height = len(mesh_cells)
+
+    pixel_rows = []
+    for row in mesh_cells:
+        pixel_row = []
+        for alternate, cell in row:
+            if not value_map:
+                value = cell
+            if callable(value_map):
+                value = value_map(cell)
+            elif isinstance(value_map, str):
+                value = getattr(cell, value_map)
+            pixel_row.append(color_map(value))
+        # Reverse each row, origin is top right
+        pixel_row.reverse()
+        pixel_rows.append(pixel_row)
+
+    return (width, height, pixel_rows)
+
+def export_cell_pixels(mesh_cells, value_map, color_map):
+    width = len(mesh_cells[0]) * 8
+    height = len(mesh_cells) * 8
+
+    pixel_rows = []
+    for row in mesh_cells:
+        for cell_row in range(8):
+            pixel_row = []
+            for alternate, cell in row:
+                if not value_map:
+                    values = cell
+                if callable(value_map):
+                    values = value_map(cell)
+                elif isinstance(value_map, str):
+                    values = getattr(cell, value_map)
+                if not isinstance(values, list) and not isinstance(values, tuple):
+                    values = (values, values)
+                pixel_row += draw_cell(cell_row, alternate, values, color_map)
+            # Reverse each row, origin is top right
+            pixel_row.reverse()
+            pixel_rows.append(pixel_row)
+
+    return (width, height, pixel_rows)
+
+def cell_to_media_values(cell):
+    return [
+        MeshCellFlag.CELL_TRIANGLE0_IS_MEDIA_BIT in cell.flags,
+        MeshCellFlag.CELL_TRIANGLE1_IS_MEDIA_BIT in cell.flags,
+    ]
+
+def export_media_coverage(mesh_cells):
+    return export_cell_pixels(mesh_cells, cell_to_media_values, bool_color)
+
+def height_color_map(max_height, min_height, height_range):
+    return lambda height: tuple(([round((height - min_height) / max(1, height_range) * 255)]*3) + [255])
+
+def cell_height_range(mesh_cells, height_attr='height'):
+    max_height = None
+    min_height = None
+    for row in mesh_cells:
+        for alternate, cell in row:
+            height = getattr(cell, height_attr)
+            if max_height is None or height > max_height:
+                max_height = height
+            if min_height is None or height < min_height:
+                min_height = height
+    height_range = max_height - min_height
+    return max_height, min_height, height_range
+
+def export_terrain_height(mesh_cells, height_attr='height'):
+    max_height, min_height, height_range = cell_height_range(mesh_cells, height_attr)
+    # print(f'max={max_height} min={min_height} range={height_range}')
+    color_map = height_color_map(max_height, min_height, height_range)
+    return export_cell_pixels_single(mesh_cells, height_attr, color_map)
+
+def export_media_height(mesh_cells):
+    return export_terrain_height(mesh_cells, height_attr='media_height')
+
+def export_terrain_below_media(mesh_cells):
+    max_terrain, min_terrain, terrain_range = cell_height_range(mesh_cells, 'height')
+    max_media, min_media, media_range = cell_height_range(mesh_cells, 'media_height')
+
+    def color_map(cell):
+        if MeshCellFlag.CELL_TRIANGLE0_IS_MEDIA_BIT in cell.flags:
+            return (0, 0, 255, 255)
+        elif cell.height < min_media:
+            return (0, 255, 255,255)
+        else:
+            return (0,0,0,255)
+
+    return export_cell_pixels(mesh_cells, None, color_map)
+
+def export_cell_other(mesh_cells):
+    return export_cell_pixels(
+        mesh_cells,
+        lambda cell: MeshCellFlag.VERTEX_IS_MEDIA_BIT in cell.flags,
+        # lambda cell: [MeshCellFlag.CELL_WAS_OR_IS_ON_FIRE_BIT in cell.flags]*2,
+        # lambda cell: [MeshCellFlag.VERTEX_IS_ANIMATED_MEDIA_BIT in cell.flags]*2,
+        # lambda cell: [MeshCellFlag.CELL_HAS_REFLECTION_BIT in cell.flags]*2,
+        # lambda cell: [MeshCellFlag.CELL_IS_NOT_RENDERED_BIT in cell.flags]*2,
+        bool_color
+    )
+
+def export_terrain(mesh_cells):
+    return export_cell_pixels(mesh_cells, 'terrain_type', terrain_color)
+
+def impassable_scenery(mesh_header, palette, tags, data_map):
+    results = {}
+    width, height = mesh_dimensions(mesh_header)
+    if MarkerType.SCENERY in palette:
+        for scenery in palette[MarkerType.SCENERY]:
+            (location, tag_header, tag_data) = loadtags.get_tag_info(
+                tags, data_map, 'scen', scenery['tag']
+            )
+            scen_tag = myth_tags.parse_scenery(tag_data)
+            if myth_tags.scen_terrain_impassable(scen_tag):
+                obje_data = loadtags.get_tag_data(
+                    tags, data_map, 'obje', codec.decode_string(scen_tag.object_tag)
+                )
+                obje_tag = mons_tag.parse_obje(obje_data)
+                max_scale = obje_tag.scale_delta.upper_bound(obje_tag)
+
+                (core_location, core_header, core_data) = loadtags.get_tag_info(
+                    tags, data_map, 'core', codec.decode_string(scen_tag.collection_reference_tag)
+                )
+                core_tag = myth_collection.parse_collection_ref(core_data)
+                seq = myth_collection.sequence(tags, data_map, core_tag.collection_tag, scen_tag.sequence_indexes[0])
+                world_radius = seq['metadata'].radius * 10 * seq['metadata'].pixels_to_world
+                radius = max_scale * (world_radius / 512)
+
+                for marker_id, marker in scenery['markers'].items():
+                    pos_x = marker['pos'][0]
+                    pos_y = marker['pos'][1]
+
+                    # Mark the cell we're in
+                    results[(int(pos_x), int(pos_y))] = True
+
+                    # Work out the bounding radius
+                    x_min = utils.clamp(pos_x - radius, 0, width - 1)
+                    x_max = utils.clamp(pos_x + radius, 0, width - 1)
+                    y_min = utils.clamp(pos_y - radius, 0, height - 1)
+                    y_max = utils.clamp(pos_y + radius, 0, height - 1)
+
+                    # For each cell in a square grid that contains the radius in x and y (o), check if
+                    # any corner of the cell (abcd) is less than radius away from the point (p)
+                    # note, this can be 3x3, 4x4 or larger
+                    # a---b---•---•
+                    # |  o|  o|  o|
+                    # d---c--|•---•
+                    # |  o---p---o|
+                    # •---•--|•---•
+                    # |  o|  o|  o|
+                    # •---•---•---•
+
+                    for x in range(int(x_min), int(x_max) + 1):
+                        for y in range(int(y_min), int(y_max) + 1):
+                            for (x_add, y_add) in [
+                                (0, 0), # a
+                                (1, 0), # b
+                                (1, 1), # c
+                                (0, 1), # d
+                            ]:
+                                if math.dist((pos_x, pos_y), (x + x_add, y + y_add)) < radius:
+                                    results[(x, y)] = True
+
+    results_bin = b''.join([
+        struct.pack('>II', width, height)
+    ] + [struct.pack('>II', x, y) for (x, y) in sorted(results.keys())])
+    results_hash = hashlib.md5(results_bin).hexdigest()[:8]
+    return (results, results_hash)
+
+
+def export_impassable_scenery(mesh_cells, impassables):
+    width = len(mesh_cells[0])
+    height = len(mesh_cells)
+
+    pixel_rows = []
+    for y, row in enumerate(mesh_cells):
+        pixel_row = []
+        for x, col in enumerate(row):
+            if impassables.get((x, y)):
+                pixel_row.append((0,255,0,255))
+            else:
+                pixel_row.append((255,255,255,0))
+        # Reverse each row, origin is top right
+        pixel_row.reverse()
+        pixel_rows.append(pixel_row)
+
+    return (width, height, pixel_rows)
+
+def parse_markers(mesh_header, data):
+    marker_palette_start = get_offset(mesh_header.marker_palette_offset)
+    marker_palette_end = marker_palette_start + mesh_header.marker_palette_size
+    marker_palette_data = data[marker_palette_start:marker_palette_end]
+
+    palette = {}
+    orphans = {
+        'markers': OrderedDict(),
+        'count': 0,
+    }
+    for entry in codec.iter_decode(
+        0, mesh_header.marker_palette_entries,
+        MarkerPaletteEntryFmt, marker_palette_data
+    ):
+        entry_dict = parse_palette_entry(entry)
+        palette_list = palette.get(entry_dict['type'], [])
+        palette_list.append(entry_dict)
+        palette[entry_dict['type']] = palette_list
+
+    if DEBUG_MARKERS:
+        print('Palette')
+        for m_type, type_palette in palette.items():
+            print('DEBUG_MARKERS', m_type, len(type_palette))
+            # for palette_entry in type_palette:
+            #     print(palette_entry['tag'])
+
+    marker_start = get_offset(mesh_header.markers_offset)
+    marker_end = marker_start + mesh_header.markers_size
+    marker_data = data[marker_start:marker_end]
+
+    for idx, mhead in enumerate(codec.iter_decode(
+        0, mesh_header.marker_count,
+        MarkerHeadFmt, marker_data
+    )):
+        (marker, palette_item) = parse_marker_head(mhead, palette, idx)
+        if DEBUG_MARKERS:
+            print('DEBUG_MARKERS', palette_item['type'], idx, palette_item['team_index'], palette_item['tag'], marker['marker_id'])
+        if palette_item:
+            palette_item['markers'][marker['marker_id']] = marker
+        else:
+            if marker['type'] not in orphans['markers']:
+                orphans['markers'][marker['type']] = {}
+            orphans['markers'][marker['type']][marker['marker_id']] = marker
+            orphans['count'] = orphans['count'] + 1
+
+    return (palette, orphans)
+
+def parse_marker_head(mhead, palette, idx):
+    palette_item = None
+    if (mhead.type in palette) and (mhead.palette_index < len(palette[mhead.type])):
+        palette_item = palette[mhead.type][mhead.palette_index]
+
+    marker = {
+        'marker_id': mhead.id,
+        'type': mhead.type,
+        'palette_index': mhead.palette_index,
+        'idx': idx,
+        'tag': palette_item['tag'] if palette_item else None,
+        'flags': mhead.flags,
+        'min_difficulty': mhead.min_difficulty,
+        'facing': mhead.yaw,
+        'pos': (mhead.pos_x, mhead.pos_y, mhead.pos_z)
+    }
+    return (marker, palette_item)
+
+def build_action_backrefs(actions):
+    backrefs = {}
+    for (action_id, action) in actions.items():
+        for param_i, param in enumerate(action['parameters']):
+            for elem_i, element in enumerate(param['elements']):
+                if param['type'] == ParamType.ACTION_IDENTIFIER:
+                    if element in actions:
+                        if element not in backrefs:
+                            backrefs[element] = []
+                        backrefs[element].append((action_id, param['name'], param_i, elem_i))
+    return backrefs
+
+def action_param_is_activator(param):
+    return param in ['acoa', 'acoe', 'acof', 'acos', 'acot', 'acod', 'acer', 'acin', 'acmp', 'trsi']
+
+def encode_map_action_param(game_version, param):
+    param_type = param['type']
+    param_elems = param['elements']
+    num_elems = len(param_elems)
+
+    if param_type == ParamType.STRING:
+        string_enc = codec.encode_string(param_elems[0])
+        elem_count = len(string_enc) + 1
+        align_string_len = align(4, elem_count)
+        elem_struct = f'{align_string_len}s'
+        elem_values = [codec.encode_string(param_elems[0])]
+    elif param_type in [ParamType.SOUND, ParamType.FIELD_NAME, ParamType.PROJECTILE]:
+        elem_count = num_elems
+        elem_struct = num_elems * '4s'
+        elem_values = [codec.encode_string(elem) for elem in param_elems]
+    elif param_type == ParamType.WORLD_POINT_2D:
+        elem_count = num_elems
+        elem_struct = f'{num_elems * 2}L'
+        elem_values = [tuple([round(val * WORLD_POINT_SF) for pair in param_elems for val in pair])]
+    elif param_type == ParamType.WORLD_POINT_3D:
+        elem_count = num_elems
+        elem_struct = f'{num_elems * 3}L'
+        elem_values = [tuple([round(val * WORLD_POINT_SF) for pair in param_elems for val in pair])]
+    elif param_type == ParamType.FIXED:
+        elem_count = num_elems
+        elem_struct = f'{num_elems}L'
+        elem_values = [round(val * FIXED_SF) for val in param_elems]
+    elif param_type == ParamType.INTEGER:
+        elem_count = num_elems
+        elem_struct = f'{num_elems}l'
+        elem_values = param_elems
+    elif param_type == ParamType.WORLD_DISTANCE:
+        elem_count = num_elems
+        elem_struct = f'{num_elems}L'
+        elem_values = [round(val * WORLD_POINT_SF) for val in param_elems]
+    elif param_type == ParamType.FLAG:
+        elem_count = num_elems
+        align_struct_len = align(4, num_elems)
+        num_pad = align_struct_len - num_elems
+        elem_struct = f'{num_elems}?{num_pad}x'
+        elem_values = param_elems
+    else:
+        if param_type == ParamType.ANGLE:
+            elem_values = [round(val * ANGLE_SF) for val in param_elems]
+        else:
+            elem_values = param_elems
+        elem_count = num_elems
+        align_struct_len = align(2, num_elems)
+        num_pad = align_struct_len - num_elems
+        elem_struct = f'{num_elems}H{2 * num_pad}x'
+
+    return struct.pack(
+        f'>H H 4s {elem_struct}',
+        param_type.value, elem_count, codec.encode_string(param['name']),
+        *elem_values
+    )
+
+def encode_map_action_data(game_version, actions):
+    action_data = b''
+    all_param_data = b''
+    param_offset = 0
+    for action_id, action in actions.items():
+        param_data = b''
+        num_params = len(action['parameters'])
+        if action['name']:
+            param_data += encode_map_action_param(game_version, {
+                'type': ParamType.STRING,
+                'name': 'name',
+                'elements': [action['name']]
+            })
+            num_params += 1
+        for param in action['parameters']:
+            param_data += encode_map_action_param(game_version, param)
+
+        this_action_data = (
+            action_id,
+            action['expiration_mode'],
+            action['type'],
+            action['flags'],
+            action['trigger_time_lower_bound'],
+            action['trigger_time_delta'],
+            num_params,
+            len(param_data),
+            param_offset,
+            action['indent']
+        )
+        action_data += codec.encode_data(ActionHeadFmt, this_action_data)
+        all_param_data += param_data
+
+        param_offset = param_offset + len(param_data)
+    return (len(actions), action_data + all_param_data)
+
+def rewrite_action_data(map_action_count, map_action_data, current_mesh_tag_data):
+    mesh_header = parse_header(current_mesh_tag_data)
+    tag_header = myth_headers.parse_header(current_mesh_tag_data)
+
+    # Insert new action data into current data
+    current_action_start = get_offset(mesh_header.map_actions_offset)
+    current_action_end = current_action_start + mesh_header.map_action_buffer_size
+    new_mesh_data = (
+        current_mesh_tag_data[get_offset(0):current_action_start]
+        + map_action_data
+        + current_mesh_tag_data[current_action_end:]
+    )
+    mesh_data_size = len(new_mesh_data)
+
+    # Adjust following sizes and offsets
+
+    # Actions
+    map_action_buffer_size = len(map_action_data)
+
+    # Media coverage
+    media_coverage_region_offset = mesh_header.map_actions_offset + map_action_buffer_size
+
+    # Mesh LOD
+    mesh_LOD_data_offset = media_coverage_region_offset + mesh_header.media_coverage_region_size
+
+    # Connectors
+    connectors_offset = mesh_LOD_data_offset + mesh_header.mesh_LOD_data_size
+
+    # Editor data
+    editor_data_offset = connectors_offset + mesh_header.connectors_size
+
+    new_mesh_header = mesh_header._replace(
+        data_size=mesh_data_size,
+        map_action_count=map_action_count,
+        map_action_buffer_size=map_action_buffer_size,
+        media_coverage_region_offset=media_coverage_region_offset,
+        mesh_LOD_data_offset=mesh_LOD_data_offset,
+        connectors_offset=connectors_offset,
+        editor_data_offset=editor_data_offset
+    )
+    new_mesh_header_data = new_mesh_header.value
+    new_mesh_header_size = len(new_mesh_header_data)
+    new_tag_data_size = new_mesh_header_size + mesh_data_size
+
+    # Adjust tag header size
+    new_tag_header = myth_headers.normalise_tag_header(
+        tag_header,
+        tag_data_size=new_tag_data_size
+    )
+
+    if DEBUG:
+        print(
+            f"""Updated tag values
+                tag_header.tag_data_size = {tag_header.tag_data_size} -> {new_tag_header.tag_data_size}
+                   mesh_header.data_size = {mesh_header.data_size} -> {new_mesh_header.data_size}
+      mesh_header.map_action_buffer_size = {mesh_header.map_action_buffer_size} -> {new_mesh_header.map_action_buffer_size}
+mesh_header.media_coverage_region_offset = {mesh_header.media_coverage_region_offset} -> {new_mesh_header.media_coverage_region_offset}
+        mesh_header.mesh_LOD_data_offset = {mesh_header.mesh_LOD_data_offset} -> {new_mesh_header.mesh_LOD_data_offset}
+           mesh_header.connectors_offset = {mesh_header.connectors_offset} -> {new_mesh_header.connectors_offset}"""
+        )
+
+    return (
+        new_tag_header.value
+        + new_mesh_header_data
+        + new_mesh_data
+    )
+
+def encode_map_actions(mesh_tag_data, actions):
+    tag_header = myth_headers.parse_header(mesh_tag_data)
+    (map_action_count, map_action_data) = encode_map_action_data(myth_headers.game_version(tag_header), actions)
+    return rewrite_action_data(map_action_count, map_action_data, mesh_tag_data)
+
+def parse_map_actions(mesh_header, data):
+    tag_header = myth_headers.parse_header(data)
+    game_version = myth_headers.game_version(tag_header)
+    map_action_start = get_offset(mesh_header.map_actions_offset)
+    map_action_end = map_action_start + mesh_header.map_action_buffer_size
+    map_action_data = data[map_action_start:map_action_end]
+
+    num_actions = mesh_header.map_action_count
+
+    action_head_end = num_actions * ACTION_HEAD_SIZE
+    action_data_end = 0
+    ends = [0]
+    actions = OrderedDict()
+    for action_head in codec.iter_decode(
+        0, num_actions,
+        ActionHeadFmt, map_action_data
+    ):
+        action_data_start = action_head_end + action_head.offset
+        action_data_end = action_data_start + action_head.size
+        action_data = map_action_data[action_data_start:action_data_end]
+
+        param_remain = action_head.num_params
+        param_start = 0
+        name = ''
+        parameters = []
+        while param_remain:
+            param_head_end = param_start + 8
+            param_head_data = action_data[param_start:param_head_end]
+            
+            (param_type, num_elems, param_name) = struct.unpack(">H H 4s", param_head_data)
+
+            param_name = codec.decode_string(param_name)
+
+            if DEBUG_ACTIONS:
+                print(action_head.id, action_head.type, param_head_data.hex(), param_name, param_type, end=' ')
+
+            param_type = ParamType(param_type)
+            scale_factor = None
+
+            tfl = (game_version == 1)
+            if param_type == ParamType.PROJECTILE_OR_WORLD_POINT_2D:
+                param_type = ParamType.WORLD_POINT_2D if tfl else ParamType.PROJECTILE
+            if tfl and param_type == ParamType.WORLD_RECTANGLE_2D:
+                param_type = ParamType.OBJECT_IDENTIFIER
+            if tfl and param_type == ParamType.MODEL_IDENTIFIER:
+                param_type = ParamType.SOUND_SOURCE_IDENTIFIER
+            if tfl and param_type == ParamType.WORLD_POINT_3D:
+                param_type = ParamType.LOCAL_PROJECTILE_GROUP_IDENTIFIER
+
+            if param_type == ParamType.STRING:
+                align_num_elems = align(4, num_elems)
+                param_bytes = align_num_elems
+                param_struct = f'{align_num_elems}s'
+            elif param_type in [ParamType.SOUND, ParamType.FIELD_NAME, ParamType.PROJECTILE]:
+                param_bytes = num_elems * 4
+                param_struct = num_elems * '4s'
+            elif param_type == ParamType.WORLD_POINT_2D:
+                num_elems = (num_elems * 2)
+                param_bytes = num_elems * 4
+                scale_factor = WORLD_POINT_SF
+                param_struct = f'{num_elems}L'
+            elif param_type == ParamType.WORLD_POINT_3D:
+                num_elems = (num_elems * 3)
+                param_bytes = num_elems * 4
+                scale_factor = WORLD_POINT_SF
+                param_struct = f'{num_elems}L'
+            elif param_type == ParamType.FIXED:
+                param_bytes = num_elems * 4
+                scale_factor = FIXED_SF
+                param_struct = f'{num_elems}L'
+            elif param_type == ParamType.INTEGER:
+                param_bytes = num_elems * 4
+                param_struct = f'{num_elems}l'
+            elif param_type == ParamType.WORLD_DISTANCE:
+                param_bytes = num_elems * 4
+                scale_factor = WORLD_POINT_SF
+                param_struct = f'{num_elems}L'
+            elif param_type == ParamType.FLAG:
+                align_num_elems = align(4, num_elems)
+                param_bytes = align_num_elems
+                param_struct = f'{align_num_elems}?'
+            else:
+                if param_type == ParamType.ANGLE:
+                    scale_factor = ANGLE_SF
+                align_num_elems = align(2, num_elems)
+                param_bytes = align_num_elems * 2
+                param_struct = f'{align_num_elems}H'
+
+            param_end = param_head_end + param_bytes
+            param_data = action_data[param_head_end:param_end]
+            param_fmt = f">{param_struct}"
+            if DEBUG_ACTIONS:
+                print(param_type, param_fmt, param_data.hex(), param_bytes, len(param_data))
+            param_elems = struct.unpack(param_fmt, param_data)
+
+            # Post process
+            remainder = None
+            if param_type == ParamType.STRING:
+                remainder = param_elems[0][num_elems:]
+                param_elems = codec.decode_string(param_elems[0][:num_elems])
+            elif param_type in [ParamType.SOUND, ParamType.FIELD_NAME, ParamType.PROJECTILE]:
+                remainder = param_elems[num_elems:]
+                param_elems = [codec.decode_string(elem) for elem in param_elems[:num_elems]]
+            elif param_type == ParamType.FLAG:
+                # Only look at the first byte
+                remainder = param_elems[1:]
+                if len(param_elems):
+                    param_elems = param_elems[0]
+                else:
+                    param_elems = True
+            else:
+                remainder = param_elems[num_elems:]
+                param_elems = param_elems[:num_elems]
+
+            if scale_factor:
+                param_elems = [round(p / scale_factor, 4) for p in param_elems]
+
+            if param_type == ParamType.WORLD_POINT_2D:
+                world_points = []
+                for i in range(0, len(param_elems), 2):
+                    world_points.append((param_elems[i], param_elems[i+1]))
+                param_elems = world_points
+
+            if param_type == ParamType.WORLD_POINT_3D:
+                world_points = []
+                for i in range(0, len(param_elems), 3):
+                    world_points.append((param_elems[i], param_elems[i+1], param_elems[i+2]))
+                param_elems = world_points
+
+            if DEBUG_ACTIONS:
+                print(f'{param_remain:<3} {param_type} [{num_elems}] {param_elems} {remainder}', param_fmt, param_data.hex())
+
+            if param_name == 'name':
+                name = param_elems
+            else:
+                if hasattr(param_elems, '__iter__'):
+                    param_elems = list(param_elems)
+                else:
+                    param_elems = [param_elems]
+
+                parameters.append({
+                    'type': param_type,
+                    'name': param_name,
+                    'elements': param_elems
+                })
+
+            param_start = param_end
+            param_remain = param_remain - 1
+
+        ends.append(action_data_end)
+
+        actions[action_head.id] = {
+            'type': action_head.type,
+            'action_id': action_head.id,
+            'expiration_mode': action_head.expiration_mode,
+            'name': name,
+            'flags': action_head.flags,
+            'trigger_time_lower_bound': action_head.trigger_time_lower_bound,
+            'trigger_time_delta': action_head.trigger_time_delta,
+            'parameters': parameters,
+            'indent': action_head.indent,
+        }
+    action_remainder = map_action_data[max(ends):]
+    return (actions, action_remainder)

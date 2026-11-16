@@ -1,0 +1,16 @@
+{
+  "level": "Fosgarach Ruillick",
+  "map_key": "31306366",
+  "image": "Fosgarach Ruillick.png",
+  "aliases": [
+    "Fosgarach Ruillick"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "ae644b613f55dccb184e8147beb5bef35dd7dfa294b528314c6cce44559193ac",
+  "design": "Fosgarach Ruillick battlefield, cool temperate grey-blue daylight, fine high cloud and layered white cumulus, muted grassy plains fading into soft low mist.",
+  "generation_tool": "built-in image_gen"
+}

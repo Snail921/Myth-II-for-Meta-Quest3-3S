@@ -1,0 +1,16 @@
+{
+  "level": "The Fiend",
+  "map_key": "62757272",
+  "image": "The Fiend.png",
+  "aliases": [
+    "The Fiend"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "3d2a943538a2814aa6bbcaa49f714e4055d9658a6e6c87008c3581802378979a",
+  "design": "Final confrontation with the Fiend, vast brooding charcoal-blue storm canopy with restrained muted warm light below the clouds. Dark brown desolate plain and smoky atmospheric haze, dramatic tragic climax, no giant mountains, fireballs or monsters.",
+  "generation_tool": "built-in image_gen"
+}

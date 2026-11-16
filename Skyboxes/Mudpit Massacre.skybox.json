@@ -1,0 +1,16 @@
+{
+  "level": "Mudpit Massacre",
+  "map_key": "31336d6d",
+  "image": "Mudpit Massacre.png",
+  "aliases": [
+    "Mudpit Massacre"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "9557fe7a59699d59ddb18f8b911c2e640e52b08479ba2586f2c0db264b772cbb",
+  "design": "Mudpit battlefield, dark wet brown low plains, heavy slate-grey rainclouds, a little silver light at the horizon, damp mist. Rain is supplied by the game, do not paint rain streaks.",
+  "generation_tool": "built-in image_gen"
+}

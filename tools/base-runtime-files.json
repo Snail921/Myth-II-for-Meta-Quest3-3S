@@ -1,0 +1,27 @@
+[
+  {
+    "path": "Myth II.exe",
+    "size": 1646592,
+    "sha256": "aa68153d987bf8a17c30bf8c7711d3b5e0a291a6cd1f8630446496715539181c"
+  },
+  {
+    "path": "SMACKW32.DLL",
+    "size": 96256,
+    "sha256": "f9b2fdb5ebc8e659c7ac132c213fcfd2eb059a1195a129121bb68ca21699e5e1"
+  },
+  {
+    "path": "plugins/Patch 1.5 Unity",
+    "size": 9203598,
+    "sha256": "df70f643c2dba135d8ffaf9a1585495690e6cf52a05daae8913f26b67aa014d2"
+  },
+  {
+    "path": "plugins/Patch 1.8.5 Maps",
+    "size": 61262037,
+    "sha256": "f93af24340986ba4df8ca348819515d3660161b0ca102476e6637f5c9f8bfa31"
+  },
+  {
+    "path": "plugins/Patch 1.8.5 Unity",
+    "size": 13359728,
+    "sha256": "a566410ed3b944e5a551cafc714ee252f60fa790f42055a849281baee657ad7a"
+  }
+]

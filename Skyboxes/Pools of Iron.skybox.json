@@ -1,0 +1,16 @@
+{
+  "level": "Pools of Iron",
+  "map_key": "33327473",
+  "image": "Pools of Iron.png",
+  "aliases": [
+    "Pools of Iron"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "5f27ac8e9f16b1b7b00482bb74618106e19122b48382306ea87e5a0c0d4684fd",
+  "design": "Night before the dawn assault at Rhi’anon, indigo sky with thin clouds, one small bright comet with a delicate short tail high above, muted grey-brown barren plains and silver haze. The comet is explicitly in the journal; no extra moons.",
+  "generation_tool": "built-in image_gen"
+}

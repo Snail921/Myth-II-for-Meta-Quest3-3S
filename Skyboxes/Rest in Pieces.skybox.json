@@ -1,0 +1,16 @@
+{
+  "level": "Rest in Pieces",
+  "map_key": "34327269",
+  "image": "Rest in Pieces.png",
+  "aliases": [
+    "Rest in Pieces"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "8866b7226224ade2c10eb1de9583f067ff69c8d4731e1b3db6d6c20cc60b850e",
+  "design": "Rest in Pieces battlefield, pale cool grey-blue overcast with thin brighter gaps, desaturated brown-green plains and low ground fog, quietly ominous.",
+  "generation_tool": "built-in image_gen"
+}

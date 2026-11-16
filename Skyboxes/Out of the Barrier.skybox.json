@@ -1,0 +1,16 @@
+{
+  "level": "Out of the Barrier",
+  "map_key": "33316261",
+  "image": "Out of the Barrier.png",
+  "aliases": [
+    "Out of the Barrier"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "1956d155d8bdbc42c14bd8d89b516528378aefb52768bc5aa2d89b38bcc09633",
+  "design": "Escape across the Barrier desert, cool early daylight after a night rescue. Pale blue sky with thin ivory clouds and restrained low sun, dry sand-brown flat desert fading into haze; cautious hope and exhaustion.",
+  "generation_tool": "built-in image_gen"
+}

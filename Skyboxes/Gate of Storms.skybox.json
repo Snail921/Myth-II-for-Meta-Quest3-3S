@@ -1,0 +1,14 @@
+{
+  "map_display_name": "Gate of Storms",
+  "map_tag": "shma",
+  "image": "Gate of Storms.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "abf11f433bf4b61c8efd285a9535cdeecb041aaaf35d245dec431025ce443b47",
+  "narrative_and_art_direction": "Oct 10 Madrigal, explicit unusually early snow. Cold cloudy winter daylight, snow-covered distant plains and low ridges, dark blue coast toward u=.5 horizon, snow plains other directions. Heavy wintry clouds, diffuse light, no visible sun disk and no near snowflakes."
+}

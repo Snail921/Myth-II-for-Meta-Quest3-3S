@@ -1,0 +1,16 @@
+{
+  "level": "A Long Awaited Party",
+  "map_key": "3331616c",
+  "image": "A Long Awaited Party.png",
+  "aliases": [
+    "A Long Awaited Party"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "091a0973ee4f40050864366d3a0fd7d46968e7f6563e13314267a1cfbd666a8c",
+  "design": "Late May at Myrgard after a desperate stand, clear blue with streaked high cloud, stronger warm afternoon light over desaturated ochre-brown distant plain. Defiant and solemn, no figures or architecture.",
+  "generation_tool": "built-in image_gen"
+}

@@ -1,0 +1,16 @@
+{
+  "level": "UTBx A Vivid Struggle",
+  "map_key": "37307634",
+  "image": "UTBx A Vivid Struggle.png",
+  "aliases": [
+    "UTBx A Vivid Struggle"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "90b1c51c777256e3f2317b8f2c2dff2dac3ae3b035954b9e3a27da707ffc292d",
+  "design": "A Vivid Struggle battlefield, brilliant but natural blue sky with sweeping cirrus and bright white clouds, muted earthy ochre and green flat ground, delicate warm sunlight. Keep terrain restrained not neon.",
+  "generation_tool": "built-in image_gen"
+}

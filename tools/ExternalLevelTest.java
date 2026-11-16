@@ -1,0 +1,15 @@
+package org.mythvr.standalone;
+import android.content.*;import android.content.res.AssetManager;import java.io.*;import java.nio.file.*;import java.util.*;import org.json.*;
+public class ExternalLevelTest {
+ static class C extends ContextWrapper{File dir;AssetManager assets;C(String base,String apk)throws Exception{super(null);dir=new File(base);dir.mkdirs();assets=AssetManager.class.getDeclaredConstructor().newInstance();int cookie=(Integer)AssetManager.class.getMethod("addAssetPath",String.class).invoke(assets,apk);if(cookie==0)throw new IOException("APK assets");}public File getFilesDir(){File f=new File(dir,"internal");f.mkdirs();return f;}public File getExternalFilesDir(String type){return new File(dir,"external");}public AssetManager getAssets(){return assets;}}
+ public static void main(String[] a)throws Exception{
+  C c=new C(a[0],a[1]);List<String[]> rows=LevelAssets.catalog(c);String[] row=null;for(String[] r:rows)if(r[0].equals("6c312020"))row=r;if(row==null||!LevelAssets.external.containsKey(row[0]))throw new AssertionError("external index");
+  long start=System.nanoTime();LevelAssets.activate(c,row);if(LevelAssets.active==null)throw new AssertionError("external staging");LevelAssets.publish(c);String path=new String(Files.readAllBytes(new File(c.getFilesDir(),"active-level-assets.path").toPath()),"UTF-8");if(!path.equals(LevelAssets.active.getAbsolutePath()))throw new AssertionError("native path");
+  for(String name:LevelAssets.REQUIRED)try(InputStream f=LevelAssets.open(c,row[0],name)){if(f.read()<0&&!name.equals("detail-bindings.tsv"))throw new AssertionError("asset empty");}
+  System.out.println("PASS external catalog, verified whole-level staging, Java asset resolution and native path; ms="+(System.nanoTime()-start)/1000000);
+  File manifest=new File(LevelAssets.external.get(row[0]),"manifest.json");byte[] original=Files.readAllBytes(manifest.toPath());try{JSONObject j=new JSONObject(new String(original,"UTF-8"));j.getJSONObject("files").getJSONObject("hd-tint.bin").put("sha256",String.join("",Collections.nCopies(64,"0")));Files.write(manifest.toPath(),j.toString().getBytes("UTF-8"));LevelAssets.activate(c,row);if(LevelAssets.active!=null)throw new AssertionError("corruption accepted");if(new File(c.getFilesDir(),"active-level-assets.path").length()!=0)throw new AssertionError("stale native path");System.out.println("PASS corrupt checksum falls back to whole APK level and clears external path");}finally{Files.write(manifest.toPath(),original);}
+  try{LevelAssets.child(LevelAssets.root(c),"../../escape");throw new AssertionError("path escape");}catch(IOException expected){}
+  File missing=new File(LevelAssets.external.get(row[0]),"hd-tint.bin"),backup=new File(missing.getParentFile(),"hd-tint.saved");Files.move(missing.toPath(),backup.toPath());try{LevelAssets.catalog(c);if(LevelAssets.external.containsKey(row[0]))throw new AssertionError("incomplete accepted");System.out.println("PASS missing asset rejected; APK catalog retained; path traversal rejected");}finally{Files.move(backup.toPath(),missing.toPath());}
+  LevelAssets.catalog(c);LevelAssets.activate(c,row);LevelAssets.publish(c);
+ }
+}

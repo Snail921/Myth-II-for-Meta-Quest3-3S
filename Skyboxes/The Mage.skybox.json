@@ -1,0 +1,16 @@
+{
+  "level": "The Mage",
+  "map_key": "74656173",
+  "image": "The Mage.png",
+  "aliases": [
+    "The Mage"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "949a8b222bdb50e6b0aa1b5ab5e598074d832624842bee74e26c705231534093",
+  "design": "A haunted valley near Kyrand’s tomb, muted blue-grey daylight and high broken clouds with soft silvery light. Low olive-brown plains, still atmospheric haze, solemn mourning mood. Tavern meeting at sunset is a past event, not proof this mission occurs at sunset.",
+  "generation_tool": "built-in image_gen"
+}

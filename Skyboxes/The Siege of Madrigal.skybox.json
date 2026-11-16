@@ -1,0 +1,16 @@
+{
+  "level": "The Siege of Madrigal",
+  "map_key": "32306469",
+  "image": "The Siege of Madrigal.png",
+  "aliases": [
+    "The Siege of Madrigal"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "e5507b07d359c860c37fdd87e61aadca34953be565650f8e795773022f834149",
+  "design": "Diversionary assault one hour after midnight in August, deep navy night, sparse faint stars through moving grey cloud, restrained moonlight. Dark desaturated green-brown plains and low river mist. No sunrise or artificial fires.",
+  "generation_tool": "built-in image_gen"
+}

@@ -1,0 +1,14 @@
+{
+  "map_display_name": "Twice Born",
+  "map_tag": "24b2",
+  "image": "Twice Born.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "9c1b328872e1e1dc38210ee7a711af1478dabe4a149ee39f9b442501ca32f882",
+  "narrative_and_art_direction": "Apr 25 foot of Tharsis volcano, final confrontation near Cloudspine and Ire river. Charcoal and dark brown volcanic plain, distant basalt mountain flanks and dusty gold horizon sector. Dramatic thick charcoal cloud canopy, copper sunlight breaks and restrained ash haze. No lava, fireballs, eruption, army or fantasy vortex."
+}

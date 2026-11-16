@@ -1,0 +1,176 @@
+{
+  "schema": 1,
+  "profiles": [
+    {
+      "id": "1.8.1-434",
+      "sha256": "b89a2737d6bdfd5bdd8a2ad668b2b0d02976225a95ee7469a5c257144233b16c",
+      "image_base": 4194304,
+      "addresses": {
+        "mesh": 5413844,
+        "game_state": 6810624,
+        "tick": 6810660,
+        "rng": 6764604,
+        "actor_pool": 5414688,
+        "object_pool": 5417408,
+        "selection": 5586904,
+        "player": 5418600,
+        "team": 5418604,
+        "collections": 5420244,
+        "monster_definitions": 5416692
+      },
+      "pool_layout": {
+        "stride": 24,
+        "count": 46,
+        "data": 52
+      },
+      "capabilities": {
+        "production_bridge": true,
+        "diagnostic_read": true,
+        "commands": true
+      },
+      "validation": "existing production",
+      "record_sizes": {
+        "actor": 216,
+        "object": 80
+      }
+    },
+    {
+      "id": "1.8.5-471b",
+      "sha256": "aa68153d987bf8a17c30bf8c7711d3b5e0a291a6cd1f8630446496715539181c",
+      "image_base": 4194304,
+      "addresses": {
+        "mesh": 5445144,
+        "game_state": 7073344,
+        "tick": 7073380,
+        "rng": 6978348,
+        "actor_pool": 5448024,
+        "object_pool": 5451324,
+        "selection": 6806960,
+        "player": 5452508,
+        "team": 5452512,
+        "collections": 5455392,
+        "monster_definitions": 5447960
+      },
+      "pool_layout": {
+        "stride": 24,
+        "count": 42,
+        "data": 48
+      },
+      "capabilities": {
+        "production_bridge": false,
+        "diagnostic_read": true,
+        "commands": false
+      },
+      "validation": "PC core state and movement read verified; isolated movement serialization and formation calculation verified; production commands disabled pending full integration",
+      "record_sizes": {
+        "actor": 220,
+        "object": 80
+      },
+      "layout_evidence": {
+        "pool_allocator": "0x4385ad: stride +0x18, data +0x30, high-water +0x2a; inactive pool can have high-water -1",
+        "actor_stride": "0x48154c/0x481ec5: 0xdc = 220 bytes; 1.8.1 uses 216"
+      },
+      "command_bindings": {
+        "validation": "offline-emulation-only",
+        "movement_builder": {
+          "address": 4698908,
+          "ecx": "options",
+          "stack": [
+            "assignmentOptimization",
+            "mode",
+            "unitCount",
+            "slots",
+            "pointCount",
+            "points"
+          ],
+          "verified_assignment_optimization": false
+        },
+        "selection_center": {
+          "address": 4742553,
+          "ecx": "outputCenter",
+          "stack": [
+            "unitCount",
+            "slots"
+          ]
+        },
+        "formation": {
+          "address": 4705607,
+          "eax": "pointCount",
+          "ecx": "center",
+          "stack": [
+            "options",
+            "player",
+            "slots",
+            "unitCount",
+            "points",
+            "output",
+            "facings"
+          ]
+        },
+        "pending_queue": 5507656,
+        "gameplay_version": 5448324,
+        "queue_layout": {
+          "read_cursor": 4,
+          "write_cursor": 8,
+          "capacity": 24,
+          "data": 28
+        },
+        "evidence": [
+          "research/reports/version-185-movement-builder.json",
+          "research/reports/version-185-movement-matrix.json",
+          "research/reports/version-185-formation-verification.json",
+          "research/reports/version-185-adapter-verification.json",
+          "research/reports/version-185-scheduler-verification.json"
+        ],
+        "scheduler": {
+          "address": 4778786,
+          "di": "tickIncrement",
+          "stack": [],
+          "validation": "synthetic mode 2; filter disabled; recorder inactive"
+        },
+        "ready_queue": 5507660,
+        "schedule_tick": 7073400
+      },
+      "actor_wire": {
+        "engine_stride": 220,
+        "wire_stride": 216,
+        "custom_name_source": 202,
+        "custom_name_wire": 198,
+        "custom_name_bytes": 18,
+        "mode": "explicit consumed fields only; not full actor serialization",
+        "evidence": {
+          "custom_name": "0x485aa1",
+          "mana": "0x4b7a72",
+          "original_definition": "0x485a81",
+          "name_index": "0x485abb"
+        }
+      },
+      "bridge_layout": {
+        "collection_stride": 320,
+        "collection_blob": 8,
+        "sequence_table_offset": 132,
+        "sequence_ref_stride": 128,
+        "sequence_data_offset": 64,
+        "bitmap_table_offset": 100,
+        "bitmap_ref_stride": 128,
+        "bitmap_runtime_pointer": 80,
+        "bitmap_pixel_pointer": 44,
+        "palette_count": 24,
+        "palette_table": 16,
+        "palette_pixels": 156,
+        "model_definitions_pointer": 5445984,
+        "model_definition_stride": 32,
+        "actor_custom_name": 202,
+        "evidence": [
+          "research/reports/version-185-collection-verification.json",
+          "research/reports/version-185-live-feature-layouts.json"
+        ],
+        "unverified": [
+          "surface tile binding and pixel plane lookup",
+          "string registry/name lookup changes",
+          "high resolution replacement collections"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+#include "../src/vr/water_flow.h"
+#include <cassert>
+#include <cstdio>
+struct V{float x,y,z;};
+std::vector<V> mesh(bool slope){std::vector<V> v;for(int x=0;x<24;x++)for(int z=0;z<4;z++){auto p=[&](int X,int Z){return V{float(X),slope?-float(std::min(X,4))*.1f:0,float(Z)};};v.insert(v.end(),{p(x,z),p(x+1,z),p(x,z+1),p(x+1,z),p(x+1,z+1),p(x,z+1)});}return v;}
+int main(){auto lake=mesh(false);auto f=buildWaterFlow(lake,1);for(auto a:f)assert(a[0]==0&&a[1]==0);auto river=mesh(true);auto r=buildWaterFlow(river,1);float downstream=0;for(size_t i=0;i<r.size();i++){assert(std::isfinite(r[i][0])&&std::isfinite(r[i][1]));if(river[i].x<3)assert(r[i][0]>.3f);if(river[i].x>5&&river[i].x<9)downstream+=r[i][0];}assert(downstream>1);auto isolated=lake;for(auto&a:isolated)a.z+=100;river.insert(river.end(),isolated.begin(),isolated.end());auto mixed=buildWaterFlow(river,1);for(size_t i=r.size();i<mixed.size();i++)assert(mixed[i][0]==0&&mixed[i][1]==0);auto terraces=mesh(false);for(size_t i=0;i<terraces.size();i+=3){float cx=(terraces[i].x+terraces[i+1].x+terraces[i+2].x)/3;for(int j=0;j<3;j++)terraces[i+j].y=cx<4?1:0;}auto step=buildWaterFlow(terraces,1);float stepMotion=0;for(auto a:step)stepMotion+=a[0];assert(stepMotion>1);puts("PASS: terraces, downhill, connected flat channel, standing lake, disconnected water");}

@@ -1,0 +1,16 @@
+{
+  "level": "The Road North",
+  "map_key": "33316d61",
+  "image": "The Road North.png",
+  "aliases": [
+    "The Road North"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "97ccbc65c1d76e50584960c7d829130462d1ab126886c634f08dbfba03877a90",
+  "design": "June at the edge of the Dire Marsh, humid rain-heavy green-grey atmosphere, layered dark rain clouds with a faint silver break. Flat dark olive wetland merging into low fog, no foreground rain strokes.",
+  "generation_tool": "built-in image_gen"
+}

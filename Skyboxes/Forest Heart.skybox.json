@@ -1,0 +1,16 @@
+{
+  "level": "Forest Heart",
+  "map_key": "33316668",
+  "image": "Forest Heart.png",
+  "aliases": [
+    "Forest Heart"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "4c818cdadb3bdce4102700b09963eadc8ac4f4761ad8388caca1318fc5b23ce0",
+  "design": "May spring on the edge of Forest Heart; fresh blue sky with beautiful thick white clouds and gentle sunlight, muted moss and olive plains dissolving into humid forest haze. Peace threatened by Soulblighter, no foreground treetops.",
+  "generation_tool": "built-in image_gen"
+}

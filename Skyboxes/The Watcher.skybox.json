@@ -1,0 +1,16 @@
+{
+  "level": "The Watcher",
+  "map_key": "33326d61",
+  "image": "The Watcher.png",
+  "aliases": [
+    "The Watcher"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "4d7deb864194dab39ce9744d75da88a2ce9d025c0dc5977b3c69d0e6adf2b0bb",
+  "design": "After the midnight Gjol battle, rain-soaked Dire Marsh under a deeply overcast blue-grey sky, weak early light through cloud, dark moss-green flat terrain fading into mist. Grim retribution, no figures or stone giant.",
+  "generation_tool": "built-in image_gen"
+}

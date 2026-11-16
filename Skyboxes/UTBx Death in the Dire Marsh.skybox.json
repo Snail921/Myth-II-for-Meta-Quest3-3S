@@ -1,0 +1,16 @@
+{
+  "level": "UTBx Death in the Dire Marsh",
+  "map_key": "35306469",
+  "image": "UTBx Death in the Dire Marsh.png",
+  "aliases": [
+    "UTBx Death in the Dire Marsh"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "2521e2c58fa46328affe2f1d87dfb5e59d7cb1f313a01c471b5c9b2c7a72549b",
+  "design": "Dire Marsh battlefield, dense green-grey humid cloud cover, diffuse cool daylight, flat dark moss-green wetland blending into fog and grey distant water.",
+  "generation_tool": "built-in image_gen"
+}

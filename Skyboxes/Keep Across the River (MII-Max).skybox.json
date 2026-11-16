@@ -1,0 +1,16 @@
+{
+  "level": "Keep Across the River (MII-Max)",
+  "map_key": "35356b6d",
+  "image": "Keep Across the River (MII-Max).png",
+  "aliases": [
+    "Keep Across the River (MII-Max)"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "647d71292a3ecdb1ebefe4e727a20318a33a8a0ddf05f163703bdf296844c7f4",
+  "design": "Keep Across the River battlefield, blue sky with tall soft white clouds and warm afternoon light, low olive grassland and a subdued blue-grey water horizon in haze. No castle.",
+  "generation_tool": "built-in image_gen"
+}

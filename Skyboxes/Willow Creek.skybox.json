@@ -1,0 +1,14 @@
+{
+  "map_display_name": "Willow Creek",
+  "map_tag": "l1  ",
+  "image": "Willow Creek.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "ee347be411d196f2dcb7050c4deb67677b0d0c6107fdb338d593738310a652d2",
+  "narrative_and_art_direction": "Aug 25 morning before midday. Clear late-summer blue sky, delicate wispy white clouds. Peaceful rolling green wooded plains, soft olive grass distant hills. Small sun."
+}

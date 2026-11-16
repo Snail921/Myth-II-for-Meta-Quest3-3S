@@ -1,0 +1,14 @@
+{
+  "map_display_name": "With Friends Like These",
+  "map_tag": "14tr",
+  "image": "With Friends Like These.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "04e3117f01e8bcefcafac68bbefc87e53b5e11e920f3b192b39fc3a9def387a3",
+  "narrative_and_art_direction": "Feb 1 Twelve Duns, Trow territory. Weather/time unspecified; actual terrain bare earthy brown, NOT snowy. Windswept rocky ochre and reddish brown plateau, distant low mesas and mountains, steel blue winter sky and pale high clouds. Cool diffuse daylight."
+}

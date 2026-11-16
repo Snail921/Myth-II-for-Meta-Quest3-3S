@@ -1,0 +1,16 @@
+{
+  "level": "UTBx Carnage",
+  "map_key": "33306363",
+  "image": "UTBx Carnage.png",
+  "aliases": [
+    "UTBx Carnage"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "f5b10ee8f56846c76f45627681f34d5c1b3a997cf24ad206209516103196fd92",
+  "design": "Carnage battlefield, crisp cool daylight with strong blue sky and sculpted white clouds, muted olive grass and grey-brown flats under gentle haze. Broad readable horizon.",
+  "generation_tool": "built-in image_gen"
+}

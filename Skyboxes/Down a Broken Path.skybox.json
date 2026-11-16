@@ -1,0 +1,14 @@
+{
+  "map_display_name": "Down a Broken Path",
+  "map_tag": "le3e",
+  "image": "Down a Broken Path.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "b3143f2c773dd216b7239601baef8ed7a1a25f5813022ccdc89050a1e8adbdfc",
+  "narrative_and_art_direction": "Aug 26 after a rainy night. Time not specified; artistic daylight choice. Rich blue sky and thick dimensional white cumulus clouds with soft grey undersides. Rolling green forested hills, distant river valley, fresh late-summer landscape. Small sun."
+}

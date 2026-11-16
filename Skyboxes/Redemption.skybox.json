@@ -1,0 +1,14 @@
+{
+  "map_display_name": "Redemption",
+  "map_tag": "17dm",
+  "image": "Redemption.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "e30012168859a048abaabf56e85e1c42b4d416807a867c4a52639f6d9d3bf87b",
+  "narrative_and_art_direction": "Mar 2 Muirthemne after coronation, attack hours later. Warm sandy desert city region without drawing buildings. Muted tan plains and low weathered ridges, hopeful golden opening in layered clouds with distant darker cloudbank. Pale warm blue sky. Time is artistic, not literal journal claim."
+}

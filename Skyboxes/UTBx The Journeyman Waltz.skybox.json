@@ -1,0 +1,16 @@
+{
+  "level": "UTBx The Journeyman Waltz",
+  "map_key": "32386773",
+  "image": "UTBx The Journeyman Waltz.png",
+  "aliases": [
+    "UTBx The Journeyman Waltz"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "c5c9c877063c71058dcb5b8ad26398396c9d03762881d456a2aa21c59abe7a4b",
+  "design": "Graveyard countryside battlefield, atmospheric cool dusk-blue sky, wispy pale clouds and dim moonlight, dark muted olive earth under low mist. No gravestones or other nearby objects.",
+  "generation_tool": "built-in image_gen"
+}

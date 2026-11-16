@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+build/
+UserData/
+tools/runtime/
+tools/downloads/
+research/extracted/
+research/fixtures/
+*.apk
+*.iso
+*.exe
+*.dll
+*.keystore
+*.jks
+*.log
+runtime-seed.tar

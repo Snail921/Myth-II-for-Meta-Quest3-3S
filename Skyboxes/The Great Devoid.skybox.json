@@ -1,0 +1,16 @@
+{
+  "level": "The Great Devoid",
+  "map_key": "33326465",
+  "image": "The Great Devoid.png",
+  "aliases": [
+    "The Great Devoid"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "5c6dd6c79700093f36da960187e82114b46175175d4d9114cbd2cbe290cb8b32",
+  "design": "Morning after Balor falls, somber luminous pale blue sky with shredded grey clouds and restrained dawn warmth, a very faint small comet, dusty grey-brown plain fading into haze. End-of-war dread and release, no giant chasm painted into sky.",
+  "generation_tool": "built-in image_gen"
+}

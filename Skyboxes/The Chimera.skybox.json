@@ -1,0 +1,16 @@
+{
+  "level": "The Chimera",
+  "map_key": "63687266",
+  "image": "The Chimera.png",
+  "aliases": [
+    "The Chimera"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "bc1178606f00d9938aa972431bbd8b59a1b10470a922a0f5e702fc5918c69796",
+  "design": "Approach to a sorceress stronghold in a cold hostile landscape, pale snow haze over muted grey ground, heavy steel-blue clouds, one soft cold break of light. Demonic invocation and final assault lend ominous scale without literal monsters or magical symbols.",
+  "generation_tool": "built-in image_gen"
+}

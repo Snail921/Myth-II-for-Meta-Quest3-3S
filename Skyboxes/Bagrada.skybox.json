@@ -1,0 +1,16 @@
+{
+  "level": "Bagrada",
+  "map_key": "33306261",
+  "image": "Bagrada.png",
+  "aliases": [
+    "Bagrada"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "0939225d3dca26f25ef7342a410da2f38d916b0df525924999e46dea0cdb9466",
+  "design": "November Cloudspine pass in hard snowfall; dense soft silver-grey overcast, cold diffuse illumination, low desaturated snowy terrain dissolving into white mist. No dramatic peaks, no painted foreground snowflakes; runtime provides snow.",
+  "generation_tool": "built-in image_gen"
+}

@@ -1,0 +1,16 @@
+{
+  "level": "The Warrior",
+  "map_key": "63687274",
+  "image": "The Warrior.png",
+  "aliases": [
+    "The Warrior"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "474680e6e699778284b3c0e0efb1c38f5d80cf8a139ecbef2741f6ed0e3b92be",
+  "design": "Ruewood woodland country under a fresh blue daytime sky, broad white cumulus building at the horizon, distant soft forest-green plains. A rescue mission as the Hive threatens peaceful forest inhabitants; calm light with gathering tension.",
+  "generation_tool": "built-in image_gen"
+}

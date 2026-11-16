@@ -1,0 +1,16 @@
+{
+  "level": "The Healer",
+  "map_key": "30316869",
+  "image": "The Healer.png",
+  "aliases": [
+    "The Healer"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "ab5c8f985fa9f9eaf8d5b0e35ef9b85e3dffb28c11034cfce7a4ac23160fd549",
+  "design": "Afternoon deep blue sky with sparse muted wisps; subdued olive-grey horizon haze; compact bright sun retained for terrain readability.",
+  "generation_tool": "built-in image_gen"
+}

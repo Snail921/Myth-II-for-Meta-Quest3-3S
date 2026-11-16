@@ -1,0 +1,14 @@
+{
+  "map_display_name": "A Long Awaited Drinking Party",
+  "map_tag": "03hp",
+  "image": "A Long Awaited Drinking Party.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "086199b704ae0f01b23e7b655e2eb2671f5d4ce5413e6b3e1e24dea514c08d92",
+  "narrative_and_art_direction": "Secret outdoor map with no journal; artistic daytime choice using same green river-valley region as Down a Broken Path. Cheerful blue sky, scattered soft white clouds, green distant woodland plains and rounded low hills. No party objects."
+}

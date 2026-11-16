@@ -1,0 +1,17 @@
+{
+  "level": "The Baron ",
+  "map_key": "7777326e",
+  "image": "The Baron .png",
+  "aliases": [
+    "The Baron ",
+    "The Baron"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "c1ed228585c2db805bfc728ae23d2e493feb35a4ddbefb8e5e0fd14bfc000888",
+  "design": "Secret rendezvous at Cavanaugh in the evening, darkening blue-grey rainy coastal sky, faint amber twilight band under layered clouds, subdued wet brown-green plains and grey water in haze. No bright daytime sun.",
+  "generation_tool": "built-in image_gen"
+}

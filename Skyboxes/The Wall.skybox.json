@@ -1,0 +1,14 @@
+{
+  "map_display_name": "The Wall",
+  "map_tag": "22da",
+  "image": "The Wall.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "3894241bbb73e8790a67ed687cd26b78d30d3c96c1ab98fcbfe63678bcf0001f",
+  "narrative_and_art_direction": "Apr 23 Lesotho Dam, scouts met this morning. Artistic late spring daytime, broad olive yellow valley with distant foothills and reservoir atmosphere. Blue-grey layered clouds and muted warm sun breaks. No dam or near water wall; only far landscape."
+}

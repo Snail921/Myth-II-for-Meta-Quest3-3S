@@ -1,0 +1,16 @@
+{
+  "level": "UTBx Ground Zero (Dark)",
+  "map_key": "3231677a",
+  "image": "UTBx Ground Zero (Dark).png",
+  "aliases": [
+    "UTBx Ground Zero (Dark)"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "d09b3a053d0c93594f8203f7257e8f1224b0bb57625fd197eb685bd3cc64c89e",
+  "design": "Ground Zero battlefield, brooding storm-grey canopy, muted green-brown muddy plains fading into rain haze, subtle brighter opening in clouds. No explosion or mushroom cloud.",
+  "generation_tool": "built-in image_gen"
+}

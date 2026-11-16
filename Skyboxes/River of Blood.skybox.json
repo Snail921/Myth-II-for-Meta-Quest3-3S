@@ -1,0 +1,16 @@
+{
+  "level": "River of Blood",
+  "map_key": "33327472",
+  "image": "River of Blood.png",
+  "aliases": [
+    "River of Blood"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "f7042c4df65af10f78b23409e28985edee9ef2d1f5823fcbc0f784485e93e4a9",
+  "design": "July outside ruined Trow Rhi’anon; bleak cold-looking daytime despite summer, grey-blue clouds above desaturated barren brown plains, diffuse pale sun. Menacing empty atmosphere, no buildings.",
+  "generation_tool": "built-in image_gen"
+}

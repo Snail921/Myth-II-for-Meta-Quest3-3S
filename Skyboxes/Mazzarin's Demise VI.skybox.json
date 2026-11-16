@@ -1,0 +1,16 @@
+{
+  "level": "Mazzarin's Demise VI",
+  "map_key": "30306d65",
+  "image": "Mazzarin's Demise VI.png",
+  "aliases": [
+    "Mazzarin's Demise VI"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "23c9a81441141ac41d6140327318c8aad091c7a494be8db38f645bf1b621c74b",
+  "design": "The last defense of Mazzarin in the Age of Splendor against an army of the dead. Slate-blue gathering storm, pale gold break in cloud above a muted olive-brown distant plain. Restrained epic sorcery mood without visible magic or buildings; time/weather artistic interpretation.",
+  "generation_tool": "built-in image_gen"
+}

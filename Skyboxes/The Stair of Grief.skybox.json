@@ -1,0 +1,14 @@
+{
+  "map_display_name": "The Stair of Grief",
+  "map_tag": "12mp",
+  "image": "The Stair of Grief.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "0146a84234a3151da1194b6cc98c9bfcbe2250c1782fd7a406891403bd86cbd4",
+  "narrative_and_art_direction": "Dec 22 afternoon, sleet snow fierce winds in Stair of Grief mountain pass. Cold blizzard cloud masses, diffuse overcast grey light, very distant snowbound rocky peaks rising modestly above horizon, glacial valley white and slate grey. Atmospheric low visibility, no foreground snow particles."
+}

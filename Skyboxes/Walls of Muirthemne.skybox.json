@@ -1,0 +1,14 @@
+{
+  "map_display_name": "Walls of Muirthemne",
+  "map_tag": "15cm",
+  "image": "Walls of Muirthemne.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "1eab0fb21c2c3b43aeaf3855031fcf894fa6f05012b54a4c3869d2a725d7bc6e",
+  "narrative_and_art_direction": "Feb 26 desert of Muirthemne, sand-buried ruins. Hour unspecified, artistic pale warm desert morning. Dusty beige sandy plains, distant low dunes and weathered sandstone ridges, pale blue sky and high wispy clouds, warm haze. No nearby buildings or ruin silhouettes."
+}

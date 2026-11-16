@@ -1,0 +1,14 @@
+{
+  "map_display_name": "Salvation",
+  "map_tag": "cr01",
+  "image": "Salvation.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "928c6e8dd4dae81791d6aa3aed5e9cb8bdfb1ce2bfe79377e5dc6bb96b6d4e54",
+  "narrative_and_art_direction": "Aug 25 after sundown, persistent rain confirmed by next journal. Dark rainy night. Heavy layered rainclouds with faint moon glowing behind them. Deep muted forest green plains and low wooded ridges, blue-black haze. No foreground raindrops."
+}

@@ -1,0 +1,16 @@
+{
+  "level": "Crow's Bridge",
+  "map_key": "33306362",
+  "image": "Crow's Bridge.png",
+  "aliases": [
+    "Crow's Bridge"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "edf83f3ba44febfd2d61899284da86080ed5854a89e74c798ad102c0b6ae7241",
+  "design": "August morning in northern rural country, clear rich blue with loosely scattered white summer clouds and warm sun. Flat muted olive meadows, warm earth and light river haze. A village vigil before the war reaches it.",
+  "generation_tool": "built-in image_gen"
+}

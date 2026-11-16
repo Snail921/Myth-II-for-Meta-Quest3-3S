@@ -1,0 +1,16 @@
+{
+  "level": "Seven Gates",
+  "map_key": "33317367",
+  "image": "Seven Gates.png",
+  "aliases": [
+    "Seven Gates"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "00fa4f8f86cf8144447cc223daac8f0795ee7cc4e8b80c1adf902e657a42f516",
+  "design": "December flooded pass warmed by continuing distant volcanic activity. Pale winter daylight filtered through grey ash clouds, muted amber-grey haze along low wet dark brown terrain. No snowstorm, no towering volcano.",
+  "generation_tool": "built-in image_gen"
+}

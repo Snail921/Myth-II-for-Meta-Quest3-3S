@@ -1,0 +1,16 @@
+{
+  "level": "UTBx Crusade in the Cloudspine",
+  "map_key": "38306369",
+  "image": "UTBx Crusade in the Cloudspine.png",
+  "aliases": [
+    "UTBx Crusade in the Cloudspine"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "4f87b8d85ff4f6515fba149db17f18a2f09ea7dae09ae2b10c89fd0cb0d39437",
+  "design": "Cloudspine battlefield, cold clear high-altitude blue sky and wispy ivory cloud, pale sunlight, cool grey-brown flat distant ground dissolving into mist. No high mountains.",
+  "generation_tool": "built-in image_gen"
+}

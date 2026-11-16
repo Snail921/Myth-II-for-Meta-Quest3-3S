@@ -1,0 +1,16 @@
+{
+  "level": "Sons of Myrgard",
+  "map_key": "33316d79",
+  "image": "Sons of Myrgard.png",
+  "aliases": [
+    "Sons of Myrgard"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "38eba164831078d782e4f5d84403732e232078bc7173bdf23bb1b05336a89898",
+  "design": "Late May near occupied dwarven homelands. Broad blue sky under slowly gathering cumulus, dry brown and olive plains, warm sun and distant dusty haze. Brave bittersweet homecoming, no buildings or peaks.",
+  "generation_tool": "built-in image_gen"
+}

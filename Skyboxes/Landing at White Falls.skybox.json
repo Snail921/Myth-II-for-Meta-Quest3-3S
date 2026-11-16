@@ -1,0 +1,14 @@
+{
+  "map_display_name": "Landing at White Falls",
+  "map_tag": "10la",
+  "image": "Landing at White Falls.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "ae8bec22beae74d8fad355bfd8181899b1dcf4bb2f946c2c1009f15f0a882d4f",
+  "narrative_and_art_direction": "Nov 16 landing near White Falls on Meander river. Hour unspecified, artistic late-autumn daylight. Broad wet grey stony river valley and muted green brown distant foothills. Pale silver layered clouds, occasional cold blue opening, gentle golden diffuse brightness. No buildings or boats."
+}

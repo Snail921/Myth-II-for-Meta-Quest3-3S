@@ -1,0 +1,14 @@
+{
+  "map_display_name": "A Murder of Crows",
+  "map_tag": "20sc",
+  "image": "A Murder of Crows.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "d221e219931ea0d4ee98d601ee592d6032a8f284e2c9b65dc8bd703d2b9f75bb",
+  "narrative_and_art_direction": "Apr 21 Soulblighter camp west of Cloudspine, captive for nine hours. Hour unspecified; dark charcoal terrain motivates artistic pre-dawn twilight. Ominous slate purple cloud layers, thin muted amber light on horizon, dark barren basin and distant mountain foothills. No tents, crows, fires or battle figures."
+}

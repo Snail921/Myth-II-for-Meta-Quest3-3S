@@ -1,0 +1,14 @@
+{
+  "map_display_name": "Shiver",
+  "map_tag": "23b1",
+  "image": "Shiver.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "ec75ef7f8807222c93b39b285de3c8a005937190427eedff08945fb31734ed65",
+  "narrative_and_art_direction": "Apr 25 south of Silvermines, all-day pursuit through ravines. Artistic late afternoon, earthy ochre rust broken lands and distant badland ridges, sculpted moody cloudbank with pale gold sunlight and blue shadows. No giant foreground rock formations."
+}

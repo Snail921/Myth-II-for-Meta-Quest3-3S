@@ -1,0 +1,17 @@
+{
+  "level": "UTBx If I Had a Trow... ",
+  "map_key": "31316465",
+  "image": "UTBx If I Had a Trow... .png",
+  "aliases": [
+    "UTBx If I Had a Trow... ",
+    "UTBx If I Had a Trow..."
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "a3382d3470d8c6da2edfd38ddc82d115d214b04771a1654eee746042ecd28bac",
+  "design": "Dry desert battlefield, cloudless deep blue sky and a single fierce high sun, ochre-tan low flat desert merging into pale heat haze, no dunes taller than the horizon.",
+  "generation_tool": "built-in image_gen"
+}

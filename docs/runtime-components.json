@@ -1,0 +1,325 @@
+{
+  "status": "development inventory; binaries not published; source/license mapping incomplete",
+  "components": [
+    {
+      "path": "assets/box64/box64-0.4.4.tzst",
+      "size": 4540371,
+      "sha256": "e1a34fed50bb38ef7fbf51ad5e5b9a76ec4c8178f9cfb4b9f6def0497f2f446c"
+    },
+    {
+      "path": "assets/container_pattern.tzst",
+      "size": 7399363,
+      "sha256": "8ae3a4fee33e86da26826395650bb07c6f49ce94629ea4b9442bc633b6b8ca33"
+    },
+    {
+      "path": "assets/dxwrapper/cnc-ddraw-6.6/ddraw.tzst",
+      "size": 166133,
+      "sha256": "eabb2d59ce7060767996d0c9597ee8772059126a3af01698e59a5e7905e49867"
+    },
+    {
+      "path": "assets/dxwrapper/d7vk-1.11.tzst",
+      "size": 2839791,
+      "sha256": "c737c5ec4c6d4bbbad4e9eafdcc22efda34ae4c274713b40246b3a5fb472c05d"
+    },
+    {
+      "path": "assets/dxwrapper/d8vk-1.0.tzst",
+      "size": 1851455,
+      "sha256": "da30a104f83f619214a3bc67c971434837e1a11ca30703d0f79041a93f2be246"
+    },
+    {
+      "path": "assets/dxwrapper/dxvk-1.10.3.tzst",
+      "size": 3554248,
+      "sha256": "18ed7c263e0d52c4bbd0e7345b4f22908c10966f37d7d6d80c639ec45123075a"
+    },
+    {
+      "path": "assets/dxwrapper/dxvk-2.4.1.tzst",
+      "size": 4322727,
+      "sha256": "897cc48500241006c15c62f200e9a6e1ea8a674bd285da25df6f68fdcdbfe42e"
+    },
+    {
+      "path": "assets/dxwrapper/vkd3d-2.14.1.tzst",
+      "size": 2359119,
+      "sha256": "354b43b84df136683c7ad9cb80e125b4a357de7459fab9ac8b56d5fe4a617687"
+    },
+    {
+      "path": "assets/graphics_driver/gladio-1.1.tzst",
+      "size": 107293,
+      "sha256": "925a492ca58d4670271aabe6c6aaeef0df1e22932955025afb3fe23f26442ac3"
+    },
+    {
+      "path": "assets/graphics_driver/turnip-26.2.0.tzst",
+      "size": 2659862,
+      "sha256": "1e5bd643d64b450960ea3208cc96599a4de577f178e9ba0843b1c37083ce50d2"
+    },
+    {
+      "path": "assets/graphics_driver/virgl-23.1.9.tzst",
+      "size": 3481269,
+      "sha256": "614b1edc8e47c57b2cbb2d96f9c7ab5f5b1a89038de618a58b2faf9c64380e09"
+    },
+    {
+      "path": "assets/graphics_driver/vortek-2.1.tzst",
+      "size": 124813,
+      "sha256": "505e5089371d8698184a3722d8672628b8ef1aa0a201efa6bf1f8d6163cc08cf"
+    },
+    {
+      "path": "assets/graphics_driver/zink-22.2.5.tzst",
+      "size": 3874501,
+      "sha256": "b9fc365f894a4b837cfd97861972e95c680b5e744691b508f49b9a06d9e3153c"
+    },
+    {
+      "path": "assets/pulseaudio.tzst",
+      "size": 45548,
+      "sha256": "a31d331e1f1ec514d8287b830c1668c1d65a9b34c21010bd918eca43d2f4947f"
+    },
+    {
+      "path": "assets/rootfs.tzst",
+      "size": 65254618,
+      "sha256": "aeea2938cc63b0708cb2da999b5a0e3915229b6ab4eac13de061c87f34ffc1dc"
+    },
+    {
+      "path": "assets/rootfs_patches.tzst",
+      "size": 4174031,
+      "sha256": "49ab7a5158ef7ccff5ae96dfd539df48483454ed11c0d6788a4f95e0104c864a"
+    },
+    {
+      "path": "assets/wincomponents/direct3d.tzst",
+      "size": 31207067,
+      "sha256": "149d55436e050bfa3fe8caf650cb97ddb2bc9fa99cd96869bd2bc4977b708fb5"
+    },
+    {
+      "path": "assets/wincomponents/directmusic.tzst",
+      "size": 337109,
+      "sha256": "eb906732d14766641edfae0b2d722c36f4632de7fa321a5844037115b513b77e"
+    },
+    {
+      "path": "assets/wincomponents/directplay.tzst",
+      "size": 429728,
+      "sha256": "70eb81449230af66286f5b4d5922dca13057600c35d4cdfe91930e966c2386d9"
+    },
+    {
+      "path": "assets/wincomponents/directshow.tzst",
+      "size": 2209278,
+      "sha256": "aa682b7ee6e5903e4571bfe5a8dc9b05d0a9f05cd860cfdc810f2ddd3745e9b4"
+    },
+    {
+      "path": "assets/wincomponents/directsound.tzst",
+      "size": 434853,
+      "sha256": "72f0e880eef1387a55602ac02b07ef26778d23c2f70d931bd2d13e92f8dc99d4"
+    },
+    {
+      "path": "assets/wincomponents/vcrun2005.tzst",
+      "size": 1190943,
+      "sha256": "6ae9f3c22fecbc5dc2cee99354ff52587523663275f02bdfbf4ed36b91d2d90a"
+    },
+    {
+      "path": "assets/wincomponents/vcrun2010.tzst",
+      "size": 1038731,
+      "sha256": "9def7b4b5c31c839d155f05e372e0e9ce4968b57f815c1abf93b7735e7d0ceb7"
+    },
+    {
+      "path": "assets/wincomponents/wmdecoder.tzst",
+      "size": 1717472,
+      "sha256": "a2ca365cc43265680ee71a7b13a4626ed02368feec135571fb841c7b4abf62d1"
+    },
+    {
+      "path": "assets/wincomponents/xaudio.tzst",
+      "size": 2681573,
+      "sha256": "128ab3f25a74ff371d381cc0e028e8e2101f72e434ff46b85f629921ee0e2683"
+    },
+    {
+      "path": "lib/arm64-v8a/libc++_shared.so",
+      "size": 1292896,
+      "sha256": "4e2dcc0b0beae5c9dcbf25d90400a4de203cbffbfae6526d4be7befa88a77c09"
+    },
+    {
+      "path": "lib/arm64-v8a/libfile_redirect_hook.so",
+      "size": 3968,
+      "sha256": "516fc422ca91d97968db6f89407909c6292aceb4fa7dee09aab446155e42142c"
+    },
+    {
+      "path": "lib/arm64-v8a/libFLAC.so",
+      "size": 238784,
+      "sha256": "424cc5cc2ba48e0f451275147f43301eec0d372d6e8aa0a4de8970cf299ef2f0"
+    },
+    {
+      "path": "lib/arm64-v8a/libfluidsynth-assetloader.so",
+      "size": 6136,
+      "sha256": "115f5c16ea4d62286d82820de5206abd5add4627eb66ce3fd0da23574c5f5569"
+    },
+    {
+      "path": "lib/arm64-v8a/libfluidsynth.so",
+      "size": 444744,
+      "sha256": "249b10a127da856f8de3e9717cb087009cc652ee91f6b2228eac5fa706372d77"
+    },
+    {
+      "path": "lib/arm64-v8a/libgio-2.0.so",
+      "size": 1583888,
+      "sha256": "1b833fb967767fa19549879ad91b84411784c1b1df52d1078ba6e512dcca9be2"
+    },
+    {
+      "path": "lib/arm64-v8a/libgladiorenderer.so",
+      "size": 290744,
+      "sha256": "13c6bb8f1ce2cd56cd7fdad69e861135ea1b480321c753f20e9f230d32a5ce33"
+    },
+    {
+      "path": "lib/arm64-v8a/libglib-2.0.so",
+      "size": 2200640,
+      "sha256": "6e0ea0622670ae797551c135630f624855a975382042e1199a5c45a34e4ea4c7"
+    },
+    {
+      "path": "lib/arm64-v8a/libgmodule-2.0.so",
+      "size": 11456,
+      "sha256": "789b355570ecb8964a3352cf079b1ffbf054e18e132787f951e097f4edf55bdb"
+    },
+    {
+      "path": "lib/arm64-v8a/libgobject-2.0.so",
+      "size": 379536,
+      "sha256": "65cd756aafdb56b7a0e4ae755d267bca67c6a5a24e84730e542961fa85eae2c9"
+    },
+    {
+      "path": "lib/arm64-v8a/libgsl_alloc_hook.so",
+      "size": 4392,
+      "sha256": "209d47711bf188cf511fa3ff530cfa60aeff63678b0e2f0c09fa88612b7e9c04"
+    },
+    {
+      "path": "lib/arm64-v8a/libgthread-2.0.so",
+      "size": 4256,
+      "sha256": "844da391afcc0d7220e3adcf20a6ea8de17e30a42a88ad988ae21f2274f8f4c7"
+    },
+    {
+      "path": "lib/arm64-v8a/libhook_impl.so",
+      "size": 310648,
+      "sha256": "ec539cc4bb83318f7ec7985998751001016d5b03f7654bbf7b000d30b3af938f"
+    },
+    {
+      "path": "lib/arm64-v8a/libinstpatch-1.0.so",
+      "size": 832264,
+      "sha256": "ad900fd1442a69382750d99575b73bc9e51d7337090b876a3ec4d4430f46544c"
+    },
+    {
+      "path": "lib/arm64-v8a/libltdl.so",
+      "size": 34424,
+      "sha256": "9edbccc42de49244d42a5e8fdc001828cf5a5512f1705419bcd96e23783c2998"
+    },
+    {
+      "path": "lib/arm64-v8a/libmain_hook.so",
+      "size": 4232,
+      "sha256": "5d6ed12d8b5f9f1c2375a3830b9c31f32b808fae68de5a9ba736699989497b05"
+    },
+    {
+      "path": "lib/arm64-v8a/libmidihandler.so",
+      "size": 9888,
+      "sha256": "2dfee375614cf73d81166d741f9d4bad799b9d39ef449456117e25ba1424f9a0"
+    },
+    {
+      "path": "lib/arm64-v8a/libmyth_exec.so",
+      "size": 6688,
+      "sha256": "90b700a54f9af3ec0664c3180a24dc489aef0146782306026430ff85e0927a01"
+    },
+    {
+      "path": "lib/arm64-v8a/liboboe.so",
+      "size": 275984,
+      "sha256": "3d347fb08cf5b2a72958c877306d9d9b4d531123d9bddd3b595999a61308012a"
+    },
+    {
+      "path": "lib/arm64-v8a/libogg.so",
+      "size": 29752,
+      "sha256": "825ea7dd94cdbb7365fc15e8dbae9b6286a11da3179bd554dc9ace15c1f4c759"
+    },
+    {
+      "path": "lib/arm64-v8a/libomp.so",
+      "size": 830232,
+      "sha256": "42593c0757f54d5744e0189c0e72c0681e3eaba822b80a6601d6224c9efc4e82"
+    },
+    {
+      "path": "lib/arm64-v8a/libopenxr_loader.so",
+      "size": 1590568,
+      "sha256": "5a6853378430b2cbb75ec34a14e7494ed49cb248e516adfa9fe6bd7032eb7750"
+    },
+    {
+      "path": "lib/arm64-v8a/libopus.so",
+      "size": 400048,
+      "sha256": "9f0264e38920969573eeb3bfd4d34cfb4e702075cda0c5af65a92bdf28a17caf"
+    },
+    {
+      "path": "lib/arm64-v8a/libpcre.so",
+      "size": 237464,
+      "sha256": "23450b00bec9c9ada75e2475bc39acbe7c0ed1d38b83f71b36d2d01153a7f3e0"
+    },
+    {
+      "path": "lib/arm64-v8a/libpcreposix.so",
+      "size": 7336,
+      "sha256": "35eee26caf1c59f71a0b16473ac044d7912c5b15cd38b7671c0a2ef27cce65cb"
+    },
+    {
+      "path": "lib/arm64-v8a/libpulse.so",
+      "size": 293456,
+      "sha256": "3a97a458ffc70732d167855bc97c7dea39cb338bfa7d74d4c851ab27f2ec2d54"
+    },
+    {
+      "path": "lib/arm64-v8a/libpulseaudio.so",
+      "size": 67416,
+      "sha256": "a9511cd0984a12f235752af98c11f8a31971b10c1d62da324996d8c8a7e1d0c1"
+    },
+    {
+      "path": "lib/arm64-v8a/libpulsecommon-13.0.so",
+      "size": 415400,
+      "sha256": "c008c397967eb26fbc9bb1164998d8b62dc79179c8be27f299d5375f177981e1"
+    },
+    {
+      "path": "lib/arm64-v8a/libpulsecore-13.0.so",
+      "size": 547264,
+      "sha256": "06bc87b6f725ee2e405648bc375eb7c3c2569731eae8d37ad8ccd31e8fa7f865"
+    },
+    {
+      "path": "lib/arm64-v8a/libsndfile.so",
+      "size": 403392,
+      "sha256": "2df0fde1f7bbc4b9839e890ff8ab5dd3b73c82e31eb140be4f804c3dcb44fc2f"
+    },
+    {
+      "path": "lib/arm64-v8a/libvirglrenderer.so",
+      "size": 423056,
+      "sha256": "8645e45fdc247108c3e8ba177fbe508e45487e0e09f0dcc507bdb2d92cae775d"
+    },
+    {
+      "path": "lib/arm64-v8a/libvorbis.so",
+      "size": 187440,
+      "sha256": "19af3f1d7729df0a622954f888547fe8d666fa2ac5e5024d15c4fc6fbe388f86"
+    },
+    {
+      "path": "lib/arm64-v8a/libvorbisenc.so",
+      "size": 653632,
+      "sha256": "fae98bd7fc1d5bfb04fb018a3db18e9b069276433d1e56b114d88d3cf242b8c9"
+    },
+    {
+      "path": "lib/arm64-v8a/libvorbisfile.so",
+      "size": 31312,
+      "sha256": "b9a04c491d8dfcf15ebbdbfcc396f8a4dd8e3d5bf45dd1c93120fc8b36b16fdf"
+    },
+    {
+      "path": "lib/arm64-v8a/libvortekrenderer.so",
+      "size": 600624,
+      "sha256": "c5012bb9d217db6531ad13731cb93c642478cfdc7474ae690caaa79a1d808f58"
+    },
+    {
+      "path": "lib/arm64-v8a/libwinlator.so",
+      "size": 52208,
+      "sha256": "a58c38c00aec67bea8a518420babc4408e7fe753f202f985f96a13277672bb8b"
+    },
+    {
+      "path": "lib/arm64-v8a/libzstd-jni-1.5.2-3.so",
+      "size": 571304,
+      "sha256": "f7367bf8e201baaa7bcfa1e62e42451040818ea79284b05a473f8c106a72b618"
+    },
+    {
+      "path": "lib/arm64-v8a/libmyth_capture.so",
+      "size": 41304,
+      "sha256": "fa08df505b4a1dfdf49048c76d318aa8cc94db9429e93f2c034c80f82a11717e"
+    },
+    {
+      "path": "lib/arm64-v8a/libmythvr.so",
+      "size": 1907128,
+      "sha256": "a80c6e503cd685ccef546fb54a895e486de1545b6a560caf9b809e31c7d5c9db"
+    }
+  ]
+}

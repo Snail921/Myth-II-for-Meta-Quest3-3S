@@ -1,0 +1,395 @@
+#!/usr/bin/env python3
+import os
+import math
+import struct
+import sys
+
+import codec
+import loadtags
+import mons_tag
+import mons2info
+import myth_projectile
+import myth_collection
+import utils
+
+DEBUG_STATS = (os.environ.get('DEBUG_STATS') == '1')
+
+def main(game_directory, mons_id, plugin_names):
+    """
+    Load Myth game tags and plugins and output stats for all monsters
+    """
+    (game_version, tags, entrypoint_map, data_map, cutscenes) = loadtags.load_tags(game_directory, plugin_names)
+
+    try:
+        if mons_id == 'all':
+            for mons_id, locations in tags['mons'].items():
+                print_mons_stats(game_version, tags, data_map, mons_id)
+        elif mons_id and mons_id != 'list':
+            if len(mons_id) > 4 and ',' in mons_id:
+                for m_id in mons_id.split(','):
+                    print_mons_stats(game_version, tags, data_map, m_id)
+            else:
+                print_mons_stats(game_version, tags, data_map, mons_id)
+        else:
+            mons2info.print_mons_tags(tags)
+    except (struct.error, UnicodeDecodeError) as e:
+        raise ValueError(f"Error processing binary data: {e}")
+
+def print_mons_stats(game_version, tags, data_map, mons_id):
+    (mons_loc, mons_header, mons_data) = loadtags.get_tag_info(
+        tags, data_map, 'mons', mons_id
+    )
+    mons_dict = get_mons_dict(game_version, tags, data_map, mons_header, mons_data, mons_loc)
+    print(f"[{mons_id}] {mons_dict['spellings'][0]} ({mons_header.name}) [{mons_loc}]")
+    print(f'    cost {mons_dict["cost"]}')
+    lines = mons_stats(mons_dict)
+    print('\n'.join(lines))
+    print('================================')
+
+def get_mons_dict(game_version, tags, data_map, mons_header, mons_data, mons_loc):
+    mons = mons_tag.parse_tag(game_version, mons_data)
+
+    obje_data = loadtags.get_tag_data(
+        tags, data_map, 'obje', codec.decode_string(mons.object_tag)
+    )
+    obje_tag = mons_tag.parse_obje(obje_data)
+
+    (spellings, _) = mons_tag.get_spellings(tags, data_map, mons, mons_header)
+
+    can_block = mons.sequence_indexes[5] > -1
+    heal_kills = mons.healing_fraction == 0
+
+    (attacks, special_heals) = process_attacks(mons, tags, data_map)
+
+    return {
+        'spellings': spellings,
+        'location': mons_loc,
+        'class': mons.monster_class,
+        'cost': mons.cost,
+        'speed': mons.base_movement_speed,
+        'movement_modifiers': mons.movement_modifiers._asdict(),
+        'turning_speed': mons.turning_speed,
+        'flavour_stli': codec.decode_string_none(mons.flavor_string_list_tag),
+        'modifiers': obje_tag.effect_modifiers,
+        'attacks': attacks,
+        'can_block': can_block,
+        'heal_kills': heal_kills,
+        'stone': mons_tag.MonsFlag.TURNS_TO_STONE_WHEN_KILLED in mons.flags,
+        'experience_proportional_to_damage': mons_tag.MonsFlag.EXPERIENCE_PROPORTIONAL_TO_DAMAGE in mons.flags,
+        'min_vitality': obje_tag.vitality_lower_bound,
+        'max_vitality': obje_tag.vitality_delta.upper_bound(obje_tag),
+        'special_heals': special_heals,
+        'healing_fraction': mons.healing_fraction,
+        'flinch_system_shock': mons.flinch_system_shock,
+        'absorbed_fraction': mons.absorbed_fraction,
+        'maximum_mana': mons.maximum_mana,
+        'mana_recharge_rate': mons.mana_recharge_rate,
+        'berserk_system_shock': mons.berserk_system_shock,
+        'berserk_vitality': mons.berserk_vitality,
+    }
+
+def process_attacks(mons, tags, data_map):
+    attacks = []
+    vet_max = mons_tag.vet_max(mons)
+
+    (_, ex_prgr_header, ex_prgr_data) = loadtags.get_tag_info(
+        tags, data_map, 'prgr', codec.decode_string(
+            mons.exploding_projectile_group_tag
+        )
+    )
+    if ex_prgr_data:
+        (ex_prgr_head, ex_prgr_projlist) = myth_projectile.parse_prgr(ex_prgr_data)
+        for ex_prgr_proj in ex_prgr_projlist:
+            (_, ex_proj_header, ex_proj_data) = loadtags.get_tag_info(
+                tags, data_map, 'proj', codec.decode_string(
+                    ex_prgr_proj.projectile_tag
+                )
+            )
+            ex_proj = myth_projectile.parse_proj(ex_proj_data)
+            ex_dmg = ex_proj.damage.damage_delta.upper_bound(ex_proj.damage)
+            prop_velocity = myth_projectile.DamageFlags. PROPORTIONAL_TO_VELOCITY in ex_proj.damage.flags
+            if ex_dmg > 2 and not prop_velocity:
+                ex_radius = ex_proj.damage.radius_delta.upper_bound(ex_proj.damage)
+                attacks.append({
+                    'name': f'{ex_proj_header.name} (explosion)',
+                    'throw': False,
+                    'type': ex_proj.damage.type,
+                    'dmg': ex_dmg,
+                    'dps': ex_dmg,
+                    'special': False,
+                    'melee': False,
+                    'ammo': False,
+                    'sets_fire': myth_projectile.ProjFlags.CAN_SET_LANDSCAPE_ON_FIRE in ex_proj.flags,
+                    'aoe': myth_projectile.DamageFlags.AREA_OF_EFFECT in ex_proj.damage.flags,
+                    'radius': ex_radius,
+                    'paralysis': myth_projectile.DamageFlags.CAN_CAUSE_PARALYSIS in ex_proj.damage.flags,
+                    'unblockable': myth_projectile.DamageFlags.CANNOT_BE_BLOCKED in ex_proj.damage.flags,
+                    'promotion_chance': ex_proj.promotion_on_detonation_fraction,
+                    'promotion_proj': ex_proj.promoted_projectile_tag if not codec.all_on(ex_proj.promoted_projectile_tag) else None,
+                    'range': 0,
+                    'recovery': 0,
+                    'mana_cost': 0,
+                    'min_velocity': 0,
+                    'max_velocity': 0,
+                    'velocity_error': 0,
+                    'vet_recovery': 0,
+                    'vet_velocity': 0,
+                    'vet_max': vet_max,
+                    'primary': False,
+                })
+    special_heals = False
+    for attack_i in range(mons.number_of_attacks):
+        attack = mons.attacks[attack_i]
+        if attack:
+            (_, proj_header, proj_data) = loadtags.get_tag_info(
+                tags, data_map, 'proj', codec.decode_string(
+                    attack.projectile_tag
+                )
+            )
+
+            if not proj_data:
+                if mons_tag.AttackFlag.USES_CARRIED_PROJECTLE in attack.flags:
+                    attacks.append({
+                        'name': 'throw',
+                        'throw': True,
+                        'type': myth_projectile.DamageType.NONE,
+                        'dmg': None,
+                        'dps': None,
+                        'special': False,
+                        'melee': False,
+                        'ammo': False,
+                        'sets_fire': False,
+                        'aoe': False,
+                        'radius': 0,
+                        'paralysis': False,
+                        'unblockable': False,
+                        'promotion_chance': 0,
+                        'promotion_proj': None,
+                        'range': attack.maximum_range,
+                        'recovery': attack.recovery_time,
+                        'mana_cost': attack.mana_cost,
+                        'min_velocity': attack.initial_velocity_lower_bound,
+                        'max_velocity': attack.initial_velocity_delta.upper_bound(attack),
+                        'velocity_error': attack.initial_velocity_error,
+                        'vet_recovery': attack.recovery_time_experience_delta,
+                        'vet_velocity': attack.velocity_improvement_with_experience,
+                        'vet_max': vet_max,
+                        'primary': mons_tag.AttackFlag.IS_PRIMARY_ATTACK in attack.flags,
+                    })
+                continue
+
+            proj = myth_projectile.parse_proj(proj_data)
+            ammo = mons.initial_ammunition_lower_bound if mons_tag.AttackFlag.USES_AMMUNITION in attack.flags else False
+            if proj.damage.type == myth_projectile.DamageType.HEALING:
+                if mons_tag.AttackFlag.IS_SPECIAL_ABILITY in attack.flags:
+                    special_heals = ammo
+                continue
+
+            if (
+                mons_tag.AttackFlag.IS_REFLEXIVE in attack.flags and
+                myth_projectile.DamageFlags.CANNOT_HURT_OWNER not in proj.damage.flags
+            ):
+                continue
+
+            dmg = proj.damage.damage_delta.upper_bound(proj.damage)
+
+            avg_time_s = None
+            attack_radius = proj.damage.radius_delta.upper_bound(proj.damage)
+            attack_range = attack.maximum_range
+            recov_s = 0
+            if myth_projectile.ProjFlags.CONTINUALLY_DETONATES in proj.flags:
+                avg_time_s = 1/30
+            else:
+                seq_times = []
+                # 0.5s delay between evaluating attacks
+                recov_s = attack.recovery_time.decode() + 0.5 + 0.2 # random between 0 and 0.2
+                for attack_si, attack_s in enumerate(attack.sequences):
+                    if not attack_s:
+                        continue
+
+                    seq = myth_collection.sequence(tags, data_map, mons.collection_tag, attack_s.sequence_index)
+                    if not seq:
+                        continue
+                    seq_meta = seq['metadata']
+
+                    ticks = (
+                        seq_meta.frames_per_view * seq_meta.ticks_per_frame
+                    )
+
+                    tick_s = ticks / 30
+                    time_s = max(tick_s, tick_s + recov_s)
+
+                    seq_times.append(time_s)
+                    dps = dmg / max(1/30, time_s)
+                    if DEBUG_STATS:
+                        print(
+                            f'{mons.collection_tag} [{proj_header.name}] [{attack_i} {attack_si} {seq['name']}] '
+                            f'dmg={dmg} '
+                            f'ticks={ticks} '
+                            f'transfer={seq_meta.transfer_period} '
+                            f'tick_s={tick_s} '
+                            f'recov={recov_s} '
+                            f'time_s={time_s} '
+                            f'dps={round(dps,2)}'
+                        )
+
+                if len(seq_times):
+                    avg_time_s = sum(seq_times) / len(seq_times)
+
+            if avg_time_s:
+                avg_dps = dmg / avg_time_s
+                if recov_s < 0:
+                    vat_max_attack = 0
+                else:
+                    vat_max_attack = min(
+                        math.ceil(recov_s/attack.recovery_time_experience_delta), vet_max
+                    ) if attack.recovery_time_experience_delta else vet_max
+                attacks.append({
+                    'name': proj_header.name,
+                    'throw': False,
+                    'type': proj.damage.type,
+                    'dmg': dmg,
+                    'attack_time': avg_time_s,
+                    'dps': avg_dps,
+                    'special': mons_tag.AttackFlag.IS_SPECIAL_ABILITY in attack.flags,
+                    'melee': myth_projectile.ProjFlags.MELEE_ATTACK in proj.flags,
+                    'ammo': ammo,
+                    'sets_fire': myth_projectile.ProjFlags.CAN_SET_LANDSCAPE_ON_FIRE in proj.flags,
+                    'aoe': myth_projectile.DamageFlags.AREA_OF_EFFECT in proj.damage.flags,
+                    'radius': attack_radius,
+                    'paralysis': myth_projectile.DamageFlags.CAN_CAUSE_PARALYSIS in proj.damage.flags,
+                    'unblockable': myth_projectile.DamageFlags.CANNOT_BE_BLOCKED in proj.damage.flags,
+                    'promotion_chance': proj.promotion_on_detonation_fraction,
+                    'promotion_proj': proj.promoted_projectile_tag if not codec.all_on(proj.promoted_projectile_tag) else None,
+                    'range': attack_range,
+                    'recovery': recov_s,
+                    'mana_cost': attack.mana_cost,
+                    'min_velocity': attack.initial_velocity_lower_bound,
+                    'max_velocity': attack.initial_velocity_delta.upper_bound(attack),
+                    'velocity_error': attack.initial_velocity_error,
+                    'vet_recovery': attack.recovery_time_experience_delta,
+                    'vet_velocity': attack.velocity_improvement_with_experience,
+                    'vet_max': vat_max_attack,
+                    'primary': mons_tag.AttackFlag.IS_PRIMARY_ATTACK in attack.flags,
+                })
+    return (attacks, special_heals)
+
+def mons_stats(mons_dict):
+    lines = []
+    lines.append(graph('   speed ', round(mons_dict['speed']), 15, 20, f" {round(mons_dict['speed'], 3)}"))
+    if mons_dict['max_vitality'] == mons_dict['min_vitality']:
+        vit_range = f'{round(mons_dict['max_vitality'], 2)}'
+    else:
+        vit_range = f'{round(mons_dict['min_vitality'], 2)} - {round(mons_dict['max_vitality'], 2)}'
+    vit_dots = round(mons_dict['max_vitality']*2)
+    if mons_dict['stone']:
+        stone_dots = round(vit_dots/4)
+        rest_dots = 3*stone_dots
+        stone_graph = stone_dots * '◼︎'
+        rest_graph = graph(f'vitality {stone_graph}', rest_dots, 7.5, 15, f" {vit_range} (turns to stone if hit below 25%)")
+        lines.append(rest_graph)
+    else:
+        lines.append(graph('vitality ', round(mons_dict['max_vitality']*2), 10, 20, f" {vit_range}"))
+    for attack in mons_dict['attacks']:
+        special = " (special)" if attack['special'] else ""
+        aoe = " (aoe)" if attack['aoe'] else ""
+        ammo = f" ({attack['ammo']} ammo)" if attack['ammo'] is not False else ""
+        sets_fire = " (sets on fire)" if attack['sets_fire'] else ""
+        paralysis = " (paralyses)" if attack['paralysis'] else ""
+        unblockable = " (unblockable)" if (attack['unblockable'] and attack['melee']) else ""
+        dud_rate = f" (dud rate: {round(100*attack['promotion_chance'])}%)" if attack['promotion_chance'] and attack['promotion_proj'] else ""
+        attack_type = "melee" if attack['melee'] else "ranged"
+        attack_details = f" [{utils.cap_title(attack['type'].name)} - {attack_type}] {attack['name']}{special}{aoe}{sets_fire}{paralysis}{unblockable}{dud_rate}{ammo}"
+        if attack['dps']:
+            recov = ''
+            if attack['mana_cost'] > 0:
+                mana_recharge_time = (attack['mana_cost'] / (mons_dict['mana_recharge_rate'] * 30))
+                recov = f' (mana recovery: {round(mana_recharge_time, 1)}s)'
+            elif 'attack_time' in attack:
+                vet = ''
+                if attack['vet_recovery'] > 0:
+                    vet = f" - reduction: {round(attack['vet_recovery'], 2)}s per kill / max {attack['vet_max']}"
+                recov = f' (recovery: {round(attack['recovery'], 2)}s total_time: {round(attack['attack_time'], 2)}s{vet})'
+            lines.append(graph('  damage ', round(attack['dmg']*2), 1.2, 4, f" {round(attack['dmg'], 2)}{attack_details}"))
+            lines.append(graph('     dps ', round(attack['dps']*2), 1.2, 4, f" {round(attack['dps'], 2)}{recov}"))
+            attack_details = ''
+        throw = ' (throw)' if attack['throw'] else ''
+        if attack['range']:
+            lines.append(graph('   range ', round(attack['range']*2), 5, 21, f" {round(attack['range'], 2)}{throw}{attack_details}"))
+        if attack['radius']:
+            lines.append(graph('  radius ', round(attack['radius']*2), 5, 21, f" {round(attack['radius'], 2)}"))
+
+    indent = '         '
+    if mons_dict['special_heals']:
+        heal_ammo = ''
+        if mons_dict['special_heals'] is not True:
+            heal_ammo = f' ({mons_dict['special_heals']} ammo)'
+        lines.append(f'{indent}special \x1b[92mheals\x1b[0m{heal_ammo}')
+    if mons_dict['can_block']:
+        lines.append(f'{indent}can \x1b[92mblock\x1b[0m')
+    if mons_dict['heal_kills']:
+        lines.append(f'{indent}\x1b[91mkilled by heal\x1b[0m')
+    if mons_dict['experience_proportional_to_damage']:
+        lines.append(f'{indent}\x1b[92mgains exp\x1b[0m at low health')
+    mods = mons_dict['modifiers']._asdict()
+    paralysis_mod = mods['paralysis_duration']
+    paralysis_min = round(7 * paralysis_mod)
+    paralysis_max = round(14 * paralysis_mod)
+    paralysis_range = f'{paralysis_min}-{paralysis_max}s'
+    paralysis_dur = f'{indent}paralysis time: {paralysis_range}'
+    if paralysis_mod == 0:
+        paralysis_dur = f'{indent}\x1b[92mimmune\x1b[0m to paralysis'
+    elif paralysis_mod > 1:
+        paralysis_dur = f'{paralysis_dur} (\x1b[91m+{round((paralysis_mod-1)*100)}%\x1b[0m)'
+    elif paralysis_mod < 1:
+        paralysis_dur = f'{paralysis_dur} (\x1b[92m-{round((1-paralysis_mod)*100)}%\x1b[0m)'
+    lines.append(paralysis_dur)
+
+    for dmg in ['slashing', 'kinetic', 'explosive', 'electric', 'fire']:
+        damage = mods[f'{dmg}_damage']
+        if damage == 0:
+            lines.append(f'{indent}\x1b[92mimmune\x1b[0m to {dmg}')
+        elif damage > 1:
+            lines.append(f'{indent}weak to {dmg}: (\x1b[91m+{round((damage-1)*100)}%\x1b[0m)')
+        elif damage < 1:
+            lines.append(f'{indent}resistant to {dmg}: (\x1b[92m-{round((1-damage)*100)}%\x1b[0m)')
+
+    return lines
+
+def graph(pfx, value, low, medium, suffix=''):
+    if value < low:
+        color = "\x1b[91m"
+    elif value < medium:
+        color = "\x1b[93m"
+    else:
+        color = "\x1b[92m"
+    return f"{pfx}{color}{value*'◼︎'}\x1b[0m{suffix}"
+
+def graph_emoji(pfx, value, low, medium, suffix=''):
+    if value < low:
+        square = "🟥"
+    elif value < medium:
+        square = "🟨"
+    else:
+        square = "🟩"
+    return f"{pfx}{value * square}{suffix}"
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print(f"Usage: python3 {sys.argv[0]} <game_directory> <mons_id> [<plugin_names> ...]")
+        sys.exit(1)
+    
+    game_directory = sys.argv[1]
+
+    mons_id = sys.argv[2]
+    plugin_names = []
+    if len(sys.argv) > 3:
+        plugin_names = sys.argv[3:]
+
+    try:
+        main(game_directory, mons_id, plugin_names)
+    except KeyboardInterrupt:
+        sys.exit(130)
+    except BrokenPipeError:
+        sys.stdout = None
+        sys.exit(1)

@@ -1,0 +1,16 @@
+{
+  "level": "Across the Gjol",
+  "map_key": "32307332",
+  "image": "Across the Gjol.png",
+  "aliases": [
+    "Across the Gjol"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "de2eefba9d4e7ff93cd615d97dede1a36d7026f243151abdf5d4b19f1989a543",
+  "design": "Midnight June river crossing and ambush in the poisoned Dire Marsh, dark navy rainclouds with very faint cold moon-glow, barely visible dark green wet plains and slate water under dense low mist. No sunset.",
+  "generation_tool": "built-in image_gen"
+}

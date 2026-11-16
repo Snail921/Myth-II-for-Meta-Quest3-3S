@@ -1,0 +1,16 @@
+{
+  "level": "A Traitor's Grave",
+  "map_key": "33307472",
+  "image": "A Traitor's Grave.png",
+  "aliases": [
+    "A Traitor's Grave"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "7f517cf2f0c2393d99991d56129bd9ad16b4c035c037600ca56372cfc4662073",
+  "design": "August on King’s Highway, bright late-summer sky with high wispy clouds and gentle sun. Low dry olive meadows merging into bluish distant haze, a tense pursuit in otherwise peaceful countryside.",
+  "generation_tool": "built-in image_gen"
+}

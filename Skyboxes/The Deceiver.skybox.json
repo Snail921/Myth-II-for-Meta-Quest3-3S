@@ -1,0 +1,14 @@
+{
+  "map_display_name": "The Deceiver",
+  "map_tag": "13td",
+  "image": "The Deceiver.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "f0e2596bf07a81a26fa02cb94e7b25c5e554483c7309cf785bb0bb9ec400e60e",
+  "narrative_and_art_direction": "Jan 10 Angurvadal glacier, storm still raging. Cold blue grey glacial expanse and distant jagged ice mountains fading through haze, heavy layered storm clouds with subtle luminous break. Snow and ice, threatening beautiful arctic atmosphere, no sun disk or near particles."
+}

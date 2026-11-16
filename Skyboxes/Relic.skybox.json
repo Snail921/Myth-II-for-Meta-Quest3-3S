@@ -1,0 +1,14 @@
+{
+  "map_display_name": "Relic",
+  "map_tag": "18ts",
+  "image": "Relic.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "5774446c7b4e218ca90b8dbcde3d0da7cccb0f05bf7163986150444c5d05ff3e",
+  "narrative_and_art_direction": "Apr 19 Forest Heart, searching for Tain. Deep dark spring green wooded hills and distant forest canopy, soft mist pools, pearly overcast sky with soft blue breaks and filtered light. Mysterious but natural, no magical symbols. No close trees."
+}

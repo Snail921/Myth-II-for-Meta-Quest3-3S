@@ -1,0 +1,16 @@
+{
+  "level": "UTBx Winter (Old Hatreds)",
+  "map_key": "3831776f",
+  "image": "UTBx Winter (Old Hatreds).png",
+  "aliases": [
+    "UTBx Winter (Old Hatreds)"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "a84f043d706626239b3cf9a9d24432fc51499505ef658e00b17a51022919e0a6",
+  "design": "Winter battlefield, overcast snow-grey sky with soft blue breaks, white-grey snow-covered distant flat ground merging into frost haze. No falling flakes baked into texture.",
+  "generation_tool": "built-in image_gen"
+}

@@ -1,0 +1,16 @@
+{
+  "level": "Rock 'em Sock 'em Dorf Riot",
+  "map_key": "31366472",
+  "image": "Rock 'em Sock 'em Dorf Riot.png",
+  "aliases": [
+    "Rock 'em Sock 'em Dorf Riot"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "e55f7a89294cfb897e0298abb1bbe4a2cfd75a0723317dc2277bd08b720a8db6",
+  "design": "Mudpit battlefield, dark wet brown low plains, heavy slate-grey overcast clouds, a little silver light at the horizon, damp mist. No rain.",
+  "generation_tool": "built-in image_gen"
+}

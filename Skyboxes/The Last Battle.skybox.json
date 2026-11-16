@@ -1,0 +1,16 @@
+{
+  "level": "The Last Battle",
+  "map_key": "33327474",
+  "image": "The Last Battle.png",
+  "aliases": [
+    "The Last Battle"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "941f8edb7871aeba759df361a9872ff4332bdccdfff2ea37a6c8530a7dc3e57f",
+  "design": "Dawn final assault at Balor’s fortress in July. Dramatic cold blue upper sky and pale amber first sunlight beneath layered cloud, small faint comet still visible, dark barren earth dissolving into smoky haze. Tragic heroic scale without fortress or troops.",
+  "generation_tool": "built-in image_gen"
+}

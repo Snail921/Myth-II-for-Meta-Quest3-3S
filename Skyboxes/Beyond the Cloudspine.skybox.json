@@ -1,0 +1,14 @@
+{
+  "map_display_name": "Beyond the Cloudspine",
+  "map_tag": "07rt",
+  "image": "Beyond the Cloudspine.png",
+  "projection": "equirectangular",
+  "runtime_yaw_degrees": 0,
+  "generation_tool": "built-in image_gen",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "20ad9830ca282b50a263e761eb9e3a0b15a4b02e41f688bc7e914e2349a0cb07",
+  "narrative_and_art_direction": "Sep 17 Plain of Scales west of Cloudspine, retreat after commander death. Hour unspecified, artistic cool autumn morning with subdued warm light breaking over far horizon. Ochre brown grassy plain and distant low foothills. Layered pale grey clouds and blue gaps. Restrained hopeful mood."
+}

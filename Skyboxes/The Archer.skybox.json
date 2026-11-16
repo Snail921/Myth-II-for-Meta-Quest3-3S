@@ -1,0 +1,16 @@
+{
+  "level": "The Archer",
+  "map_key": "63686875",
+  "image": "The Archer.png",
+  "aliases": [
+    "The Archer"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "4629c5d604fb16615aeac9939c981d797d70e0aed46a9b70c8da1bc6263dd3b8",
+  "design": "Exit from mountains into a shadowy marsh and Ruewood; cool overcast sky with a few muted blue breaks, diffuse pale light. Dark moss-green wet lowland fading into layered mist, no large mountains or enclosed tomb: the playable route goes into the valley beyond.",
+  "generation_tool": "built-in image_gen"
+}

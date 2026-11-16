@@ -1,0 +1,16 @@
+{
+  "level": "UTBx App Hot Springs (Slugfest)",
+  "map_key": "36326173",
+  "image": "UTBx App Hot Springs (Slugfest).png",
+  "aliases": [
+    "UTBx App Hot Springs (Slugfest)"
+  ],
+  "projection": "equirectangular",
+  "size": [
+    1774,
+    887
+  ],
+  "sha256": "50d1b2d32b49ede4c1e0b3111b5314d23f4ff41cf19eb5742ef73e6c36fae9c1",
+  "design": "Appalachian Hot Springs battlefield, clear cool blue sky with broad delicate white clouds, pale sun, dark olive grassy flatlands and faint silvery steam haze near distant ground. No foreground steam or mountain silhouettes.",
+  "generation_tool": "built-in image_gen"
+}
