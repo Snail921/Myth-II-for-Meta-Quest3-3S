@@ -6,7 +6,16 @@ Myth II: SoulblighterをQuest 3 / 3Sで遊ぶ非公式VR版です。戦場を立
 
 **APK・初回ランタイム・Plugin Managerを下のリンクからダウンロードできます。** 原作のISOと1.8.5アップデーターは別途ご用意ください。
 
-[ダウンロード](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.1.0-beta.2026.11.17) · [導入手順](docs/INSTALL.ja.md) · [プレイ画像](docs/GALLERY.md)
+[ダウンロード](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.1.0-beta.2026.11.17) · [導入手順](docs/INSTALL.ja.md)
+
+<p>
+  <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-01.png"><img src="docs/images/screenshot-01.png" height="120" alt=""></a>
+  <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-02.png"><img src="docs/images/screenshot-02.png" height="120" alt=""></a>
+  <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-03.png"><img src="docs/images/screenshot-03.png" height="120" alt=""></a>
+  <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-04.png"><img src="docs/images/screenshot-04.png" height="120" alt=""></a>
+  <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-05.png"><img src="docs/images/screenshot-05.png" height="120" alt=""></a>
+  <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-06.png"><img src="docs/images/screenshot-06.png" height="120" alt=""></a>
+</p>
 
 ## 遊ぶまでの流れ
 
@@ -34,10 +43,6 @@ Myth II 1.8.5パッチ、高精細マップテクスチャ・ハイレゾスプ�
 - **キャンペーン：** Managerでプラグインを変換・転送します。
 - **高精細画像：** 別途入手したHDアドオンをセットアップ時に指定します。
 - **スカイボックス：** 配布ZIPを展開し、Managerでそのフォルダを指定します。
-
-![](docs/images/screenshot-01.png)
-
-[ほかのプレイ画像を見る](docs/GALLERY.md)
 
 ---
 

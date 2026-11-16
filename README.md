@@ -6,7 +6,16 @@ An unofficial VR version of Myth II: Soulblighter for Quest 3 / 3S. View the bat
 
 **Download the APK, initial runtime and Plugin Manager below.** Supply your own original ISO and 1.8.5 updater.
 
-[Downloads](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.1.0-beta.2026.11.17) · [Installation guide](docs/INSTALL.md) · [Screenshots](docs/GALLERY.md)
+[Downloads](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.1.0-beta.2026.11.17) · [Installation guide](docs/INSTALL.md)
+
+<p>
+  <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-01.png"><img src="docs/images/screenshot-01.png" height="120" alt=""></a>
+  <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-02.png"><img src="docs/images/screenshot-02.png" height="120" alt=""></a>
+  <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-03.png"><img src="docs/images/screenshot-03.png" height="120" alt=""></a>
+  <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-04.png"><img src="docs/images/screenshot-04.png" height="120" alt=""></a>
+  <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-05.png"><img src="docs/images/screenshot-05.png" height="120" alt=""></a>
+  <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-06.png"><img src="docs/images/screenshot-06.png" height="120" alt=""></a>
+</p>
 
 ## From download to playing
 
@@ -34,10 +43,6 @@ Not every plugin is supported. Get the base game working before adding plugins.
 - **Campaigns:** Convert and transfer a gameplay plugin with Manager.
 - **HD images:** Select separately obtained HD addons during setup.
 - **Skyboxes:** Extract the supplied skybox ZIP and select its folder in Manager.
-
-![](docs/images/screenshot-01.png)
-
-[More screenshots](docs/GALLERY.md)
 
 ---
 
