@@ -17,6 +17,8 @@ Myth II: SoulblighterをQuest 3 / 3Sで遊ぶ非公式VR版です。戦場を立
 
 必要なソフトと各画面の入力内容は、[導入手順](docs/INSTALL.ja.md)にまとめています。原作ゲームと追加プラグインは別途必要です。
 
+Myth II 1.8.5パッチ、高精細マップテクスチャ・ハイレゾスプライト（Twice Born Edition）、The Fallen Levelsなどのプラグインは、[Project Magma](https://projectmagma.net/)から入手できます。
+
 ## 対応状況
 
 | ゲーム | 確認状況 |
@@ -33,7 +35,7 @@ Myth II: SoulblighterをQuest 3 / 3Sで遊ぶ非公式VR版です。戦場を立
 - **高精細画像：** 別途入手したHDアドオンをセットアップ時に指定します。
 - **スカイボックス：** 配布ZIPを展開し、Managerでそのフォルダを指定します。
 
-![Willow Creekと水面反射](docs/images/screenshot-01.png)
+![](docs/images/screenshot-01.png)
 
 [ほかのプレイ画像を見る](docs/GALLERY.md)
 

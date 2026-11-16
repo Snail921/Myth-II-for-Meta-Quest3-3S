@@ -17,6 +17,8 @@ An unofficial VR version of Myth II: Soulblighter for Quest 3 / 3S. View the bat
 
 The [installation guide](docs/INSTALL.md) lists the required software and what to select in each screen. You need your own game and any additional plugins.
 
+The Myth II 1.8.5 patch, high-resolution map textures and sprites (Twice Born Edition), and plugins such as The Fallen Levels are available from [Project Magma](https://projectmagma.net/).
+
 ## Compatibility
 
 | Game | Checked so far |
@@ -33,7 +35,7 @@ Not every plugin is supported. Get the base game working before adding plugins.
 - **HD images:** Select separately obtained HD addons during setup.
 - **Skyboxes:** Extract the supplied skybox ZIP and select its folder in Manager.
 
-![Willow Creek and water reflections](docs/images/screenshot-01.png)
+![](docs/images/screenshot-01.png)
 
 [More screenshots](docs/GALLERY.md)
 
