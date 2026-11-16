@@ -1,37 +1,46 @@
-# ソースとビルド資料
+# APKとランタイムのビルド
 
 [English](BUILD.md) | **日本語**
 
-開発ソースのスナップショットです。まだ、このチェックアウトだけでAPKを一括生成する構成ではありません。Plugin Managerは記載の依存ソフトを導入して実行できます。ランタイムのバイナリ・非公開の原作検証データは含めません。
+上流のWinlator 11.2 APKと、このリポジトリからビルドします。開発用APK、原作データ、実機から書き出した環境は不要です。
 
-## 1.8.5向けソースの生成
+## 準備（Windows）
 
-`src/standalone` と入力・状態取得処理の一部は共通／基礎実装です。1.8.5版は段階的な生成処理で差分を適用します。暫定機能を置き換える**完全版の生成処理**を使います。
+Python 3.11をインストールし、`pip install -r requirements-build.txt` を実行します。
+
+| ツール | 配置先 |
+| --- | --- |
+| JDK 21.0.13+9 | `tools/runtime/jdk-21.0.13+9` |
+| Android NDK r27d | `tools/runtime/android-ndk-r27d` |
+| OpenXR loader AARの展開内容 | `tools/runtime/openxr/loader` |
+| Apktool 2.11.1 | `tools/downloads/apktool_2.11.1.jar` |
+
+Android SDK platform 29とbuild-tools 30.0.2をインストールし、`ANDROID_HOME` にSDKのフォルダを指定します。既定値は `%LOCALAPPDATA%/Android/Sdk` です。
+
+[Winlator 11.2](https://github.com/brunodev85/winlator/releases/tag/v11.2.0) を `tools/downloads/Winlator_11.2.apk` に置きます。スクリプトがファイルのSHA-256を検証します。
+
+## 実行
+
+Android署名用のkeystoreを自分で作成してください。リポジトリの外で保管し、更新時にも同じ鍵を使います。
 
 ```powershell
 $env:PYTHONUTF8 = '1'
-python tools/prepare_185_full.py
+python tools/build_public_runtime.py --winlator-apk tools/downloads/Winlator_11.2.apk --out build/runtime-seed.tar
+$env:MYTH_SIGNING_PASSWORD = '署名鍵のパスワード'
+python tools/build_public_apk.py --winlator-apk tools/downloads/Winlator_11.2.apk --runtime build/runtime-seed.tar --work build/public-apk --out build/MythIIVR.apk --keystore C:/path/to/your.keystore
 ```
 
-`build/integration-185/` に出力します。これは原作Myth IIのソースコードではありません。原作EXEはユーザーが別途用意します。
+出力先・作業先は未使用のパスを指定します。APKには対応するランタイムのチェックサムが入り、各ファイルの隣にハッシュを記録したJSONが生成されます。
 
-## 開発用ビルド
-
-既存スクリプトはAndroid NDK r27d、JDK 21.0.13+9、Android API 29、Build Tools 30.0.2、OpenXRローダー／ヘッダー、Apktool 2.11.1を使用します。過去のPowerShellスクリプト内のSDKパスは各環境に合わせる必要があります。実機検査・インストール用スクリプトもあるため、すべてを無差別に実行しないでください。
-
-主な流れは、入力ヘルパー・ARM64状態取得／描画のビルド、Java/Dexの生成、開発用ランタイムAPKの加工、署名です。対象スクリプトは英語版資料に列挙しています。
-
-**このチェックアウト単独でのAPK生成は未完成です。** `package_185_full.py` は非公開の開発candidate APKとローカル中間生成物を参照します。古いcandidateには原作データがあるため配布しません。`prepare_standalone_apk.py` も旧バイナリ統合用で、生成済みアセットを要求します。公開入力から完結するビルド入口の整備が残っています。署名鍵は公開しません。将来のビルドでは自分の鍵を作り、更新時の署名互換性に注意してください。
+ランタイムは上流の初期コンテナから生成します。APKはWindows用ヘルパー、ARM64描画・接続部、Android画面をコンパイルし、Winlatorへの組み込みと署名を行います。原作データと任意のネイティブWindowsコンポーネントは含めません。
 
 ## Managerのテスト
-
-次は模擬データを使い、実機・原作不要で実行できます。
 
 ```powershell
 python -m unittest discover -s tools -p test_plugin_manager.py
 python -m unittest discover -s tools -p test_setup_deploy.py
 ```
 
-他の開発テストには原作検証データ・コンパイラー・稼働中のゲーム・実機が必要なものがあります。すべてが単独CIテストではありません。原作変換は `tools/base_setup.py`、プラグイン変換は `tools/convert_plugin_levels.py` で、自分の原作入力を指定します。
+過去の診断スクリプトには実機や原作ファイルが必要なものもあります。APKの生成には上記の `build_public_*` を使ってください。
 
-mythextractはMITライセンス付きで同梱しています。Winlator参照ソースは固定コミット `2c33741d50c5daab0521a098be5c969f63b9e887` です。これは全ランタイム部品の対応ソースが揃ったという意味ではありません。[ライセンス情報](../THIRD_PARTY_NOTICES.md)を参照してください。
+上流ソースと利用条件は[ライセンス](../THIRD_PARTY_NOTICES.md)を参照してください。

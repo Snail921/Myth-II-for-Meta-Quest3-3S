@@ -2,14 +2,13 @@
 
 **English** | [日本語](INSTALL.ja.md) · [Home](../README.md)
 
-**The APK and initial runtime are still being prepared. You can currently complete PC conversion.** The steps below take you from the required downloads to playing on Quest.
 
 ## 1. Get what you need
 
 - Quest 3 / 3S and a USB data cable
 - A Windows PC
 - Your own Myth II CD ISO and Windows 1.8.5 updater
-- Manager, APK and initial runtime from [Releases](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases) (APK and runtime pending)
+- Manager, APK and initial runtime from [Releases](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.1.0-beta.2026.11.17)
 
 Install these on your PC:
 
@@ -26,6 +25,8 @@ python -m pip install -r requirements-manager.txt
 ```
 
 Double-click **Plugin Manager.cmd**. Choose English or Japanese at the top right.
+
+Extract the runtime ZIP too. Select **runtime-seed.tar** from it in step 3.
 
 ## 2. Convert the game on your PC
 
@@ -49,7 +50,7 @@ Click **Extract original and convert all levels** and wait for completion. **Set
 
 1. Enable developer mode on Quest, connect USB and accept **Allow USB debugging** inside the headset.
 2. Install the compatible APK using your sideloading tool, or run `adb install path/to/app.apk`.
-3. Open the app once from **Unknown Sources** on Quest. Do not start the original game yet.
+3. Open the app once from **Unknown Sources** on Quest. Allow file access when prompted. Do not start the original game yet.
 4. In Manager, set **ADB** to **adb.exe** from Platform Tools. Refresh the device list and select your Quest.
 5. Set **Setup result** to the output from step 2, and **Runtime data** to the matching **runtime-seed.tar**.
 6. Click **Deploy setup data**. Keep USB connected until completion.

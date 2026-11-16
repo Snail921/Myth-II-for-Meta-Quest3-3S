@@ -4,9 +4,9 @@
 
 Myth II: SoulblighterをQuest 3 / 3Sで遊ぶ非公式VR版です。戦場を立体で見渡し、コントローラーで部隊を選択・操作できます。プレイ中のPC接続は不要です。
 
-**現在はAPK・初回ランタイムの公開準備中です。公開後、このページから導入できます。** Managerと画像素材は先にダウンロードできます。
+**APK・初回ランタイム・Plugin Managerを下のリンクからダウンロードできます。** 原作のISOと1.8.5アップデーターは別途ご用意ください。
 
-[ダウンロード](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases) · [導入手順](docs/INSTALL.ja.md) · [プレイ画像](docs/GALLERY.md)
+[ダウンロード](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.1.0-beta.2026.11.17) · [導入手順](docs/INSTALL.ja.md) · [プレイ画像](docs/GALLERY.md)
 
 ## 遊ぶまでの流れ
 
@@ -39,4 +39,4 @@ Myth II: SoulblighterをQuest 3 / 3Sで遊ぶ非公式VR版です。戦場を立
 
 ---
 
-開発者向け：[ソースのビルド](docs/BUILD.ja.md) · [公開準備の状況](docs/RELEASE_STATUS.ja.md) · [ライセンス](THIRD_PARTY_NOTICES.md)
+開発者向け：[ソースのビルド](docs/BUILD.ja.md) · [リリース内容](docs/RELEASE_STATUS.ja.md) · [ライセンス](THIRD_PARTY_NOTICES.md)

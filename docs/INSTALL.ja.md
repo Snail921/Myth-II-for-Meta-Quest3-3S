@@ -2,14 +2,13 @@
 
 [English](INSTALL.md) | **日本語** · [トップへ](../README.ja.md)
 
-**APKと初回ランタイムは公開準備中です。現在はPCでの変換まで進められます。** 以下は、必要なファイルが揃ってからQuestで遊び始めるまでの手順です。
 
 ## 1. 必要なものを用意する
 
 - Quest 3 / 3Sと、データ通信できるUSBケーブル
 - Windows PC
 - 自分のMyth II CD ISOとWindows用1.8.5アップデーター
-- [Release](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases)から入手するManager、APK、初回ランタイム（後ろの2つは公開待ち）
+- [Release](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.1.0-beta.2026.11.17)から入手するManager、APK、初回ランタイム
 
 PCには次のソフトをインストールしてください。
 
@@ -26,6 +25,8 @@ python -m pip install -r requirements-manager.txt
 ```
 
 その後、**Plugin Manager.cmd** をダブルクリックします。右上で日本語／Englishを切り替えられます。
+
+ランタイムZIPも展開しておきます。中の **runtime-seed.tar** を手順3で指定します。
 
 ## 2. PCで原作データを変換する
 
@@ -49,7 +50,7 @@ python -m pip install -r requirements-manager.txt
 
 1. Questの開発者モードを有効にし、PCへUSB接続します。ヘッドセット内の「USBデバッグを許可」を承認します。
 2. 対応APKをサイドロードツールでインストールします。ADBを使う場合は `adb install APKのパス` を実行します。
-3. Questの「提供元不明」からアプリを一度開きます。まだ原作ゲームは起動しません。
+3. Questの「提供元不明」からアプリを一度開きます。ファイルへのアクセス許可が表示されたら許可します。まだ原作ゲームは起動しません。
 4. Managerの「ADB」に、Platform Tools内の **adb.exe** を指定します。「接続確認」を押し、接続したQuestを選びます。
 5. 「セットアップ結果」に手順2の出力先、「ランタイムデータ」に対応する **runtime-seed.tar** を指定します。
 6. **「セットアップデータを配置」** を押します。USBを接続したまま、完了表示まで待ちます。

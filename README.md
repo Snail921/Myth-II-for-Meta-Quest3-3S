@@ -4,9 +4,9 @@
 
 An unofficial VR version of Myth II: Soulblighter for Quest 3 / 3S. View the battlefield in stereo and command your units with the controllers. No PC connection is needed while playing.
 
-**The APK and initial runtime download are still being prepared. Fresh installation will be available here once they are released.** The manager and artwork can already be downloaded.
+**Download the APK, initial runtime and Plugin Manager below.** Supply your own original ISO and 1.8.5 updater.
 
-[Downloads](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases) · [Installation guide](docs/INSTALL.md) · [Screenshots](docs/GALLERY.md)
+[Downloads](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.1.0-beta.2026.11.17) · [Installation guide](docs/INSTALL.md) · [Screenshots](docs/GALLERY.md)
 
 ## From download to playing
 

@@ -1,5 +1,5 @@
 {
-  "status": "development inventory; binaries not published; source/license mapping incomplete",
+  "apk_sha256": "ea6df365565268cdbe481b60744f3855cc7f5b5d1f8e4432c1b1bdf7e9222e6e",
   "components": [
     {
       "path": "assets/box64/box64-0.4.4.tzst",
@@ -8,8 +8,8 @@
     },
     {
       "path": "assets/container_pattern.tzst",
-      "size": 7399363,
-      "sha256": "8ae3a4fee33e86da26826395650bb07c6f49ce94629ea4b9442bc633b6b8ca33"
+      "size": 9662052,
+      "sha256": "d9b42547cb2fb79044255e16657deafd0c7388052220dc87114cfac907581ce0"
     },
     {
       "path": "assets/dxwrapper/cnc-ddraw-6.6/ddraw.tzst",
@@ -80,51 +80,6 @@
       "path": "assets/rootfs_patches.tzst",
       "size": 4174031,
       "sha256": "49ab7a5158ef7ccff5ae96dfd539df48483454ed11c0d6788a4f95e0104c864a"
-    },
-    {
-      "path": "assets/wincomponents/direct3d.tzst",
-      "size": 31207067,
-      "sha256": "149d55436e050bfa3fe8caf650cb97ddb2bc9fa99cd96869bd2bc4977b708fb5"
-    },
-    {
-      "path": "assets/wincomponents/directmusic.tzst",
-      "size": 337109,
-      "sha256": "eb906732d14766641edfae0b2d722c36f4632de7fa321a5844037115b513b77e"
-    },
-    {
-      "path": "assets/wincomponents/directplay.tzst",
-      "size": 429728,
-      "sha256": "70eb81449230af66286f5b4d5922dca13057600c35d4cdfe91930e966c2386d9"
-    },
-    {
-      "path": "assets/wincomponents/directshow.tzst",
-      "size": 2209278,
-      "sha256": "aa682b7ee6e5903e4571bfe5a8dc9b05d0a9f05cd860cfdc810f2ddd3745e9b4"
-    },
-    {
-      "path": "assets/wincomponents/directsound.tzst",
-      "size": 434853,
-      "sha256": "72f0e880eef1387a55602ac02b07ef26778d23c2f70d931bd2d13e92f8dc99d4"
-    },
-    {
-      "path": "assets/wincomponents/vcrun2005.tzst",
-      "size": 1190943,
-      "sha256": "6ae9f3c22fecbc5dc2cee99354ff52587523663275f02bdfbf4ed36b91d2d90a"
-    },
-    {
-      "path": "assets/wincomponents/vcrun2010.tzst",
-      "size": 1038731,
-      "sha256": "9def7b4b5c31c839d155f05e372e0e9ce4968b57f815c1abf93b7735e7d0ceb7"
-    },
-    {
-      "path": "assets/wincomponents/wmdecoder.tzst",
-      "size": 1717472,
-      "sha256": "a2ca365cc43265680ee71a7b13a4626ed02368feec135571fb841c7b4abf62d1"
-    },
-    {
-      "path": "assets/wincomponents/xaudio.tzst",
-      "size": 2681573,
-      "sha256": "128ab3f25a74ff371d381cc0e028e8e2101f72e434ff46b85f629921ee0e2683"
     },
     {
       "path": "lib/arm64-v8a/libc++_shared.so",
@@ -210,6 +165,16 @@
       "path": "lib/arm64-v8a/libmidihandler.so",
       "size": 9888,
       "sha256": "2dfee375614cf73d81166d741f9d4bad799b9d39ef449456117e25ba1424f9a0"
+    },
+    {
+      "path": "lib/arm64-v8a/libmythvr.so",
+      "size": 1907128,
+      "sha256": "a80c6e503cd685ccef546fb54a895e486de1545b6a560caf9b809e31c7d5c9db"
+    },
+    {
+      "path": "lib/arm64-v8a/libmyth_capture.so",
+      "size": 41304,
+      "sha256": "fa08df505b4a1dfdf49048c76d318aa8cc94db9429e93f2c034c80f82a11717e"
     },
     {
       "path": "lib/arm64-v8a/libmyth_exec.so",
@@ -310,16 +275,6 @@
       "path": "lib/arm64-v8a/libzstd-jni-1.5.2-3.so",
       "size": 571304,
       "sha256": "f7367bf8e201baaa7bcfa1e62e42451040818ea79284b05a473f8c106a72b618"
-    },
-    {
-      "path": "lib/arm64-v8a/libmyth_capture.so",
-      "size": 41304,
-      "sha256": "fa08df505b4a1dfdf49048c76d318aa8cc94db9429e93f2c034c80f82a11717e"
-    },
-    {
-      "path": "lib/arm64-v8a/libmythvr.so",
-      "size": 1907128,
-      "sha256": "a80c6e503cd685ccef546fb54a895e486de1545b6a560caf9b809e31c7d5c9db"
     }
   ]
 }

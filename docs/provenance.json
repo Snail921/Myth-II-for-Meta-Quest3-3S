@@ -1,26 +1,9 @@
 {
-  "winlator": {
-    "source": "https://github.com/brunodev85/winlator-app",
-    "reference_commit": "2c33741d50c5daab0521a098be5c969f63b9e887",
-    "license": "LGPL-2.1",
-    "note": "Reference checkout, not verified complete corresponding source for all v11.2 APK components"
-  },
-  "mythextract": {
-    "source": "https://github.com/jwheare/mythextract",
-    "commit": "786a3e4fc205a037bc2e309667ccfd8ccde3d77a",
-    "license": "MIT",
-    "vendored": "research/references/mythextract/scripts"
-  },
-  "binary_release": {
-    "status": "withheld pending component source/license verification",
-    "development_apk_sha256": "64127e80456a039be36987ce7646ca5c8f3df256ea3dd41eedc7128b5931b3b9"
-  },
-  "excluded": [
-    "Original ISO, EXE, DLL and game archives",
-    "Converted game and plugin levels",
-    "Runtime seed",
-    "Signing keys",
-    "Private logs and device identifiers",
-    "Full original journals from skybox metadata"
-  ]
+  "apk_sha256": "ea6df365565268cdbe481b60744f3855cc7f5b5d1f8e4432c1b1bdf7e9222e6e",
+  "runtime_sha256": "0c8e020e6db29327f82379c21b3d95efc2c83f4c91484409eb050684b8677d00",
+  "upstream_sha256": "ea5c81bf0e5b90a6b9ccb8007121ab6738c8646a5a60b341ce0ac2b33f1d100a",
+  "package_id": "org.mythvr.standalone",
+  "private_candidate_used": false,
+  "validation": "Quest 3: fresh runtime setup, original menu and Willow Creek VR confirmed by user; approximately 72 FPS and input acknowledgements in logs",
+  "release": "v0.1.0-beta.2026.11.17"
 }
