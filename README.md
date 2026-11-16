@@ -21,7 +21,7 @@ An unofficial VR version of Myth II: Soulblighter for Quest 3 / 3S. View the bat
 
 1. **Prepare on PC** — Use Plugin Manager to convert your own Myth II CD ISO and 1.8.5 updater.
 2. **Copy to Quest** — Install the APK, connect USB and transfer the prepared data using Manager.
-3. **Start the game** — Run Initial setup once on Quest, then choose Start Myth II.
+3. **Start the game** — Open the Quest app library → **Unknown Sources** → **Myth II for Meta Quest 3 / 3S**. Run **Initial setup** once, then choose **Start Myth II**.
 4. **Play** — Start a level in the original menu; the battlefield switches to VR.
 
 The [installation guide](docs/INSTALL.md) lists the required software and what to select in each screen. You need your own game and any additional plugins.

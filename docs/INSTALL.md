@@ -52,7 +52,7 @@ Click **Extract original and convert all levels** and wait for completion. **Set
 
 1. Enable developer mode on Quest, connect USB and accept **Allow USB debugging** inside the headset.
 2. Install the compatible APK using your sideloading tool, or run `adb install path/to/app.apk`.
-3. Open the app once from **Unknown Sources** on Quest. Allow file access when prompted. Do not start the original game yet.
+3. Open the Quest app library, select **Unknown Sources** in the list filter, and click **Myth II for Meta Quest 3 / 3S** once. Allow file access when prompted. Do not start the original game yet.
 4. In Manager, set **ADB** to **adb.exe** from Platform Tools. Refresh the device list and select your Quest.
 5. Set **Setup result** to the output from step 2, and **Runtime data** to the matching **runtime-seed.tar**.
 6. Click **Deploy setup data**. Keep USB connected until completion.
@@ -61,10 +61,15 @@ Fresh setup does not overwrite an existing game installation. Use the plugin ste
 
 ## 4. Start playing
 
-1. On Quest, choose **Initial setup**. You only need to do this once.
-2. When it finishes, choose **Start Myth II**.
-3. Select **New Game** and start Willow Creek.
-4. When the battlefield switches to VR, setup is complete. You can now disconnect the PC.
+1. Put on your Quest and open the app library.
+2. Select **Unknown Sources** in the list filter.
+3. Point at **Myth II for Meta Quest 3 / 3S** with the right controller and click it with the right trigger. This opens the app launcher.
+4. In the launcher, click **Initial setup** and wait for completion. This is only needed once.
+5. In the same launcher, click **Start Myth II**.
+6. When the original game menu appears, select **New Game** and start Willow Creek.
+7. When the battlefield switches to VR, setup is complete. You can now disconnect the PC.
+
+For later sessions, choose **Unknown Sources** → **Myth II for Meta Quest 3 / 3S** → **Start Myth II**.
 
 Try these controls:
 

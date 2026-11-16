@@ -1,9 +1,10 @@
 {
-  "apk_sha256": "ea6df365565268cdbe481b60744f3855cc7f5b5d1f8e4432c1b1bdf7e9222e6e",
+  "apk_sha256": "a5ae4bb9d050c4cfeeb81cb296d25f145b106038ba133d5329612da6aa0ed506",
   "runtime_sha256": "0c8e020e6db29327f82379c21b3d95efc2c83f4c91484409eb050684b8677d00",
   "upstream_sha256": "ea5c81bf0e5b90a6b9ccb8007121ab6738c8646a5a60b341ce0ac2b33f1d100a",
   "package_id": "org.mythvr.standalone",
   "private_candidate_used": false,
   "validation": "Quest 3: fresh runtime setup, original menu and Willow Creek VR confirmed by user; approximately 72 FPS and input acknowledgements in logs",
-  "release": "v0.1.0-beta.2026.11.17"
+  "release": "v0.1.0-beta.2026.11.17",
+  "application_label": "Myth II for Meta Quest 3 / 3S"
 }
