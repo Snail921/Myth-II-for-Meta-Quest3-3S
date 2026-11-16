@@ -2,9 +2,7 @@
 
 [English README](../README.md) | [日本語README](../README.ja.md)
 
-Screenshots supplied by Snail921 from the development version. Game artwork remains the property of its respective rightsholders. Visual quality and effects depend on installed addons and settings.
-
-開発版で撮影したSnail921提供のスクリーンショットです。原作画像の権利は各権利者に帰属します。表示品質はアドオンや設定により異なります。
+Appearance varies with graphics settings and addons. / 表示は設定やアドオンにより異なります。
 
 ## Willow Creek / Water reflections
 ![Windmill and reflections](images/screenshot-01.png)

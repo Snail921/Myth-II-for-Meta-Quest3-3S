@@ -38,12 +38,10 @@ Upstream projects:
 - CNC DDraw: https://github.com/FunkyFr3sh/cnc-ddraw
 - OpenXR SDK: https://github.com/KhronosGroup/OpenXR-SDK
 
-## Artwork and game content
+## Game content and images
 
-`Assets/Logo.png` and `Assets/CD_Face.png` are supplied by Snail921, who identified them as their creations and authorized use/distribution with this project. See [asset notes](Assets/README.md). Skyboxes are generated artistic backgrounds prepared for this project; see [skybox notes](Skyboxes/README.md). Screenshots are user-supplied gameplay illustrations. These materials are separate from the MIT code license. Third-party Myth names, trademarks and underlying imagery remain with their respective rightsholders.
+Myth II names, trademarks and game artwork belong to their respective rightsholders. This project is unofficial. Game files and community plugin packs are not included. Screenshots show gameplay; optional launcher images and skyboxes are separate from the source-code license.
 
-No Myth II ISO, game executable, proprietary DLL, archive, converted level pack, commercial/community HD pack or full scenario text is included. Users supply their own game and plugin files. The project is unofficial and does not imply endorsement by original game, runtime or headset developers.
+## 日本語
 
-## 日本語要約
-
-独自コード・文書はMIT、mythextractは同梱のMIT、Winlatorの改変部分は上流のLGPL条件を引き継ぎます。原作画像・商標や第三者アドオンの権利をこれらのライセンスで再許諾するものではありません。WineのLGPLはAPK配布禁止ではなく、ソース提供等の条件を満たす必要があります。本公開物にはランタイムのバイナリを含めていません。ロゴ・CD画像は作者Snail921の利用許可に基づく同梱、スカイボックスは本プロジェクト用の生成画像です。原作データはユーザーが用意します。
+独自コード・文書はMIT、mythextractは同梱のMIT、Winlatorの改変部分は上流のLGPL条件に従います。原作の名称・商標・画像の権利は各権利者に帰属します。原作データ・第三者プラグインは同梱しません。画像素材とソースコードのライセンスは別扱いです。

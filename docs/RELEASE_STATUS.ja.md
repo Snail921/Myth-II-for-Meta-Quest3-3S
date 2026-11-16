@@ -19,7 +19,6 @@ WineやWinlatorがLGPLであることが配布禁止の理由ではありませ�
 2. `assets/wincomponents/*.tzst`（Direct3D、DirectMusic、DirectPlay、DirectShow、DirectSound、VCランタイム、WMデコーダー、XAudio）の個別確認。Wineのライセンスをそのまま適用できるとは限りません。
 3. 非公開の `myth-standalone-185-candidate.apk` を入力にするビルド方式を、公開可能な入力からの手順に置き換えること。この古いcandidateには原作データが含まれるため公開しません。
 4. ローカルWinlator環境の書き出しに依存した初回ランタイムを、再生成・確認可能な構成へ置き換えること。ハッシュ固定は互換性確認であり、再配布許諾の証明ではありません。
-5. 別途提供された水面ノーマル画像の出所の記録、または配布可能な素材への置き換え。
 
 外部データ版APKは原作アセット除外検査と新しいQuest 3での導入確認を通っています。ただし、それだけで全依存物の配布条件や完全な再ビルド手順が確認済みになるわけではありません。識別用ハッシュは `docs/provenance.json` に記録しています。
 

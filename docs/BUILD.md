@@ -26,7 +26,7 @@ The current sequence generates source, builds x86 input helpers and the ARM64 br
 - `tools/build_185_integration_native.ps1`, `tools/build_185_integration_app.ps1`
 - `tools/prepare_standalone_apk.py`, `tools/package_185_full.py`, `tools/patch_apk_fast.py`
 
-**Packaging is not reproducible from this checkout alone.** `package_185_full.py` currently expects the private development candidate APK and local intermediate objects/import libraries. `prepare_standalone_apk.py` is the earlier binary-integration script and also expects generated assets. Do not distribute or request the old candidate APK: it contains original game data. The water-normal input is not included pending its provenance check. A clean source-build entry point is still required. No private signing key is published; generate your own key for a future clean build and understand update-signature compatibility.
+**Packaging is not reproducible from this checkout alone.** `package_185_full.py` currently expects the private development candidate APK and local intermediate objects/import libraries. `prepare_standalone_apk.py` is the earlier binary-integration script and also expects generated assets. Do not distribute or request the old candidate APK: it contains original game data. A clean source-build entry point is still required. No private signing key is published; generate your own key for a future clean build and understand update-signature compatibility.
 
 ## Manager checks
 
