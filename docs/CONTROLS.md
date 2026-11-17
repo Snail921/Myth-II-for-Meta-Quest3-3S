@@ -34,6 +34,8 @@ Point at a friendly unit and hold the left trigger for about **0.35 seconds**. W
 
 After clearing or changing selection manually, the **first Y or B press recalls the last group**. Further presses cycle through registered groups. Empty groups are skipped.
 
+For the gesture, bring one controller toward the other and stop it nearby; physical contact is unnecessary. Separate them before repeating.
+
 In the launcher's controls settings, you can switch back to gesture-based group cycling. The default mode uses Y/B for cycling and both gestures for deselection.
 
 ## Camera and panels
