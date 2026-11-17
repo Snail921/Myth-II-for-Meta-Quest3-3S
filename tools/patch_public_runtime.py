@@ -42,6 +42,15 @@ def patch(out):
         ET.SubElement(panel,'layout',{a('defaultWidth'):'1920dp',a('defaultHeight'):'1080dp',a('minWidth'):'640dp',a('minHeight'):'360dp'})
     tree.write(p,encoding='utf-8',xml_declaration=True)
 
+    # Keep the external CD startup animation in public builds as well.
+    p=out/'smali/com/winlator/core/PreloaderDialog.smali'
+    text=p.read_text()
+    anchor='    invoke-virtual {v0}, Landroid/app/Dialog;->show()V'
+    hook='    invoke-static {v0, p1}, Lorg/mythvr/standalone/StartupDisc;->prepare(Landroid/app/Dialog;I)V\n\n'
+    if 'StartupDisc;->prepare' not in text:
+        assert text.count(anchor)==1
+        p.write_text(text.replace(anchor,hook+anchor))
+
     p=out/'smali/com/winlator/XServerDisplayActivity.smali';s=p.read_text()
     # Only the dedicated VR variant keeps the guest running when its 2D view pauses.
     s=s.replace('invoke-virtual {v0}, Lcom/winlator/xenvironment/XEnvironment;->onPause()V','nop # Standalone VR keeps its guest simulation alive')

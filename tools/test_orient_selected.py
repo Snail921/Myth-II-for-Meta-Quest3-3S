@@ -25,9 +25,9 @@ for units in (1,4,32,126):
   w(cmd,0x31444d43,1,22,0x10000|face,0,0,0,0);w(sp,stop,cmd);u.reg_write(UC_X86_REG_ESP,sp)
   u.emu_start(entry,stop,count=2000000)
   assert u.reg_read(UC_X86_REG_EIP)==stop and u.reg_read(UC_X86_REG_ESP)==sp+4 and u.reg_read(UC_X86_REG_EAX)==1
-  length=struct.unpack('<I',u.mem_read(queue+8,4))[0];assert length==units*30
+  length=struct.unpack('<I',u.mem_read(queue+8,4))[0];assert length==units*38
   for i in range(units):
-   b=bytes(u.mem_read(buf+i*30,30));assert b[:8]==struct.pack('<hbbI',30,3,-1,0)
-   assert b[8:]==struct.pack('>4H',17,0,face,0)+struct.pack('>3H2i',1,10000+i,1,50000+i*100,60000+i*50)
+   b=bytes(u.mem_read(buf+i*38,38));assert b[:8]==struct.pack('<hbbI',38,3,-1,0)
+   assert b[8:]==struct.pack('>4H',16,0,face,0)+struct.pack('>3H4i',1,10000+i,2,50000+i*100,60000+i*50,50000+i*100,60000+i*50)
   assert bytes(u.mem_read(0x67ddb0,4+units*2))==selection and bytes(u.mem_read(objects,units*80))==positions
 print('PASS 12 cases: 1/4/32/126 actors, facing, unchanged selection/positions, original per-unit command coordinates. Live turning pending.')

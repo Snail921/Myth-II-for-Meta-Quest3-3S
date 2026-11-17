@@ -1,5 +1,6 @@
 #include "surface_compositor.h"
 static surface::Compositor groundEffects;
+static GLuint waterShadowTexture=0;
 static std::map<uint64_t,unsigned> groundFrames;
 static uint64_t surfaceRevision=~uint64_t(0);
 static unsigned surfaceUpdates=0;
@@ -14,7 +15,9 @@ static void loadSurfaceEffects(android_app*a){
  if(w!=terrain.width*8||height!=terrain.height*8||w>4096||height>4096||nm>20000||nf>1000000)throw std::runtime_error("surface sizes");
  groundEffects={};groundFrames.clear();auto&g=groundEffects;g.w=w;g.h=height;
  auto ix=take(size_t(w)*height);g.indices.assign(ix,ix+size_t(w)*height);
- auto sh=take(size_t(w)*height);g.base.assign(sh,sh+size_t(w)*height);g.shade=g.base;initialSurfaceIndices=g.indices;initialSurfaceShade=g.base;appliedSurfaceEpoch=0;
+ auto sh=take(size_t(w)*height);g.base.assign(sh,sh+size_t(w)*height);g.shade=g.base;g.initShadow();
+ glActiveTexture(GL_TEXTURE0);glGenTextures(1,&waterShadowTexture);glBindTexture(GL_TEXTURE_2D,waterShadowTexture);glPixelStorei(GL_UNPACK_ALIGNMENT,1);glTexImage2D(GL_TEXTURE_2D,0,GL_R8,w,height,0,GL_RED,GL_UNSIGNED_BYTE,g.shadow.data());glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+ initialSurfaceIndices=g.indices;initialSurfaceShade=g.base;appliedSurfaceEpoch=0;
  auto lut=take(256*256*4);g.lut.assign(lut,lut+256*256*4);
  for(unsigned i=0;i<nm;i++){auto h=take(24);unsigned id=u32(h),kind=u32(h+4),mw=u32(h+16),mh=u32(h+20);
   if(kind>2||!mw||!mh||mw>1024||mh>1024)throw std::runtime_error("surface mask size");
@@ -67,5 +70,8 @@ static void updateSurfaceEffects(){
  g.compose(stamps);double composed=seconds();
  glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,textures[0]);glPixelStorei(GL_UNPACK_ALIGNMENT,1);std::vector<uint8_t> rgba;unsigned bytes=0;
  for(auto tile:g.tiles){g.rgba(tile,rgba);int x=(tile%((g.w+63)/64))*64,y=(tile/((g.w+63)/64))*64;glTexSubImage2D(GL_TEXTURE_2D,0,x,y,std::min(64,g.w-x),std::min(64,g.h-y),GL_RGBA,GL_UNSIGNED_BYTE,rgba.data());bytes+=rgba.size();}
+ glBindTexture(GL_TEXTURE_2D,waterShadowTexture);glPixelStorei(GL_UNPACK_ROW_LENGTH,g.w);
+ for(auto tile:g.tiles){int x=(tile%((g.w+63)/64))*64,y=(tile/((g.w+63)/64))*64;glTexSubImage2D(GL_TEXTURE_2D,0,x,y,std::min(64,g.w-x),std::min(64,g.h-y),GL_RED,GL_UNSIGNED_BYTE,g.shadow.data()+y*g.w+x);}
+ glPixelStorei(GL_UNPACK_ROW_LENGTH,0);glBindTexture(GL_TEXTURE_2D,textures[0]);
  if(surfaceUpdates++%120==0)LOG("Ground shadows tick=%u object=%u model=%u lights=%u particles=%u dirty=%zu upload=%u compose_ms=%.3f total_ms=%.3f",tick,objectCount,modelCount,lightCount,particleLights,g.tiles.size(),bytes,(composed-start)*1000,(seconds()-start)*1000);
 }

@@ -6,7 +6,7 @@ An unofficial VR version of Myth II: Soulblighter for Quest 3 / 3S. View the bat
 
 **Download the APK, initial runtime and Plugin Manager below.** Supply your own original ISO and 1.8.5 updater.
 
-[Downloads](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.1.0-beta.2026.11.17) · [Installation guide](docs/INSTALL.md)
+[Downloads](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.2.0-beta) · [Installation guide](docs/INSTALL.md) · [Controls](docs/CONTROLS.md)
 
 <p>
   <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-01.png"><img src="docs/images/screenshot-01.png" height="120" alt=""></a>
@@ -47,3 +47,13 @@ Not every plugin is supported. Get the base game working before adding plugins.
 ---
 
 For developers: [Build notes](docs/BUILD.md) · [Release preparation](docs/RELEASE_STATUS.md) · [Licenses](THIRD_PARTY_NOTICES.md)
+
+## Controls
+
+[Open the controls guide](docs/CONTROLS.md) — Selection, movement, groups, co-op transfers and game speed.
+
+## Updates
+
+**0.2.0-beta** — Display settings, co-op transfers, improved facing/group controls, and shadow/sprite fixes.
+
+[Full changelog](CHANGELOG.md)

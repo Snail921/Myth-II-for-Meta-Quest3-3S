@@ -43,7 +43,8 @@ inline int place(int height,unsigned kind,int transfer,int phase,int&offset,unsi
  return strength;
 }
 struct Compositor {
- int w=0,h=0;std::vector<uint8_t> indices,base,shade,lut;
+ int w=0,h=0;std::vector<uint8_t> indices,base,shade,lut,shadow;
+ void initShadow(){shadow.assign(size_t(w)*h,255);}
  std::map<unsigned,Mask> masks;std::map<uint64_t,Stamp> previous;
  std::vector<uint8_t> externalDirty,dirty;std::vector<unsigned> tiles;
  void replaceTile(unsigned tile,const uint8_t*color,const uint8_t*light){
@@ -60,13 +61,14 @@ struct Compositor {
   for(int j=std::max(0,y)/Tile;j<=(std::min(h,y+m.h)-1)/Tile;j++)for(int i=std::max(0,x)/Tile;i<=(std::min(w,x+m.w)-1)/Tile;i++)if(dirty[j*cols+i])return true;return false;
  }
  void compose(const std::vector<Stamp>&stamps){
+  if(shadow.size()!=size_t(w)*h)initShadow();
   int cols=(w+Tile-1)/Tile;dirty.assign(cols*((h+Tile-1)/Tile),0);if(externalDirty.size()==dirty.size()){dirty.swap(externalDirty);std::fill(externalDirty.begin(),externalDirty.end(),0);}tiles.clear();std::map<uint64_t,Stamp> next;
   for(auto&s:stamps){next.emplace(s.source,s);auto it=previous.find(s.source);if(it==previous.end()||!(s==it->second)){mark(s);if(it!=previous.end())mark(it->second);}}
   for(auto&old:previous)if(!next.count(old.first))mark(old.second);
   previous.swap(next);
-  for(unsigned i=0;i<dirty.size();i++)if(dirty[i]){tiles.push_back(i);int x=(i%cols)*Tile,y=(i/cols)*Tile;for(int j=y;j<std::min(y+Tile,h);j++)std::copy_n(base.data()+j*w+x,std::min(Tile,w-x),shade.data()+j*w+x);}
+  for(unsigned i=0;i<dirty.size();i++)if(dirty[i]){tiles.push_back(i);int x=(i%cols)*Tile,y=(i/cols)*Tile;for(int j=y;j<std::min(y+Tile,h);j++){std::copy_n(base.data()+j*w+x,std::min(Tile,w-x),shade.data()+j*w+x);std::fill_n(shadow.data()+j*w+x,std::min(Tile,w-x),255);}}
   if(tiles.empty())return;
-  for(auto&s:stamps)if(touches(s))apply(shade,w,h,masks.at(s.mask),s,&dirty);
+  for(auto&s:stamps)if(touches(s)){auto&m=masks.at(s.mask);apply(shade,w,h,m,s,&dirty);if(m.kind!=1)apply(shadow,w,h,m,s,&dirty);}
  }
  void rgba(unsigned tile,std::vector<uint8_t>&out)const{
   int cols=(w+Tile-1)/Tile,x=(tile%cols)*Tile,y=(tile/cols)*Tile,tw=std::min(Tile,w-x),th=std::min(Tile,h-y);out.resize(tw*th*4);

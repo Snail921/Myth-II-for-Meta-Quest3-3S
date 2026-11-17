@@ -12,7 +12,7 @@ int main(void){
  unsigned char h[64];unsigned frame=0;
  while(1){
   size_t got=fread(h,1,64,stdin);if(!got && feof(stdin))break;
-  if(got!=64||memcmp(h,"MYTHBR01",8)||(u32(h+8)<1||u32(h+8)>18)||u32(h+12)!=u32(h+16)||u32(h+32)!=216||u32(h+36)!=80)return 2;
+  if(got!=64||memcmp(h,"MYTHBR01",8)||(u32(h+8)<1||u32(h+8)>21)||u32(h+12)!=u32(h+16)||u32(h+32)!=216||u32(h+36)!=80)return 2;
   uint32_t ac=u32(h+24),oc=u32(h+28);if(ac>400||oc>8192)return 2;
   size_t n=ac*216+oc*80;unsigned char*b=malloc(n);if(!b||fread(b,1,n,stdin)!=n)return 2;
   if(u32(h+8)>=2){unsigned char meta[272];if(fread(meta,1,272,stdin)!=272||u32(meta+16)>126)return 2;}
@@ -29,6 +29,9 @@ int main(void){
   if(u32(h+8)>=15){uint32_t camera[11];if(fread(camera,4,11,stdin)!=11)return 2;}
   if(u32(h+8)>=16){uint32_t mana[400];if(fread(mana,4,ac,stdin)!=ac)return 2;}
   if(u32(h+8)>=17){uint32_t n;int32_t e[7];unsigned stride=u32(h+8)>=18?7:4;if(fread(&n,4,1,stdin)!=1||n>4096)return 2;for(unsigned i=0;i<n;i++)if(fread(e,4,stride,stdin)!=stride)return 2;}
+  if(u32(h+8)>=19){uint32_t n;unsigned char row[88];if(fread(&n,4,1,stdin)!=1||n>128)return 2;for(unsigned i=0;i<n;i++)if(fread(row,1,88,stdin)!=88)return 2;}
+  if(u32(h+8)>=20){uint32_t n;unsigned char row[44];if(fread(&n,4,1,stdin)!=1||n>32)return 2;for(unsigned i=0;i<n;i++)if(fread(row,1,44,stdin)!=44||u32(row)>=32||row[43])return 2;}
+  if(u32(h+8)>=21){uint32_t speed;if(fread(&speed,4,1,stdin)!=1||speed>11)return 2;}
   unsigned live=0;for(unsigned i=0;i<ac;i++){
    const unsigned char*a=b+i*216;if(!u16(a))continue;live++;
    int obj=s16(a+12);if(obj<0||(unsigned)obj>=oc)return 3;

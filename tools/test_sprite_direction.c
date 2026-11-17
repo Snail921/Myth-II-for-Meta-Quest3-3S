@@ -17,5 +17,18 @@ int main(void){
   const struct Case*c=&cases[i];unsigned got=myth_sprite_direction(c->dx,c->dz,c->yaw,c->count);
   if(got!=c->want){fprintf(stderr,"FAIL %s: %u != %u\n",c->label,got,c->want);return 1;}
  }
- puts("PASS 15 sprite-direction cases");return 0;
+ // Reflect the angular lookup while preserving front/back and handedness.
+ for(unsigned count=8;count<=16;count+=8)for(unsigned dir=0;dir<count;dir++){
+  float angle=dir*6.2831853071795864769f/count;
+  float dx=-cosf(angle),dz=sinf(angle);
+  for(unsigned flip=0;flip<4;flip++){
+   unsigned want=(flip&1)?(count-dir)%count:dir;
+   if(myth_object_sprite_direction(dx,dz,0,count,flip)!=want)return 2;
+  }
+ }
+ for(unsigned flip=0;flip<4;flip++){
+  if(myth_object_sprite_direction(1,1,.3f,0,flip)!=0)return 3;
+  if(myth_object_sprite_direction(1,1,.3f,1,flip)!=0)return 4;
+ }
+ puts("PASS 15 direction cases, 96 handedness cases, 8 single/empty view cases");return 0;
 }

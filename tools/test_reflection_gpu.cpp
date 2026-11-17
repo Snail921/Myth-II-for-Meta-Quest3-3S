@@ -29,6 +29,8 @@ static GLuint shader(GLenum kind,const char*src){GLuint s=glCreateShader(kind);g
 static void attributes(GLuint b){glBindBuffer(GL_ARRAY_BUFFER,b);glEnableVertexAttribArray(0);glEnableVertexAttribArray(1);glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(Vertex),0);glVertexAttribPointer(1,2,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)12);}
 #include "../src/vr/color_pipeline.h"
 #include "../src/vr/render_culling.h"
+#include "../src/vr/surface_compositor.h"
+static surface::Compositor groundEffects;static GLuint waterShadowTexture=0;
 #include "../src/vr/reflection_render.h"
 static bool diagnosticEnabled=true;
 #include "../src/vr/render_profile.h"
@@ -38,6 +40,7 @@ static bool diagnosticEnabled=true;
 int main(int argc,char**argv){
  EGLDisplay display=eglGetDisplay(EGL_DEFAULT_DISPLAY);assert(eglInitialize(display,0,0));EGLint aa[]={EGL_SURFACE_TYPE,EGL_PBUFFER_BIT,EGL_RENDERABLE_TYPE,EGL_OPENGL_ES3_BIT,EGL_RED_SIZE,8,EGL_GREEN_SIZE,8,EGL_BLUE_SIZE,8,EGL_ALPHA_SIZE,8,EGL_DEPTH_SIZE,24,EGL_NONE};EGLConfig cfg;EGLint count;assert(eglChooseConfig(display,aa,&cfg,1,&count)&&count);
  EGLint ca[]={EGL_CONTEXT_CLIENT_VERSION,3,EGL_NONE},pa[]={EGL_WIDTH,64,EGL_HEIGHT,64,EGL_NONE};auto context=eglCreateContext(display,cfg,EGL_NO_CONTEXT,ca);auto surface=eglCreatePbufferSurface(display,cfg,pa);assert(eglMakeCurrent(display,surface,surface,context));
+ groundEffects.w=levelWidth*8;groundEffects.h=levelHeight*8;glGenTextures(1,&waterShadowTexture);glBindTexture(GL_TEXTURE_2D,waterShadowTexture);unsigned char noShadow=255;glTexImage2D(GL_TEXTURE_2D,0,GL_R8,1,1,0,GL_RED,GL_UNSIGNED_BYTE,&noShadow);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
  GLuint vao,vbo;glGenVertexArrays(1,&vao);glBindVertexArray(vao);glGenBuffers(1,&vbo);
  program=glCreateProgram();glAttachShader(program,shader(GL_VERTEX_SHADER,mythVertexShader));glAttachShader(program,shader(GL_FRAGMENT_SHADER,mythFragmentShader));glLinkProgram(program);GLint ok;glGetProgramiv(program,GL_LINK_STATUS,&ok);assert(ok);
  if(argc==2&&!strcmp(argv[1],"--export-normal")){

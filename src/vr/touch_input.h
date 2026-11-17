@@ -13,16 +13,18 @@ static void restartSceneFade();
 #include <deque>
 #include "camera_settings.h"
 #include "controller_tap.h"
+#include "group_cycle.h"
 struct TouchInput {
- XrSession hapticSession{};XrAction leftHaptic{},rightHaptic{};bool hapticFocused=false;ControllerTap tap;int currentGroup=-1;
- std::map<unsigned,int> hapticRequests;std::map<unsigned,int> groupRequests;
+ XrSession hapticSession{};XrAction leftHaptic{},rightHaptic{};bool hapticFocused=false;ControllerTap tap;GroupCycle groupCycle;
+ std::map<unsigned,int> hapticRequests;std::map<unsigned,GroupCycle::Request> groupRequests;
  void pulse(bool right){if(!hapticFocused)return;XrHapticActionInfo info{XR_TYPE_HAPTIC_ACTION_INFO};info.action=right?rightHaptic:leftHaptic;XrHapticVibration vibration{XR_TYPE_HAPTIC_VIBRATION};vibration.duration=25000000;vibration.frequency=XR_FREQUENCY_UNSPECIFIED;vibration.amplitude=.25f;xrApplyHapticFeedback(hapticSession,&info,(const XrHapticBaseHeader*)&vibration);}
  XrActionSet set{};XrAction select{},clear{},nextGroup{},extend{},move{},elevateTurn{},aim{},grip{},leftGrip{},special{},groundAttack{},orders{},formations{},minimap{},followClick{},warpClick{};
  bool lastNextGroup=true;bool lastFollowClick=true,lastWarpClick=true;
  XrSpace leftGripSpace{};bool lastMinimap=true;bool groundAttackHeld=false,specialHeld=false,lastSpecial=false,lastOrders=false,lastFormations=false,lastExtend=false;bool swallowRight=false,swallowLeft=false;
- XrSpace aimSpace{},gripSpace{};bool lastSelect=false,lastClear=false,selectHeld=false,extendHeld=false;
+ XrSpace viewSpace{},aimSpace{},gripSpace{};bool lastSelect=false,lastClear=false,selectHeld=false,extendHeld=false;
  XrPath path(XrInstance i,const char*s){XrPath p;ck(xrStringToPath(i,s,&p));return p;}
  void init(XrInstance instance,XrSession session){
+  XrReferenceSpaceCreateInfo viewInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};viewInfo.referenceSpaceType=XR_REFERENCE_SPACE_TYPE_VIEW;viewInfo.poseInReferenceSpace.orientation.w=1;ck(xrCreateReferenceSpace(session,&viewInfo,&viewSpace));
   XrActionSetCreateInfo si{XR_TYPE_ACTION_SET_CREATE_INFO};strcpy(si.actionSetName,"myth_controls");strcpy(si.localizedActionSetName,"Myth controls");ck(xrCreateActionSet(instance,&si,&set));
   auto create=[&](const char*name,XrActionType type){XrActionCreateInfo c{XR_TYPE_ACTION_CREATE_INFO};strcpy(c.actionName,name);strcpy(c.localizedActionName,name);c.actionType=type;XrAction a;ck(xrCreateAction(set,&c,&a));return a;};
   select=create("select",XR_ACTION_TYPE_FLOAT_INPUT);clear=create("clear_selection",XR_ACTION_TYPE_BOOLEAN_INPUT);extend=create("extend_selection",XR_ACTION_TYPE_FLOAT_INPUT);move=create("camera_move",XR_ACTION_TYPE_VECTOR2F_INPUT);elevateTurn=create("camera_height_turn",XR_ACTION_TYPE_VECTOR2F_INPUT);aim=create("right_pointer",XR_ACTION_TYPE_POSE_INPUT);grip=create("right_grip",XR_ACTION_TYPE_POSE_INPUT);
@@ -111,18 +113,22 @@ static bool flushCommand(){
  if(send(peer,data.data(),sizeof(data),MSG_NOSIGNAL|MSG_DONTWAIT)!=(ssize_t)sizeof(data)){commandFailed=true;commandQueue.clear();close(peer);peer=-1;return false;}
  requestPending=data[1];pendingOp=data[2];requestTime=seconds();commandFailed=false;LOG("Input request seq=%u op=%u id=%u flags=%u x=%d y=%d",data[1],data[2],data[3],data[4],(int)data[5],(int)data[6]);return true;
 }
-static bool command(unsigned op,unsigned id=0,unsigned flags=0,int x=0,int y=0,int z=0){
+static bool command(unsigned op,unsigned id=0,unsigned flags=0,int x=0,int y=0,int z=0,bool cycling=false){
  if(peer<0||!authenticated||commandQueue.size()>=32){commandFailed=true;return false;}
  if(op==1||op==4){for(const auto&o:objects)if(o.unitID==id)LOG("Actor target op=%u tick=%u id=%u key=%08x family=%d col=%u team=%d owner=%d pos=%.3f,%.3f,%.3f objectFlags=%08x actorFlags=%08x",op,tick,id,o.objectKey,o.family,o.col,o.team,o.owner,o.x,o.y,o.z,o.rawFlags,o.actorFlags);}
  commandQueue.push_back({0x31444d43,++requestSeq,op,id,flags,(uint32_t)x,(uint32_t)y,(uint32_t)z});
- if(op==20){input.groupRequests[requestSeq]=id;if(cameraSpeeds.selectionHaptics)input.hapticRequests[requestSeq]=0;}
+ if(op==20){input.groupRequests[requestSeq]=input.groupCycle.request(id,cycling);if(cameraSpeeds.selectionHaptics)input.hapticRequests[requestSeq]=0;}
+ bool pointerSelection=op==4;
+ if(pointerSelection){bool controlled=std::any_of(objects.begin(),objects.end(),[](const Object&o){return o.selected&&o.controllable;});auto target=std::find_if(objects.begin(),objects.end(),[id](const Object&o){return o.unitID==id;});if(controlled&&(originalMode==3||target==objects.end()||!target->controllable))pointerSelection=false;}
+ if(op==1||op==2||pointerSelection||op==23)input.groupCycle.interrupt();
  if((op==1||op==4)&&cameraSpeeds.selectionHaptics){for(auto&o:objects)if(o.unitID==id&&o.controllable){bool changed=!o.selected;for(auto&other:objects)if(!flags&&other.selected&&other.unitID!=id)changed=true;if(changed)input.hapticRequests[requestSeq]=0;break;}}
  return flushCommand();
 }
-static void acknowledge(uint32_t seq,uint32_t status){if(requestPending&&seq==requestPending){LOG("Input ACK seq=%u status=%u",seq,status);auto feedback=input.hapticRequests.find(seq);if(feedback!=input.hapticRequests.end()){if(status==1)input.pulse(feedback->second==1);input.hapticRequests.erase(feedback);}auto group=input.groupRequests.find(seq);if(group!=input.groupRequests.end()){if(status==1)input.currentGroup=group->second;input.groupRequests.erase(group);}if(pendingOp==18){soundRangeApplied=status==1?soundRangeSent:0;requestPending=0;flushCommand();return;}if(pendingOp==16){if(seq==pickupRequest){pickupEligible=status==101;LOG("Pickup query key=%08x status=%u selection=%08x",pickupKey,status,pickupSelection);}requestPending=0;flushCommand();return;}if(seq==patrolRequest){patrolFlashUntil=status==1?seconds()+.5:0;patrolRequest=0;}commandFailed=status!=1;requestPending=0;if(commandFailed){commandQueue.clear();input.hapticRequests.clear();input.groupRequests.clear();routePoints=0;clearMoveMarkers();}else flushCommand();}}
+static void acknowledge(uint32_t seq,uint32_t status){if(requestPending&&seq==requestPending){LOG("Input ACK seq=%u status=%u",seq,status);auto feedback=input.hapticRequests.find(seq);if(feedback!=input.hapticRequests.end()){if(status==1)input.pulse(feedback->second==1);input.hapticRequests.erase(feedback);}auto group=input.groupRequests.find(seq);if(group!=input.groupRequests.end()){input.groupCycle.acknowledge(group->second,status==1);input.groupRequests.erase(group);}if(pendingOp==18){soundRangeApplied=status==1?soundRangeSent:0;requestPending=0;flushCommand();return;}if(pendingOp==16){if(seq==pickupRequest){pickupEligible=status==101;LOG("Pickup query key=%08x status=%u selection=%08x",pickupKey,status,pickupSelection);}requestPending=0;flushCommand();return;}if(seq==patrolRequest){patrolFlashUntil=status==1?seconds()+.5:0;patrolRequest=0;}commandFailed=status!=1;requestPending=0;if(commandFailed){commandQueue.clear();input.hapticRequests.clear();input.groupRequests.clear();routePoints=0;clearMoveMarkers();}else flushCommand();}}
 static bool selectGroup(const std::vector<unsigned>&ids,bool additive){
  size_t needed=2+(ids.size()+9)/10;
  if(ids.size()>126||peer<0||!authenticated||commandQueue.size()+needed>32){commandFailed=true;return false;}
+ input.groupCycle.interrupt();
  // Build the whole transaction before sending its BEGIN. Failure never commits a partial set.
  commandQueue.push_back({0x31444d43,++requestSeq,9,(uint32_t)ids.size(),additive?1u:0u,0,0,0});
  for(size_t offset=0;offset<ids.size();offset+=10){std::array<uint32_t,8> p{0x31444d43,++requestSeq,10,0,0,0,0,0};for(size_t j=0;j<10&&offset+j<ids.size();j++)p[3+j/2]|=(ids[offset+j]&65535)<<((j%2)*16);commandQueue.push_back(p);}
@@ -201,32 +207,71 @@ static void clickPointer(bool extend,bool groundAttack,bool fixedMove,Vec3 desti
   }else {routePoints=0;clearMoveMarkers();command(2);}
  }else {routePoints=0;clearMoveMarkers();command(2);}
 }
+#include "coop_transfer_input.h"
 static void updateInput(XrSession session,XrSpace space,XrTime time,const XrView*views,float dt,bool focused){
  if(!cameraReady){followCamera.active=false;orbitCamera.active=false;if(levelInitialCamera){camera.x=mythWorldX(levelCamera[0],originX,scale);camera.z=(levelCamera[1]-originY)*scale;cameraYaw=levelCamera[3]+1.5707963268f;cameraGroundOffset=std::clamp((levelCamera[2]-originZ)*scale-terrain.elevation(camera.x,camera.z),1.6f,20.f);}camera.y=terrain.elevation(camera.x,camera.z)+cameraGroundOffset;cameraReady=true;requestSeq=(uint32_t)(seconds()*1000);}
  if(requestPending&&seconds()-requestTime>2){LOG("Input ACK timeout seq=%u",requestPending);patrolRequest=0;routePoints=0;clearMoveMarkers();requestPending=0;commandQueue.clear();input.hapticRequests.clear();input.groupRequests.clear();commandFailed=true;}
  pollOriginalDialog();
  wristMapPoseValid=false;mapHovered=false;infoPanelHovered=false;originalDialogHovered=false;
  input.hapticFocused=focused;if(!focused)input.tap.reset();
- if(!focused){followCamera.active=false;input.lastNextGroup=true;input.lastFollowClick=input.lastWarpClick=true;orbitCamera.active=false;infoPanelGesture=false;mapGesture=false;input.lastMinimap=true;routePoints=0;clearMoveMarkers();pointerValid=false;radial.close();selectionGesture.cancel();selectionPreview.clear();lastTapID=0;commandQueue.clear();input.swallowRight=input.swallowLeft=true;input.lastSelect=input.lastClear=input.selectHeld=input.extendHeld=false;input.lastSpecial=input.lastOrders=input.lastFormations=true;return;}
+ if(!focused){coopMenuOpen=false;followCamera.active=false;input.lastNextGroup=true;input.lastFollowClick=input.lastWarpClick=true;orbitCamera.active=false;infoPanelGesture=false;mapGesture=false;input.lastMinimap=true;routePoints=0;clearMoveMarkers();pointerValid=false;radial.close();selectionGesture.cancel();selectionPreview.clear();lastTapID=0;commandQueue.clear();input.swallowRight=input.swallowLeft=true;input.lastSelect=input.lastClear=input.selectHeld=input.extendHeld=false;input.lastSpecial=input.lastOrders=input.lastFormations=true;return;}
  XrActiveActionSet active{input.set,XR_NULL_PATH};XrActionsSyncInfo sync{XR_TYPE_ACTIONS_SYNC_INFO};sync.countActiveActionSets=1;sync.activeActionSets=&active;XrResult synced=xrSyncActions(session,&sync);if(synced==XR_SESSION_NOT_FOCUSED){followCamera.active=false;input.lastNextGroup=true;input.lastFollowClick=input.lastWarpClick=true;orbitCamera.active=false;pointerValid=false;return;}ck(synced);
  bool select=input.trigger(session,input.select,input.selectHeld),clear=input.boolean(session,input.clear),extend=input.trigger(session,input.extend,input.extendHeld);
- bool mapPressed=input.boolean(session,input.minimap);if(!originalDialogMode&&mapPressed&&!input.lastMinimap){if(extend){infoPanelShown=!infoPanelShown;if(infoPanelShown)wristMapShown=true;LOG("Selection panel visible=%d",infoPanelShown);}else wristMapShown=!wristMapShown;}input.lastMinimap=mapPressed;
+ bool followPressed=input.boolean(session,input.followClick),warpPressed=input.boolean(session,input.warpClick),cameraJump=false;
+ bool mapPressed=input.boolean(session,input.minimap);
  bool groundAttack=input.trigger(session,input.groundAttack,input.groundAttackHeld);
+ auto clicks=speedClick(warpPressed,followPressed,input.lastWarpClick,input.lastFollowClick,groundAttack);
  bool special=input.trigger(session,input.special,input.specialHeld),orders=input.boolean(session,input.orders),formations=input.boolean(session,input.formations);
+ bool speedChord=groundAttack&&(warpPressed||followPressed)&&!originalDialogMode&&!radial.kind&&!coopMenuOpen;
+ if(!speedChord&&!originalDialogMode&&!coopMenuOpen&&mapPressed&&!input.lastMinimap){if(extend){infoPanelShown=!infoPanelShown;if(infoPanelShown)wristMapShown=true;LOG("Selection panel visible=%d",infoPanelShown);}else wristMapShown=!wristMapShown;}input.lastMinimap=mapPressed;
  if(originalDialogMode){special=orders=formations=false;if(clear&&!input.lastClear)originalDialogRequest(4);}
  if(!select)input.swallowRight=false;if(!extend)input.swallowLeft=false;
  XrPosef head=views[0].pose;head.position={(views[0].pose.position.x+views[1].pose.position.x)/2,(views[0].pose.position.y+views[1].pose.position.y)/2,(views[0].pose.position.z+views[1].pose.position.z)/2};
  XrPosef grip;bool gripOK=input.pose(session,input.grip,input.gripSpace,space,time,grip);
  XrPosef leftGrip;bool leftOK=input.pose(session,input.leftGrip,input.leftGripSpace,space,time,leftGrip);
  wristMapPoseValid=leftOK;if(leftOK)wristMapPose=leftGrip;wristMapViewer={head.position.x,head.position.y,head.position.z};Vec3 mapForward=rotated(head.orientation,{0,0,-1});mapForward.y=0;if(dot(mapForward,mapForward)>.0001f)wristMapForward=normalized(mapForward);
+ // Right grip + stick click owns this chord before menus, abilities or
+ // pointer commands. Grip alone remains the ground-attack/camera modifier.
+ if(speedChord){
+  if(clicks.speed>=0&&!select&&!selectionGesture.pending)command(24,(unsigned)clicks.speed);
+  input.lastFollowClick=followPressed;input.lastWarpClick=warpPressed;
+  input.lastClear=clear;input.lastNextGroup=input.boolean(session,input.nextGroup);input.lastMinimap=mapPressed;
+  input.lastOrders=orders;input.lastFormations=formations;input.lastSpecial=special;input.lastExtend=extend;
+  input.lastSelect=select;input.swallowRight=select;selectionGesture.cancel();selectionPreview.clear();pointerValid=false;hoverID=hoverItem=0;
+  input.tap.reset();return;
+ }
  bool menuEvent=false;bool nextGroup=input.boolean(session,input.nextGroup);
+ bool transferChord=groundAttack&&clear&&!input.lastClear&&!originalDialogMode&&!radial.kind;
+ bool transferModal=coopMenuOpen;
+ if(transferChord&&!transferModal){
+  routePoints=0;clearMoveMarkers();selectionGesture.cancel();lastTapID=0;mapGesture=infoPanelGesture=false;
+  XrSpaceLocation view{XR_TYPE_SPACE_LOCATION};
+  auto valid=XR_SPACE_LOCATION_POSITION_VALID_BIT|XR_SPACE_LOCATION_ORIENTATION_VALID_BIT;
+  if(XR_SUCCEEDED(xrLocateSpace(input.viewSpace,space,time,&view))&&(view.locationFlags&valid)==valid)openCoopTransfer(view.pose);
+  else commandFailed=true;menuEvent=true;input.swallowRight=true;input.swallowLeft=true;
+ }
+ if(transferModal||coopMenuOpen||transferChord){
+  if(coopMenuOpen&&(coopFrozenSelection!=coopSelectionHash||std::any_of(coopChoices.begin(),coopChoices.end(),[](const CoopRecipient&p){return !coopCurrent(p);})))coopMenuOpen=false;
+  if(transferModal&&clear&&!input.lastClear)coopMenuOpen=false;
+  coopHover=-1;XrPosef aim{};pointerValid=input.pose(session,input.aim,input.aimSpace,space,time,aim);hoverID=hoverItem=0;groundValid=false;
+  if(pointerValid){auto world=worldPose(aim);pointerStart={world.position.x,world.position.y,world.position.z};pointerEnd=add(pointerStart,times(rotated(world.orientation,{0,0,-1}),1.2f));
+   if(coopMenuOpen){pointCoopTransfer({aim.position.x,aim.position.y,aim.position.z},rotated(aim.orientation,{0,0,-1}));
+    if(select&&!input.lastSelect&&!input.swallowRight&&coopHover>=0){if(coopHover<(int)coopChoices.size())sendCoopTransfer(coopChoices[coopHover],coopFrozenSelection);coopMenuOpen=false;}
+   }
+  }
+  followCamera.active=orbitCamera.active=false;input.tap.reset();radial.close();selectionGesture.cancel();selectionPreview.clear();
+  input.lastSelect=select;input.lastClear=clear;input.lastNextGroup=nextGroup;input.lastOrders=orders;input.lastFormations=formations;input.lastSpecial=special;input.lastExtend=extend;
+  input.lastFollowClick=input.boolean(session,input.followClick);input.lastWarpClick=input.boolean(session,input.warpClick);
+  if(!coopMenuOpen){input.swallowRight=true;input.swallowLeft=true;}return;
+ }
+
  bool tapAllowed=cameraSpeeds.tapGroups&&gripOK&&leftOK&&!originalDialogMode&&!radial.kind&&!orders&&!formations&&!select&&!extend&&!special&&!groundAttack&&!selectionGesture.pending&&(!routePoints||cameraSpeeds.buttonGroups);
  int tapDirection=input.tap.update(leftOK?Vec3{leftGrip.position.x,leftGrip.position.y,leftGrip.position.z}:Vec3{},gripOK?Vec3{grip.position.x,grip.position.y,grip.position.z}:Vec3{},seconds(),tapAllowed,cameraSpeeds.tapDistance);
  if(tapDirection&&cameraSpeeds.buttonGroups){if(routePoints)command(14,3);routePoints=0;clearMoveMarkers();if(command(2)){input.hapticRequests[requestSeq]=tapDirection>0?1:0;menuEvent=true;lastTapID=0;}}
- else if(tapDirection){int next=cycleUnitGroup(unitGroups,input.currentGroup,tapDirection);if(next>=0&&command(20,next)){input.hapticRequests[requestSeq]=tapDirection>0?1:0;menuEvent=true;lastTapID=0;LOG("Controller tap direction=%d group=%d",tapDirection,next);}}
+ else if(tapDirection&&input.groupRequests.empty()){int next=input.groupCycle.next(unitGroups,tapDirection,std::any_of(objects.begin(),objects.end(),[](const Object&o){return o.unitID&&o.selected;}));if(next>=0&&command(20,next,0,0,0,0,true)){input.hapticRequests[requestSeq]=tapDirection>0?1:0;menuEvent=true;lastTapID=0;LOG("Controller tap direction=%d group=%d",tapDirection,next);}}
 
- bool groupButtonsAllowed=cameraSpeeds.buttonGroups&&!originalDialogMode&&!radial.kind&&!select&&!orders&&!formations&&!selectionGesture.pending&&!routePoints;
- if(groupButtonsAllowed&&((clear&&!input.lastClear)||(nextGroup&&!input.lastNextGroup))){int direction=clear?-1:1;int next=cycleUnitGroup(unitGroups,input.currentGroup,direction);if(next>=0)command(20,next,extend?1:0);menuEvent=true;lastTapID=0;}
+ bool groupButtonsAllowed=cameraSpeeds.buttonGroups&&input.groupRequests.empty()&&!originalDialogMode&&!radial.kind&&!select&&!orders&&!formations&&!selectionGesture.pending&&!routePoints;
+ if(groupButtonsAllowed&&((clear&&!input.lastClear)||(nextGroup&&!input.lastNextGroup))){int direction=clear?-1:1;int next=input.groupCycle.next(unitGroups,direction,std::any_of(objects.begin(),objects.end(),[](const Object&o){return o.unitID&&o.selected;}));if(next>=0)command(20,next,extend?1:0,0,0,0,true);menuEvent=true;lastTapID=0;}
  input.lastNextGroup=nextGroup;
  auto openMenu=[&](int kind,const XrPosef&p,bool valid){menuEvent=true;input.swallowRight=select;input.swallowLeft=extend;if(valid)radial.open(kind,{p.position.x,p.position.y,p.position.z},rotated(head.orientation,{1,0,0}),rotated(head.orientation,{0,1,0}),rotated(head.orientation,{0,0,1}),cameraSpeeds.radialSize);};
  if(!radial.kind&&orders&&!input.lastOrders)openMenu(1,grip,gripOK);
@@ -255,9 +300,8 @@ static void updateInput(XrSession session,XrSpace space,XrTime time,const XrView
   }
  }
  unsigned tutorialCameraBits=0;
- bool followPressed=input.boolean(session,input.followClick),warpPressed=input.boolean(session,input.warpClick),cameraJump=false;
  if(!scriptCameraBlocked){
- if((followPressed&&!input.lastFollowClick)||(warpPressed&&!input.lastWarpClick)){
+ if(clicks.follow||clicks.warp){
   std::vector<Vec3> selected;std::vector<OrbitTarget> targets;
   for(const auto&o:objects)if(o.unitID&&o.selected&&o.health>0&&objectVisible(o)){
    Vec3 p{mythWorldX(o.x,originX,scale),(o.z-originZ)*scale,(o.y-originY)*scale};selected.push_back(p);targets.push_back({o.unitID,o.objectKey,p,true});
@@ -265,7 +309,7 @@ static void updateInput(XrSession session,XrSpace space,XrTime time,const XrView
   if(!selected.empty()){
    auto eye=worldPose(head);Vec3 eyePos{eye.position.x,eye.position.y,eye.position.z},forward=rotated(eye.orientation,{0,0,-1});
    orbitTargets=std::move(targets);orbitCamera.begin(selected,eyePos,forward,turn({0,0,-1},cameraYaw),terrain);
-   followCamera.begin(eyePos,orbitCamera.pivot,forward,followCamera.startingDistance(cameraSpeeds.orbitDistance,cameraSpeeds.reuseFollowDistance),!(warpPressed&&!input.lastWarpClick),cameraSpeeds.aimOnJump,turn({0,0,-1},cameraYaw));
+   followCamera.begin(eyePos,orbitCamera.pivot,forward,followCamera.startingDistance(cameraSpeeds.orbitDistance,cameraSpeeds.reuseFollowDistance),!clicks.warp,cameraSpeeds.aimOnJump,turn({0,0,-1},cameraYaw));
    followCamera.place(camera,cameraYaw,{head.position.x,head.position.y,head.position.z},rotated(head.orientation,{0,0,-1}),orbitCamera.pivot,terrain,cameraSpeeds.aimOnJump);
    cameraJump=true;orbitCamera.active=followCamera.active;
    LOG("Camera %s targets=%zu distance=%.2f",followCamera.active?"follow":"warp",orbitTargets.size(),followCamera.distance);
@@ -311,7 +355,7 @@ static void updateInput(XrSession session,XrSpace space,XrTime time,const XrView
  else{float target=ground+cameraGroundOffset;camera.y+=(target-camera.y)*(1-expf(-12*dt));}
  }
  input.lastFollowClick=followPressed;input.lastWarpClick=warpPressed;
- XrPosef aim{};pointerValid=input.pose(session,input.aim,input.aimSpace,space,time,aim);hoverID=0;hoverItem=0;groundValid=false;
+ coopHover=-1;XrPosef aim{};pointerValid=input.pose(session,input.aim,input.aimSpace,space,time,aim);hoverID=0;hoverItem=0;groundValid=false;
  XrPosef localAim=aim;
  if(pointerValid){aim=worldPose(aim);pointerStart={aim.position.x,aim.position.y,aim.position.z};Vec3 direction=normalized(rotated(aim.orientation,{0,0,-1}));float distance=300;groundValid=terrain.ray(pointerStart,direction,groundHit,distance);pointerEnd=groundValid?groundHit:add(pointerStart,times(direction,20));float best=groundValid?distance:300;auto pointerHead=worldPose(head);
   for(auto&o:objects){if(!objectVisible(o)||(!o.unitID&&!pickupCandidate(o)))continue;auto sprite=quads.find(key(o.col,o.seq,o.frame,0));if(sprite==quads.end())continue;
@@ -379,6 +423,13 @@ static void updateInput(XrSession session,XrSpace space,XrTime time,const XrView
    movePressValid=hasSelection&&groundValid&&((!hoverID&&!hoverItem)||groundAttack);
    movePressPoint=(routePoints==4&&!groundAttack)?moveMarkerPoints.back():groundHit;if(movePressValid){movePressDiameter=selectedUnitDiameter();if(!routePoints){moveMarkerPoints.clear();captureMoveMarkerUnits();}if(!groundAttack&&pressWaypoint<0)requestFormation(movePressPoint,routePoints>0||(extend&&!input.swallowLeft));}
   }
+  // Immediate click selection arrives asynchronously from the engine. Promote
+  // only once this exact unit is the sole selected, controllable actor.
+  if(pressSelectedImmediately&&!pressFacingCandidate&&selectionGesture.pending){
+   unsigned selectedCount=0;bool selectedTarget=false;
+   for(const auto&o:objects)if(o.selected){selectedCount++;selectedTarget=o.unitID==pressUnit&&o.controllable;}
+   if(selectedCount==1&&selectedTarget){pressFacingCandidate=true;pressFacingSelection=selectionSignature();movePressValid=false;}
+  }
   if(pressFacingCandidate&&selectionGesture.pending){
    if(pressFacingSelection!=selectionSignature()){selectionGesture.cancel();pressFacingCandidate=false;movePressValid=false;}
    else if(seconds()-selectionGesture.began>=.35){
@@ -397,7 +448,7 @@ static void updateInput(XrSession session,XrSpace space,XrTime time,const XrView
     requestFormation(movePressPoint,routePoints>0||selectionGesture.additive,moveFacing,true);
   }
   if(!select&&input.lastSelect&&selectionGesture.pending){
-   if(pressFacingCandidate){if(seconds()-selectionGesture.began>=.35){if(moveFacing&&pressFacingSelection==selectionSignature())command(22,moveFacing);}else clickPointer(false,false,false,{},pressUnit,0,pressGroundValid,pressGroundHit);movePressValid=false;moveFacing=0;lastMoveTime=0;pressFacingCandidate=false;}
+   if(pressFacingCandidate){if(seconds()-selectionGesture.began>=.35){if(moveFacing&&pressFacingSelection==selectionSignature())command(22,moveFacing);}else if(!pressSelectedImmediately)clickPointer(false,false,false,{},pressUnit,0,pressGroundValid,pressGroundHit);movePressValid=false;moveFacing=0;lastMoveTime=0;pressFacingCandidate=false;}
    else if(pressSelectedImmediately){ /* Already committed on press; release cannot issue a world command. */ }
    else if(pressWaypoint>=0&&routePoints>=2&&!pressGroundAttack){
     patrolFlashPoint=waypointHitPoint;patrolFlashDiameter=lastMoveDiameter;

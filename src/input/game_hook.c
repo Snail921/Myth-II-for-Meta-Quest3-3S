@@ -32,8 +32,10 @@ static U orient_selected(const struct Command*c){
   points[i*2]=*(I*)(objects+object*80+8);points[i*2+1]=*(I*)(objects+object*80+12);
   if(points[i*2]<0||points[i*2+1]<0||points[i*2]>=map_limit(0)||points[i*2+1]>=map_limit(1))return 19;
  }
- US opts[4]={17,0,(US)c->id,0};routeCount=routeFacing=0;
- for(U i=0;i<n;i++)move_actor(slots+i,opts,points+i*2);
+ // One waypoint exactly at the actor position is discarded by the original engine.
+ // Two identical points retain facing; no patrol bit, no displacement.
+ US opts[4]={16,0,(US)c->id,0};routeCount=routeFacing=0;
+ for(U i=0;i<n;i++){I path[4]={points[i*2],points[i*2+1],points[i*2],points[i*2+1]};move_actor(slots+i,opts,path);}
  cancel_mode();return 1;
 }
 extern void calculate_formation(const void*,I,const US*,I,const I*,I*,US*,I);
@@ -107,6 +109,7 @@ static U tutorial_camera(const struct Command*c,U mesh){
  U snapshot[11]={0};snapshot[2]=c->id;snapshot[6]=0xffffffff;
  sniff_camera_input(snapshot);return 1;
 }
+#include "coop_transfer.h"
 static U execute(const struct Command*c){
  if(*(US*)0x400000!=0x5a4d||*(U*)0x46bf56!=0x3ca3c085)return 10;
  if(c->op==18){if(c->id<100||c->id>200||c->flags||c->x||c->y||c->reserved)return 16;return set_sound_range(c->id);}
@@ -123,6 +126,8 @@ static U execute(const struct Command*c){
   US opts[4]={0,0,(US)(c->id>>16),(US)c->id};
   routeCount=0;pickup_selected(opts);voice_selected(3);cancel_mode();return 1;
  }
+ if(c->op==24){if(c->id>1||c->flags||c->x||c->y||c->reserved)return 16;((void(*)(I,I))0x44c33a)((I)c->id,0);return 1;}
+ if(c->op==23)return transfer_selected(c);
  if(c->op==22)return orient_selected(c);
  if(c->op==21)return tutorial_camera(c,mesh);
  if(c->op==19||c->op==20)return group_command(c);

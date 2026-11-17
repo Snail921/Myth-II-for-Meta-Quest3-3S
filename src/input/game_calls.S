@@ -271,7 +271,7 @@ _move_actor:
  pushl %ebp
  movl %esp,%ebp
  pushl 16(%ebp)
- pushl $1
+ pushl $2
  pushl $1
  pushl 12(%ebp)
  pushl $-1

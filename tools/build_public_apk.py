@@ -60,6 +60,13 @@ def build(args):
     ns='{http://schemas.android.com/apk/res/android}'
     manifest=decoded/'AndroidManifest.xml';tree=ET.parse(manifest);m=tree.getroot()
     m.set('package',args.package_id)
+    # Keep the application version independent of upstream Winlator.
+    import re
+    metadata=decoded/'apktool.yml'
+    y=metadata.read_text(encoding='utf8')
+    y=re.sub(r'(?m)^  versionCode:.*$', '  versionCode: 34', y)
+    y=re.sub(r'(?m)^  versionName:.*$', '  versionName: 0.2.0-beta', y)
+    metadata.write_text(y,encoding='utf8')
     app=m.find('application');app.set(ns+'debuggable','true' if args.package_id!='org.mythvr.standalone' else 'false');app.set(ns+'label','Myth II for Meta Quest 3 / 3S' if args.package_id=='org.mythvr.standalone' else 'Myth II VR Runtime Test')
     for node in app.iter():
         for key,value in list(node.attrib.items()):

@@ -24,6 +24,7 @@ static uint32_t word(uint32_t a){uint32_t v;read_exact(a,&v,4);return v;}
 /* Original neutral sprite palette: collection+c4[object+2c], table+94.
  * Never change guest memory. Invalid optional palette data falls back to assets. */
 static int optional_read(uint32_t a,void *p,size_t n){return a>=0x10000&&n<=4096&&pread(fd,p,n,(off_t)a)==(ssize_t)n;}
+#include "coop_roster.h"
 #include "collection_access.h"
 #include "surface_capture.h"
 #include "light_capture.h"
@@ -103,13 +104,15 @@ static void receive_command(void){
  static unsigned char data[32];static size_t have;ssize_t n=recv(STDOUT_FILENO,data+have,32-have,MSG_DONTWAIT);
  if(n<=0)return;have+=(size_t)n;if(have<32)return;have=0;
  uint32_t op=u32(data+8),flags=u32(data+16);int32_t x,y;memcpy(&x,data+20,4);memcpy(&y,data+24,4);
- if(u32(data)!=0x31444d43||!u32(data+4)||op<1||op>22)return;
- if(op!=10&&((op!=21&&flags>1)||(op!=5&&op!=12&&op!=3&&op!=13&&op!=15&&u32(data+28))))return;
+ if(u32(data)!=0x31444d43||!u32(data+4)||op<1||op>24)return;
+ if(op!=10&&op!=23&&((op!=21&&flags>1)||(op!=5&&op!=12&&op!=3&&op!=13&&op!=15&&u32(data+28))))return;
  if((op==1||op==4)&&(u32(data+12)==0||u32(data+12)>65535))return;
  if((op==3||op==5||op==12||op==13||op==15)&&(x<0||y<0||x>=map_limit(0)||y>=map_limit(1)))return;
  if((op==3||op==13||op==15)&&u32(data+28)&&(!(u32(data+28)&0x10000)||u32(data+28)>0x1ffff))return;
  if(op==5&&((int32_t)u32(data+28)<-32768||(int32_t)u32(data+28)>32767))return;
  if((op==19||op==20)&&(u32(data+12)>9||(op==19&&flags)||x||y||u32(data+28)))return;
+ if(op==24&&(u32(data+12)>1||flags||x||y||u32(data+28)))return;
+ if(op==23&&(u32(data+12)>=32||x||y))return;
  if(op==22&&(u32(data+12)<0x10000||u32(data+12)>0x1ffff||flags||x||y||u32(data+28)))return;
  if(op==21&&(!u32(data+12)||u32(data+12)>1023||(flags&65535)<51||(flags&65535)>55||x||y||u32(data+28)))return;
  if(op==18&&(u32(data+12)<100||u32(data+12)>200||flags||x||y||u32(data+28)))return;
@@ -202,7 +205,7 @@ int main(int argc,char **argv){
    unsigned char formation[4808];uint32_t formation_bytes=0;
    FILE*fp=fopen("files/rootfs/home/xuser-1/.wine/drive_c/mythvr/formation.bin","rb");
    if(fp){if(fread(formation,1,sizeof(formation),fp)==sizeof(formation)&&u32(formation)==0x32565046&&u32(formation+4)==u32(formation+4804)&&u32(formation+8)<=126&&u32(formation+12)<=4)formation_bytes=sizeof(formation);fclose(fp);}
-   uint32_t h[14]={19,tick,endtick,rng,ac,oc,216,80,(uint32_t)elapsed,(uint32_t)(elapsed>>32),u16(ap+48),u16(op+48),ack[1],ack[2]};
+   uint32_t h[14]={21,tick,endtick,rng,ac,oc,216,80,(uint32_t)elapsed,(uint32_t)(elapsed>>32),u16(ap+48),u16(op+48),ack[1],ack[2]};
    char final[512];snprintf(final,sizeof(final),"%s-%04d.bin",argv[2],f);snprintf(path,sizeof(path),"%s-%04d.tmp",argv[2],f);
    int streaming=!strcmp(argv[2],"-")||!strcmp(argv[2],"@mythvr");
    FILE *out=streaming?stdout:fopen(path,"wb");if(!out){perror("output");return 2;}
@@ -228,6 +231,10 @@ int main(int argc,char **argv){
    ok=ok&&fwrite(&edgeCount,4,1,out)==1&&fwrite(edges,28,edgeCount,out)==edgeCount;
    unsigned char hd_hues[128*88];unsigned hd_count=collect_hd_hues(palettes,palette_count,hd_hues);
    ok=ok&&fwrite(&hd_count,4,1,out)==1&&fwrite(hd_hues,88,hd_count,out)==hd_count;
+   unsigned char roster[32*44];unsigned roster_count=collect_coop_roster(roster);
+   ok=ok&&fwrite(&roster_count,4,1,out)==1&&fwrite(roster,44,roster_count,out)==roster_count;
+   uint32_t game_speed=word(0x67ec0e)&65535;
+   ok=ok&&fwrite(&game_speed,4,1,out)==1;
    if(!ok || (streaming ? fflush(out) : (fclose(out)||rename(path,final)))){perror("write");return 2;}
    surface_commit(&surface,surface_pending);
    if(surface_count)fprintf(stderr,"SURFACE tick=%u tiles=%u epoch=%llu reset=%d\n",tick,surface_count,(unsigned long long)surface_epoch,surface_pending->reset);

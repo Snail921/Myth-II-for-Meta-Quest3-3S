@@ -31,7 +31,7 @@ static void drawParticles(const XrVector3f&center,bool reflected=false){
  for(auto&p:liveParticles){if(p[15]==2)continue;if(p[15]==1){auto regular=quads.find(key(p[13],p[2],p[3],0));if(regular!=quads.end()&&!blendedSprite(regular->second))continue;}float x=mythWorldX(int32_t(p[4])/512.f,originX,scale),y=(int32_t(p[6])/512.f-originZ)*scale,z=(int32_t(p[5])/512.f-originY)*scale;{
   if(reflected)reflectFXTested++;auto it=particleQuads.find({particleCollectionKey(p),p[2],p[3],0});if(it==particleQuads.end())continue;Quad q=it->second;
   float dx=center.x-x,dz=center.z-z;
-  if(p[15]!=4&&!(q.seqflags&4)){auto jt=particleQuads.find({particleCollectionKey(p),p[2],p[3],myth_sprite_direction(dx,dz,p[12]/65536.f,q.views)});if(jt!=particleQuads.end())q=jt->second;}
+  if(p[15]!=4&&!(q.seqflags&4)){auto jt=particleQuads.find({particleCollectionKey(p),p[2],p[3],myth_object_sprite_direction(dx,dz,p[12]/65536.f,q.views,p[15]==1?p[10]:0)});if(jt!=particleQuads.end())q=jt->second;}
   float ps=q.scale*(10.f/512.f)*scale;
   float radius=std::max(std::abs(float(q.rx)),std::abs(float(q.w)-q.rx))*ps*std::abs(p[8]/256.f);
   float height=std::max(std::abs(float(q.ry)),std::abs(float(q.ry)-q.h))*ps*std::abs(p[9]/256.f);
@@ -73,11 +73,12 @@ static void drawParticles(const XrVector3f&center,bool reflected=false){
   }
   if(!(p[11]&(0x400000|0x2000000))&&terrain.contains(x,z)&&y<terrain.elevation(x,z)-.01f)continue;
   float dx=center.x-x,dz=center.z-z,len=sqrtf(dx*dx+dz*dz);if(len<.001f)continue;float rx=dz/len,rz=-dx/len;
-  if(!(q.seqflags&4)){unsigned dir=myth_sprite_direction(dx,dz,p[12]/65536.f,q.views);auto jt=particleQuads.find({particleCollectionKey(p),p[2],p[3],dir});if(jt!=particleQuads.end())q=jt->second;}
+  if(!(q.seqflags&4)){unsigned dir=myth_object_sprite_direction(dx,dz,p[12]/65536.f,q.views,p[15]==1?p[10]:0);auto jt=particleQuads.find({particleCollectionKey(p),p[2],p[3],dir});if(jt!=particleQuads.end())q=jt->second;}
   GLuint high=hdQuad(q,p[13]|(p[14]<<8),3);
   float ps=q.scale*(10.f/512.f)*scale,sx=p[8]/256.f,sy=p[9]/256.f;
   float l=-q.rx*ps*sx,r=(q.w-q.rx)*ps*sx,bot=(q.ry-q.h)*ps*sy,top=q.ry*ps*sy;
-  unsigned flags=q.flags;if(p[10]&1){float old=l;l=-r;r=-old;flags^=1;}if(p[10]&2){float old=bot;bot=-top;top=-old;flags^=2;}
+  unsigned flips=p[10];
+  unsigned flags=q.flags;if(flips&1){float old=l;l=-r;r=-old;flags^=1;}if(flips&2){float old=bot;bot=-top;top=-old;flags^=2;}
   float u0=(flags&1)?1:0,u1=1-u0,v0=(flags&2)?1:0,v1=1-v0;
   Vertex a{x+rx*l,y+top,z+rz*l,u0,v0},b{x+rx*r,y+top,z+rz*r,u1,v0},c{x+rx*l,y+bot,z+rz*l,u0,v1},d{x+rx*r,y+bot,z+rz*r,u1,v1};Vertex v[]={a,b,c,b,d,c};
   stream.append(high?high:particleTexture(q.texture,p[13]|(p[14]<<8)),p[7]/65535.f,v,6);drawn++;water+=p[1]==0x5bf1af16;media+=(p[11]&0x2000000)!=0;

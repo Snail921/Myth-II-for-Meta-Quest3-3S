@@ -12,4 +12,11 @@ static inline unsigned myth_sprite_direction(float camera_dx, float camera_dz,
     turns -= floorf(turns);
     return (unsigned)floorf(turns * views + 0.5f) % views;
 }
+// Mirrored object variants reverse the angular lookup AND mirror the resulting
+// image. Keep emitter-particle flips independent of this object convention.
+static inline unsigned myth_object_sprite_direction(float dx, float dz, float yaw,
+                                                    unsigned views, unsigned flips) {
+    unsigned direction = myth_sprite_direction(dx, dz, yaw, views);
+    return (flips & 1) && views > 1 ? (views - direction) % views : direction;
+}
 #endif

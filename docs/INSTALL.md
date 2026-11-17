@@ -107,3 +107,9 @@ For an existing conversion, choose its **Converted bundle** folder and deploy di
 | HD graphics do not change | Enable the corresponding launcher options and reload the level |
 
 [Report a problem](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/issues)
+
+## Controls and updates
+
+[Controls](CONTROLS.md) · [Changelog](../CHANGELOG.md)
+
+To update, install the new APK over the existing app. Do not uninstall or repeat Initial setup.

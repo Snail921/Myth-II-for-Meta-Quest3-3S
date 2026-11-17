@@ -2,6 +2,8 @@
 #include <queue>
 // Parameters are set by the scene renderer; tests can exercise the same shader.
 static bool waterWavesEnabled=true;
+static GLuint waterStaticDepth=0;static bool waterSunShadowReady=false;
+static std::array<float,16> waterSunMatrix{};static float waterSunDepthBias=0;
 static GLuint waterNormalTexture=0,waterSkyTexture=0;
 static float waterEye[3]{},waterSun[3]{.95f,.6f,-1.f},waterSkyYaw=0,waterFogDensity=0;
 static double waterFrameTime=0;
@@ -39,10 +41,16 @@ uniform mat4 mvp;out vec3 world;out float shore;out vec2 flow;
 void main(){world=pos;shore=texcoord.x;flow=current;gl_Position=mvp*vec4(pos,1);})";
 static const char* waterFragmentShader=R"(#version 300 es
 precision highp float;
-uniform sampler2D tex,normalMap,sky;
+uniform sampler2D tex,normalMap,sky,shadowMap;
+uniform vec4 shadowUV;
+uniform sampler2D staticSunDepth;uniform mat4 sunMatrix;uniform bool sunShadowReady;uniform float sunDepthBias;
 uniform mat4 mvp;uniform vec4 viewport;uniform vec3 eye,sun;
 uniform float waveTime,worldScale,skyYaw,fogDensity;uniform bool waves,hasSky;
 in vec3 world;in float shore;in vec2 flow;out vec4 color;
+float sunVisibility(sampler2D depthMap,vec3 q){
+ vec2 stepUV=1./vec2(textureSize(depthMap,0));float lit=0.;
+ for(int y=0;y<2;y++)for(int x=0;x<2;x++){vec2 off=(vec2(float(x),float(y))-.5)*stepUV;lit+=q.z-sunDepthBias<=texture(depthMap,q.xy+off).r?1.:0.;}return lit*.25;
+}
 void main(){
  vec2 uv=(gl_FragCoord.xy-viewport.xy)/viewport.zw;
  vec4 original=texture(tex,uv);if(!waves){color=original*.38;return;}
@@ -77,5 +85,10 @@ void main(){
  if(hasSky){vec2 su=vec2(fract(.5+(atan(light.x,-light.z)-skyYaw)/6.283185307),.5-asin(clamp(light.y,-1.,1.))/3.141592654);sunColor=textureLod(sky,su,4.).rgb;vec3 ambient=textureLod(sky,su,6.).rgb;float lum=dot(ambient,vec3(.2126,.7152,.0722));strength=clamp(lum*1.5,0.,1.);strength*=strength;}
  float haze=1.-exp(-fogDensity*distance(eye,world));
  vec3 specular=sunColor*shine*strength*.45*(1.-haze*haze)*smoothstep(0.,worldScale*.2,shore);
+ // Only direct sun glints are shadowed; reflection and alpha are unchanged.
+ float visibility=texture(shadowMap,world.xz*shadowUV.xy+shadowUV.zw).r;
+ float shadowVisibility=smoothstep(.85,.99,visibility);
+ if(sunShadowReady){vec3 q=(sunMatrix*vec4(world,1.)).xyz*.5+.5;if(all(greaterThanEqual(q,vec3(0)))&&all(lessThanEqual(q,vec3(1))))shadowVisibility=min(shadowVisibility,sunVisibility(staticSunDepth,q));}
+ specular*=shadowVisibility;
  color=vec4(reflected.rgb*.38+specular,reflected.a*.38);
 })";

@@ -72,7 +72,7 @@ _move_actor:
  pushl %ebp
  movl %esp,%ebp
  pushl 16(%ebp)
- pushl $1
+ pushl $2
  pushl 8(%ebp)
  pushl $1
  pushl 12(%ebp)
@@ -80,3 +80,9 @@ _move_actor:
  addl $20,%esp
  leave
  ret
+
+.globl _detach_selected185
+_detach_selected185:
+ movl 4(%esp),%eax
+ movl $0x4ca568,%edx
+ jmp *%edx

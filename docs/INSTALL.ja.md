@@ -107,3 +107,9 @@ python -m pip install -r requirements-manager.txt
 | 高精細画像が変わらない | 起動画面の対応設定をONにし、レベルを読み直す |
 
 [不具合を報告する](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/issues)
+
+## 操作方法とアップデート
+
+[操作方法](CONTROLS.ja.md) · [更新履歴](../CHANGELOG.ja.md)
+
+更新時は新APKを上書きインストールしてください。アンインストールや初回セットアップのやり直しは不要です。
