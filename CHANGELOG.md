@@ -2,7 +2,7 @@
 
 **English** | [日本語](CHANGELOG.ja.md)
 
-## Unreleased — 2026-11-19
+## 0.3.1-beta — 2026-11-19
 
 - Added vertex shading for distant, small sprites, with LOD diagnostic counts.
 - Aligned enhanced shadows with scenery shadows and added ground-overlay and sun-angle diagnostics.
@@ -11,7 +11,7 @@
 - Return to the original results screen when a film finishes; disable in-game panel actions during that transition.
 - Fixed launcher packaging and a VR black screen caused by mismatched model-sync packet framing.
 
-For world-knot effects, use the updated APK and conversion tools, then reconvert and transfer existing level packs. Fresh conversions include the required data automatically; no extra setup steps are needed. These changes are in source and are not yet a new downloadable release.
+For world-knot effects, use the updated APK and conversion tools, then reconvert and transfer existing level packs. Fresh conversions include the required data automatically; no extra setup steps are needed. Install the APK over the existing app; do not uninstall or repeat Initial setup. The initial runtime is unchanged.
 
 ## 0.3.0-beta — 2026-11-18
 

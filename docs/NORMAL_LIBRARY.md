@@ -35,4 +35,4 @@ Matching images use the normals automatically. Do not repeat Initial setup. If t
 
 Restoration creates temporary matching data on the PC. Allow several GB of free space for downloads, temporary files and output.
 
-[App and Manager downloads](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.3.0-beta) · [Material editor guide](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/blob/main/docs/MATERIALS.md)
+[App and Manager downloads](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.3.1-beta) · [Material editor guide](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/blob/main/docs/MATERIALS.md)

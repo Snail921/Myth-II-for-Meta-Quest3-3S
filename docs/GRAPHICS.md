@@ -34,3 +34,9 @@ Keep diagnostic fixed-pose mode and detailed drawing-API timing disabled during 
 ## Inspect light counts
 
 Enable enhanced lighting and diagnostic logging, then trigger one explosion. `Lighting population` reports candidates, peak candidates, births/removals and selected lights for normal/reflected views. Selected counts describe the reporting instant and can be zero after a brief explosion has ended. Birth/removal counts compare captured game snapshots.
+
+## Distant sprites and shadow diagnostics
+
+Distant sprites that appear small use vertex shading without normal maps. Large sprites retain detailed shading even at a distance. Diagnostic logs include the number using each path.
+
+Enable the ground shadow-color diagnostic to compare enhanced shadows with scenery shadows. While it is enabled, right stick click toggles sun-angle adjustment; move the right stick to adjust the angle. Values are written to the diagnostic log. Turn this mode off for normal play.

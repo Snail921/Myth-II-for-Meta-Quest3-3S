@@ -8,7 +8,7 @@
 - Quest 3 / 3S and a USB data cable
 - A Windows PC
 - Your own Myth II CD ISO and Windows 1.8.5 updater
-- Manager, APK and initial runtime from [Releases](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.3.0-beta)
+- Manager, APK and initial runtime from [Releases](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.3.1-beta)
 
 The Myth II 1.8.5 patch, high-resolution map textures and sprites (Twice Born Edition), and plugins such as The Fallen Levels are available from [Project Magma](https://projectmagma.net/).
 

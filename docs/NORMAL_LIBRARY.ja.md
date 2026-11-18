@@ -35,4 +35,4 @@
 
 復元中は照合用の一時データをPCに作成します。ダウンロードZIPと出力を含め、数GBの空き容量を確保してください。
 
-[アプリ・Managerのダウンロード](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.3.0-beta) · [材質エディタの説明](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/blob/main/docs/MATERIALS.ja.md)
+[アプリ・Managerのダウンロード](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.3.1-beta) · [材質エディタの説明](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/blob/main/docs/MATERIALS.ja.md)
