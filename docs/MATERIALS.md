@@ -19,3 +19,5 @@ The transfer reads `.mvrnm` files directly inside the selected folder. Same-name
 **Open collection** reopens the session's cached collection list. Each file operation remembers its own last folder. Adjustment values persist when opening another collection; loading a saved project restores that project's settings.
 
 Quest packs are stored in `Android/data/org.mythvr.standalone/files/SpriteMaterials`. The 64MiB limit is per pack, not for the entire folder. Only needed normal images are loaded, and they are released when moving to another level.
+
+[Install the downloadable normal-map collection](NORMAL_LIBRARY.md)

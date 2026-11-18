@@ -61,3 +61,5 @@ For developers: [Build notes](docs/BUILD.md) · [Release preparation](docs/RELEA
 [Full changelog](CHANGELOG.md)
 
 [Graphics settings and FPS](docs/GRAPHICS.md) · [Sprite Material Editor](docs/MATERIALS.md)
+
+[Install the normal-map library (206 collections)](docs/NORMAL_LIBRARY.md)

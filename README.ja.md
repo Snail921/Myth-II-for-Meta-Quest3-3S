@@ -61,3 +61,5 @@ Myth II 1.8.5パッチ、高精細マップテクスチャ・ハイレゾスプ�
 [すべての更新履歴](CHANGELOG.ja.md)
 
 [描画設定・FPS](docs/GRAPHICS.ja.md) · [スプライト材質エディタ](docs/MATERIALS.ja.md)
+
+[ノーマルマップ集（206コレクション）の導入](docs/NORMAL_LIBRARY.ja.md)
