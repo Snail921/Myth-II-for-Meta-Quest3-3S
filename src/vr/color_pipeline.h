@@ -190,10 +190,68 @@ void main() {
 }
 )GLSL";
 
+// Share the exact shadow/light equations between vertex and fragment stages.
+// A flat per-billboard weight keeps both triangles and both eyes on the same
+// LOD. The conservative bounding sphere protects large objects at any distance.
+static std::string spriteVertexLodSource(const char*source){
+ std::string s=source;
+ auto replace=[&](const char*a,const char*b){auto at=s.find(a);if(at!=std::string::npos)s.replace(at,strlen(a),b);};
+ bool vertex=source==mythVertexShader;
+ if(vertex){
+  std::string fragment=mythFragmentShader;
+  auto section=[&](const char*a,const char*b){auto start=fragment.find(a);return fragment.substr(start,fragment.find(b,start)-start);};
+  std::string helpers=R"GLSL(
+uniform float spriteVertexLodDistance;
+uniform vec3 fogEye;
+uniform bool spriteShadows;uniform bool spriteSkipShadowLookup;
+uniform mat4 spriteSunMatrix;
+uniform sampler2D spriteStaticDepth, spriteLiveDepth, spriteLiveOwner;
+uniform float spriteShadowBias, spriteShadowAmount;
+uniform vec3 spriteSunDirection;
+uniform vec4 spriteLightColors[128];
+flat out float vertexShadeWeight;
+out float vertexVisibility;
+out vec4 vertexLocalLight;
+)GLSL";
+  helpers+=section("vec4 spriteLocalLight(","// Treat the sprite");
+  helpers+=section("float spriteSelfVisibility(","vec3 displayToLinear(");
+  auto main=s.find("void main(){");s.insert(main,helpers);
+  auto end=s.rfind("}");s.insert(end,R"GLSL(
+ vertexShadeWeight=0.0;vertexVisibility=1.0;vertexLocalLight=vec4(0);
+ if(spriteLightCull&&shadowOwner>0.0&&lightBounds.w>0.0&&spriteVertexLodDistance>0.0){
+  float d=distance(lightBounds.xyz,spriteLightingEye);
+  // Radius / nearest sphere distance is conservative for projected extent.
+  float extent=lightBounds.w/max(d-lightBounds.w,.001);
+  vertexShadeWeight=smoothstep(spriteVertexLodDistance,spriteVertexLodDistance*1.2,d-lightBounds.w)
+                   *(1.0-smoothstep(.02,.03,extent));
+ }
+ if(vertexShadeWeight>0.0){
+  // A rounded world-space billboard approximation, independent of artwork
+  // UV mirroring and transparent corner normals. No normal-map access.
+  vec3 face=fogEye-lightBounds.xyz;face.y=0.0;
+  face=dot(face,face)>1e-8?normalize(face):vec3(0,0,1);
+  vec3 tangent=cross(vec3(0,1,0),face);
+  float side=clamp(dot(pos-lightBounds.xyz,tangent)/max(lightBounds.w,.001),-.8,.8);
+  vec3 n=normalize(face*sqrt(1.0-side*side)+tangent*side+vec3(0,.25,0));
+  if(spriteShadows&&spriteShadowAmount>0.0)vertexVisibility=min(spriteVisibility(),spriteSelfVisibility(n));
+  if(any(notEqual(spriteLightMask,uvec4(0))))vertexLocalLight=spriteLocalLight(n);
+ }
+)GLSL");
+ }else{
+  replace("in vec2 tc;","in vec2 tc;\nflat in float vertexShadeWeight;\nin float vertexVisibility;\nin vec4 vertexLocalLight;");
+  replace("if(spriteOwner>0.0&&(any", "if(vertexShadeWeight<1.0&&spriteOwner>0.0&&(any");
+  replace("if(spriteShadows && spriteOwner>0.0 && spriteShadowAmount>0.0)selfVisibility", "if(vertexShadeWeight<1.0&&spriteShadows && spriteOwner>0.0 && spriteShadowAmount>0.0)selfVisibility");
+  replace("if(spriteShadows && spriteOwner>0.0 && spriteShadowAmount>0.0)visibility", "if(vertexShadeWeight<1.0&&spriteShadows && spriteOwner>0.0 && spriteShadowAmount>0.0)visibility");
+  replace("if(spriteOwner>0.0&&any(notEqual(spriteLightMask,uvec4(0))))local", "if(vertexShadeWeight<1.0&&spriteOwner>0.0&&any(notEqual(spriteLightMask,uvec4(0))))local");
+  replace("visibility=mix(visibility,1.0,local.a);", "visibility=mix(visibility,vertexVisibility,vertexShadeWeight);local=mix(local,vertexLocalLight,vertexShadeWeight);\n    visibility=mix(visibility,1.0,local.a);");
+ }
+ return s;
+}
+
 // Compile the OFF path with literal constants so lighting/shadow branches and
 // their attributes/samplers can be eliminated by the driver, not merely skipped.
 static std::string spriteShaderSource(const char*source,bool shadows,bool lighting){
- std::string s=source;
+ std::string s=(shadows||lighting)?spriteVertexLodSource(source):std::string(source);
  auto replace=[&](const char*a,const char*b){auto at=s.find(a);if(at!=std::string::npos)s.replace(at,strlen(a),b);};
  if(!lighting){replace("uniform int spriteLightCount;","const int spriteLightCount=0;");replace("flat in highp uvec4 spriteLightMask;","const uvec4 spriteLightMask=uvec4(0);");}
  if(!shadows){replace("uniform bool spriteShadows;","const bool spriteShadows=false;");replace("uniform float spriteShadowLodDistance;","const float spriteShadowLodDistance=0.0;");}

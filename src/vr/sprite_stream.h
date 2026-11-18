@@ -26,7 +26,9 @@ struct SpriteStream {
   if(enhancedSpritePath){if(!ownerBuffers[cursor])glGenBuffers(1,&ownerBuffers[cursor]);glBindBuffer(GL_ARRAY_BUFFER,ownerBuffers[cursor]);glBufferData(GL_ARRAY_BUFFER,owners.size()*sizeof(float),owners.data(),GL_STREAM_DRAW);lightBounds.upload(cursor);}
   if(diagnosticEnabled){streamUploadBytes+=bytes+(enhancedSpritePath?owners.size()*sizeof(float)+lightBounds.bounds.size()*sizeof(lightBounds.bounds[0]):0);streamUploadCalls++;streamUploadSeconds+=seconds()-profileStart;}
  }
- void draw(bool reflectedPass){if(ranges.empty())return;
+ void draw(bool reflectedPass){
+  if(diagnosticEnabled&&enhancedSpritePath){auto&c=vertexLodCounts[reflectedPass?1:0];if(!c.sampled){c.sampled=true;for(size_t i=0;i<owners.size();i+=6)lightBounds.count(c,i,6,owners[i]>0);}}
+  if(ranges.empty())return;
   if(enhancedSpritePath&&materialRevision!=sprite_material::bindingRevision){for(auto&r:ranges)r.material=sprite_material::get(r.texture);materialRevision=sprite_material::bindingRevision;
    if(diagnosticEnabled){size_t used=0;Range*previous=nullptr;bool previousHD=false;for(auto&r:ranges){bool high=hd::textures.count(r.texture)!=0;auto&a=r.material;bool same=previous&&previousHD==high&&previous->material.texture==a.texture&&previous->material.sx==a.sx&&previous->material.sy==a.sy&&previous->material.ox==a.ox&&previous->material.oy==a.oy;if(!same||used==6){streamCandidateGroups6++;used=0;}used++;streamCandidateRanges++;previous=&r;previousHD=high;}}
   }

@@ -20,7 +20,7 @@ static void loadAnimatedModels(android_app*a){
 static void drawAnimatedModels(bool reflected=false){
  if(!modelPosesValid){for(auto&m:(reflected?animatedFallback:normalFallback)){if(reflected){reflectModelsTested++;if(!reflectionCull.visible(m.bounds))continue;reflectModelsDrawn++;}attributes(m.buffer);glBindTexture(GL_TEXTURE_2D,hdModel(m.texture));glDrawArrays(GL_TRIANGLES,0,m.count);}return;}
  std::map<GLuint,std::vector<Vertex>> batches;
- for(const auto&pose:modelPoses){auto shape=animatedShapes.find(pose.geometry);if(shape==animatedShapes.end())continue;
+ for(const auto&pose:modelPoses){if(pose.owner==65535)continue;auto shape=animatedShapes.find(pose.geometry);if(shape==animatedShapes.end())continue;
   for(const auto&part:shape->second){std::vector<Vertex> out;out.reserve(part.second.size());rendercull::Bounds bounds;for(auto v:part.second){int32_t local[3]={(int32_t)v.x,(int32_t)v.y,(int32_t)v.z};float xyz[3];for(int k=0;k<3;k++){int64_t sum=0;for(int j=0;j<3;j++)sum+=int64_t(pose.matrix[k+j*3])*local[j];int64_t shifted=sum>=0?sum/512:-((-sum+511)/512);int16_t rotated=(int16_t)shifted;xyz[k]=(pose.pos[k]+int32_t(rotated))/512.f;}out.push_back({mythWorldX(xyz[0],originX,scale),(xyz[2]-originZ)*scale,(xyz[1]-originY)*scale,v.u,v.v});auto&world=out.back();bounds.add(world.x,world.y,world.z);}if(reflected){reflectModelsTested++;if(!reflectionCull.visible(bounds))continue;reflectModelsDrawn++;}auto&batch=batches[part.first];batch.insert(batch.end(),out.begin(),out.end());}
  }
  attributes(vbo);for(auto&part:batches){glBindTexture(GL_TEXTURE_2D,hdModel(part.first));glBufferData(GL_ARRAY_BUFFER,part.second.size()*sizeof(Vertex),part.second.data(),GL_STREAM_DRAW);glDrawArrays(GL_TRIANGLES,0,(GLsizei)part.second.size());}

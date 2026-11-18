@@ -42,8 +42,8 @@ def build(mapid,name,canonical,tags):
   if slot>=255:raise ValueError('Canonical sprite capacity')
   path='collection-'+taghex+'.bin';(scene/path).write_bytes(data)
   assets.append(dict(runtime_index=slot,file=path,name=tags[kind,tag][1]['name'],tag_id_hex=taghex,fields=fields,model_material=taghex in model_collections))
- # Include effect libraries already needed by combat even when references are indirect.
- for tag in ('fire','effe','buco','ebbf','mafi','guts','wate'):
+ # Engine-created effects (including world-knot teleportation) have no map dependency.
+ for tag in ('fire','effe','buco','ebbf','mafi','guts','wate','teef'):
   if ('.256',tag) not in deps and ('.256',tag) in tags:
    data=raw_tag(tags,'.256',tag);taghex=tags['.256',tag][1]['id_hex'];slot=canonical.setdefault(taghex,max([31,*canonical.values()])+1);path='collection-'+taghex+'.bin';(scene/path).write_bytes(data);assets.append(dict(runtime_index=slot,file=path,name=tag,tag_id_hex=taghex,fields=collection_fields(data)))
  w,h=mesh['width'],mesh['height'];off=mesh['sections']['mesh']['offset'];cells=raw[off:off+w*h*12];native=bytearray(len(cells))

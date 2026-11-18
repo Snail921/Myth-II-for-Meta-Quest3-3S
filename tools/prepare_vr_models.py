@@ -19,7 +19,7 @@ def main():
   a,t=tags[(typ,tag)]
   with (ROOT/a).open('rb') as f:f.seek(t['offset']);return f.read(t['size'])
  mesh=json.loads((FIXTURE).read_text(encoding='utf-8'))
- textures=[];cache={};triangles=[];records=[]
+ textures=[];cache={};triangles=[];records=[];appearances=[]
  for marker in tracked(mesh['markers'],'モデル配置を変換'):
   if marker['type'] not in [6,11]:continue
   marker_tag=marker['tag'].encode('latin1').decode('mac_roman');tag=marker_tag;animated=marker['type']==11
@@ -45,9 +45,11 @@ def main():
    x,y,z=struct.unpack_from('>hhh',g,vo+i*6)
    cx,cy,cz=struct.unpack_from('>hhh',g,16);x-=cx;y-=cy;z-=cz
    vertices.append(((marker['pos_x']+cos*x-sin*y)/512,(marker['pos_y']+sin*x+cos*y)/512,(marker['pos_z']+z)/512))
+  first_triangle=len(triangles);triangle_materials=[]
   for i in range(sc):
    p=so+i*64;mat=s(g,p+26)
    if not 0<=mat<mc:raise ValueError('material index')
+   triangle_materials.append(mat)
    tri=[]
    for j in range(3):
     v=s(g,p+32+j*8)
@@ -55,6 +57,19 @@ def main():
     tu,tv=struct.unpack_from('>HH',g,p+28+j*8)
     x,y,z=vertices[v];tri.extend([x,y,z,tu/65536,tv/65536])
    triangles.append((materials[mat],tri))
+  count=struct.unpack_from('>H',model,12)[0]
+  if not animated and count>1:
+   variants=[]
+   for variant in range(count):
+    choices=[]
+    for material in range(mc):
+     sequence=s(g,mo+material*64+32);row=seqs[sequence][2][0]
+     choice=model[permutation+variant*64+2+material]
+     # Only explicit still-image selections; unsupported animation encodings
+     # retain the base material rather than indexing outside the sequence.
+     choices.append(start+instances[row[choice]][3] if choice<len(row) else materials[material])
+    variants.extend(choices)
+   appearances.append((int.from_bytes(model[4:8],'big'),marker['pos_x'],marker['pos_y'],marker['pos_z'],first_triangle,sc,count,mc,variants,triangle_materials))
   records.append({'marker_id':marker['id'],'tag':marker_tag,'model':tag,'geometry':geomtag,'triangles':sc,'animated_first_pose_only':animated})
  from prepare_connectors import append_connectors
  connector_report=append_connectors(mesh,get,textures,triangles,os.environ.get('MYTH_MAP_TAG') or (bytes.fromhex(FIXTURE.parent.name).decode('latin1') if FIXTURE.parent.parent.name=='levels' else None))
@@ -62,8 +77,11 @@ def main():
  (OUT/'connectors.pack').write_bytes(struct.pack('<I',len(connector_report.get('ranges',[])))+b''.join(struct.pack('<8i',*r) for r in connector_report.get('ranges',[])))
  out=OUT/'models.pack'
  with out.open('wb') as f:
-  f.write(b'MYTHMD01');f.write(struct.pack('<II',len(textures),len(triangles)))
+  f.write(b'MYTHMD02');f.write(struct.pack('<II',len(textures),len(triangles)))
   for w,h,p in textures:f.write(struct.pack('<II',w,h));f.write(tint_rgba(p,lighting))
   for tex,tri in triangles:f.write(struct.pack('<I15f',tex,*tri))
+  f.write(struct.pack('<I',len(appearances)))
+  for geo,x,y,z,first,n,np,nm,variants,mats in appearances:
+   f.write(struct.pack('<I3i4I',geo,x,y,z,first,n,np,nm));f.write(struct.pack('<'+'I'*len(variants),*variants));f.write(struct.pack('<'+'I'*len(mats),*mats))
  (REPORT/'vr-models.json').write_text(json.dumps(records,indent=2)+'\n',encoding='utf-8');print(json.dumps({'models':len(records),'textures':len(textures),'triangles':len(triangles)}))
 if __name__=='__main__':main()

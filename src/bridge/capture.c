@@ -48,10 +48,10 @@ static uint32_t collect_models(unsigned char*out){
  uint32_t definitions=word(0x529ec4),n=0;
  for(unsigned i=0;i<u16(header+46);i++){
   if(!optional_read(u32(header+52)+i*132,model,132))return 0xffffffff;
-  if(!u16(model)||u16(model+70)>=0x8000)continue;
-  unsigned index=u16(model+4);if(index>=1024||n>=512)return 0xffffffff;
+  if(!u16(model))continue;
+  unsigned index=u16(model+4);if(index>=1024||n>=1024)return 0xffffffff;
   if(!optional_read(definitions+index*64,definition,64))return 0xffffffff;
-  unsigned char*r=out+n*36;memcpy(r,definition+4,4);memcpy(r+4,model+8,12);memcpy(r+16,model+96,18);memcpy(r+34,model+70,2);n++;
+  unsigned char*r=out+n*40;memcpy(r,definition+4,4);memcpy(r+4,model+8,12);memcpy(r+16,model+96,18);memcpy(r+34,model+70,2);memcpy(r+36,model+60,2);memcpy(r+38,model,2);n++;
  }
  if(!optional_read(0x529d18,after,64)||memcmp(header,after,64))return 0xffffffff;
  return n;
@@ -150,7 +150,7 @@ int main(int argc,char **argv){
  unsigned char anchor[8];read_exact(0x46bf56,anchor,8);
  const unsigned char expected[8]={0x85,0xc0,0xa3,0x3c,0x38,0x67,0x00,0x75};
  if(memcmp(anchor,expected,8)){fprintf(stderr,"Build anchor mismatch\n");return 3;}
- unsigned char *actors=malloc(400*216),*objects=malloc(8192*80),*palettes=malloc(128*1028),*model_poses=malloc(512*36);
+ unsigned char *actors=malloc(400*216),*objects=malloc(8192*80),*palettes=malloc(128*1028),*model_poses=malloc(1024*40);
  if(!actors||!objects||!palettes||!model_poses)return 2;
  SurfaceCache surface={0};surface.cache=malloc(SURFACE_TILES*SURFACE_PAIR);SurfacePending*surface_pending=malloc(sizeof(SurfacePending));if(!surface.cache||!surface_pending)return 2;
  unsigned char*light_data=malloc(LIGHT_LIMIT);if(!light_data)return 2;
@@ -205,14 +205,14 @@ int main(int argc,char **argv){
    unsigned char formation[4808];uint32_t formation_bytes=0;
    FILE*fp=fopen("files/rootfs/home/xuser-1/.wine/drive_c/mythvr/formation.bin","rb");
    if(fp){if(fread(formation,1,sizeof(formation),fp)==sizeof(formation)&&u32(formation)==0x32565046&&u32(formation+4)==u32(formation+4804)&&u32(formation+8)<=126&&u32(formation+12)<=4)formation_bytes=sizeof(formation);fclose(fp);}
-   uint32_t h[14]={21,tick,endtick,rng,ac,oc,216,80,(uint32_t)elapsed,(uint32_t)(elapsed>>32),u16(ap+48),u16(op+48),ack[1],ack[2]};
+   uint32_t h[14]={22,tick,endtick,rng,ac,oc,216,80,(uint32_t)elapsed,(uint32_t)(elapsed>>32),u16(ap+48),u16(op+48),ack[1],ack[2]};
    char final[512];snprintf(final,sizeof(final),"%s-%04d.bin",argv[2],f);snprintf(path,sizeof(path),"%s-%04d.tmp",argv[2],f);
    int streaming=!strcmp(argv[2],"-")||!strcmp(argv[2],"@mythvr");
    FILE *out=streaming?stdout:fopen(path,"wb");if(!out){perror("output");return 2;}
    int ok=fwrite("MYTHBR01",1,8,out)==8 && fwrite(h,1,56,out)==56 && fwrite(actors,216,ac,out)==ac && fwrite(objects,80,oc,out)==oc && fwrite(meta,1,20,out)==20 && fwrite(selection+4,1,252,out)==252;
    ok=ok&&fwrite(&palette_count,4,1,out)==1&&fwrite(palettes,1028,palette_count,out)==palette_count;
    ok=ok&&fwrite(&model_count,4,1,out)==1;
-   if(model_count!=0xffffffff)ok=ok&&fwrite(model_poses,36,model_count,out)==model_count;
+   if(model_count!=0xffffffff)ok=ok&&fwrite(model_poses,40,model_count,out)==model_count;
    uint64_t surface_epoch=surface_pending->valid?surface_pending->epoch:0;uint32_t surface_count=surface_pending->valid?surface_pending->count:0;
    ok=ok&&fwrite(&surface_epoch,8,1,out)==1&&fwrite(&surface_count,4,1,out)==1&&fwrite(surface_pending->data,SURFACE_ROW,surface_count,out)==surface_count;
    ok=ok&&fwrite(&light_bytes,4,1,out)==1&&fwrite(light_data,1,light_bytes,out)==light_bytes;

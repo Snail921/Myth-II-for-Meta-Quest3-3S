@@ -29,7 +29,7 @@ static void drawParticles(const XrVector3f&center,bool reflected=false){
  double fxStart=seconds();unsigned oldUploads=particleUploads;
  trimColors(particleColors);
  struct Item{const LiveParticle*p;float distance;};std::vector<Item> order;
- for(auto&p:liveParticles){if(p[15]==2)continue;if(p[15]==1){auto regular=quads.find(key(p[13],p[2],p[3],0));if(regular!=quads.end()&&!blendedSprite(regular->second))continue;}float x=mythWorldX(int32_t(p[4])/512.f,originX,scale),y=(int32_t(p[6])/512.f-originZ)*scale,z=(int32_t(p[5])/512.f-originY)*scale;{
+ for(auto&p:liveParticles){if(p[15]==2)continue;if(p[15]==1){auto regular=quads.find(key(p[13],p[2],p[3],0));if(regular!=quads.end()&&!blendedSprite(regular->second)&&p[7]>=65535)continue;}float x=mythWorldX(int32_t(p[4])/512.f,originX,scale),y=(int32_t(p[6])/512.f-originZ)*scale,z=(int32_t(p[5])/512.f-originY)*scale;{
   if(reflected)reflectFXTested++;auto it=particleQuads.find({particleCollectionKey(p),p[2],p[3],0});if(it==particleQuads.end())continue;Quad q=it->second;
   float dx=center.x-x,dz=center.z-z;
   if(p[15]!=4&&!(q.seqflags&4)){auto jt=particleQuads.find({particleCollectionKey(p),p[2],p[3],myth_object_sprite_direction(dx,dz,p[12]/65536.f,q.views,p[15]==1?p[10]:0)});if(jt!=particleQuads.end())q=jt->second;}
@@ -86,7 +86,7 @@ static void drawParticles(const XrVector3f&center,bool reflected=false){
   stream.append(high?high:particleTexture(q.texture,p[13]|(p[14]<<8)),p[7]/65535.f,v,6,owner);drawn++;water+=p[1]==0x5bf1af16;media+=(p[11]&0x2000000)!=0;
  }
  double buildEnd=seconds();
- stream.upload();double uploadEnd=seconds();stream.draw(glGetUniformLocation(program,"tint"));
+ stream.upload();double uploadEnd=seconds();stream.draw(glGetUniformLocation(program,"tint"),reflected);
  double submitEnd=seconds();attributes(vbo);
  glUniform4f(glGetUniformLocation(program,"tint"),1,1,1,1);glUniform1f(glGetUniformLocation(program,"alphaCutoff"),.5f);glDepthMask(GL_TRUE);glDisable(GL_BLEND);
  static uint64_t last=~uint64_t(0);if(!reflected&&last!=snapshotRevision&&tick%30==0){last=snapshotRevision;LOG("Particle FX tick=%u received=%zu drawn=%u missing=%u signature=%08x cpu_ms=%.3f uploads=%u water=%u media=%u lightningSegments=%u",tick,liveParticles.size(),drawn,missing,firstMissing,(seconds()-fxStart)*1000,particleUploads-oldUploads,water,media,lightning);LOG("Particle stages reflected=%d build_ms=%.3f upload_ms=%.3f submit_ms=%.3f draws=%zu vertices=%zu",reflected,(buildEnd-buildStart)*1000,(uploadEnd-buildEnd)*1000,(submitEnd-uploadEnd)*1000,stream.ranges.size(),stream.packed.size());}

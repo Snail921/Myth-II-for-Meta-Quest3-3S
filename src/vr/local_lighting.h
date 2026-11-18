@@ -118,6 +118,7 @@ static void bindSpriteLighting(){
  lightingSelected[lightingReflected]=count;
  glUniform1i(glGetUniformLocation(program,"spriteObjectLightLimit"),enhancedLightingPerObject);
  glUniform1f(glGetUniformLocation(program,"spriteLightingLodDistance"),enhancedLightingLod);
+ glUniform1f(glGetUniformLocation(program,"spriteVertexLodDistance"),shadowDebugEnabled?0.f:20.f);
  glUniform3f(glGetUniformLocation(program,"spriteLightingEye"),camera.x,camera.y,camera.z);
  glUniform1i(cache.count,count);
  if(count){glUniform4fv(cache.position,count,position);glUniform4fv(cache.color,count,colors);glUniform4fv(cache.axis,count,ends);}

@@ -31,7 +31,7 @@ static void updateSurfaceEffects(){
  if(surfaceRevision==snapshotRevision||groundEffects.w==0)return;surfaceRevision=snapshotRevision;
  detailShadowBuilds=0;detailShadowPixels=0;double start=seconds();std::vector<surface::Stamp> stamps;unsigned modelCount=0,objectCount=0,lightCount=0,particleLights=0;
  // Original lists prepend model stamps after object collection: model minima first.
- if(modelPosesValid)for(auto it=modelPoses.rbegin();it!=modelPoses.rend();++it){const auto&p=*it;auto mi=groundEffects.masks.find(p.geometry);if(mi==groundEffects.masks.end()||mi->second.kind!=2)continue;auto&m=mi->second;
+ if(modelPosesValid)for(auto it=modelPoses.rbegin();it!=modelPoses.rend();++it){const auto&p=*it;if(p.owner==65535)continue;auto mi=groundEffects.masks.find(p.geometry);if(mi==groundEffects.masks.end()||mi->second.kind!=2)continue;auto&m=mi->second;
   stamps.push_back({(uint64_t(1)<<63)|p.owner,p.geometry,p.pos[0]+m.ox,p.pos[1]+m.oy,65535});modelCount++;
  }
  for(auto it=objects.rbegin();it!=objects.rend();++it){const auto&o=*it;if(o.rawFlags&0x200000)continue;

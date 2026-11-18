@@ -105,9 +105,9 @@ static void drawWristMap(const XrPosef&eye){
   for(int i=0;i<24;i++){float a=i*6.2831853f/24,b=(i+1)*6.2831853f/24;line.push_back(panelPoint(p.x+cosf(a)*r,p.y+sinf(a)*r));line.push_back(panelPoint(p.x+cosf(b)*r,p.y+sinf(b)*r));}
   glBindTexture(GL_TEXTURE_2D,whiteTexture);glUniform4f(glGetUniformLocation(program,"tint"),1,mapWarpRejected?.15f:1.f,0,1);glBufferData(GL_ARRAY_BUFFER,line.size()*sizeof(Vertex),line.data(),GL_STREAM_DRAW);glDrawArrays(GL_LINES,0,line.size());
  }
- auto drawMapNotice=[&](const std::string& text,bool right){float pixel=.00022f*cameraSpeeds.mapSize,total=0;
+ auto drawMapNotice=[&](const std::string& text,bool right,float row=0){float pixel=.00022f*cameraSpeeds.mapSize,total=0;
   for(unsigned char c:text)total+=infoAdvance[c]*pixel;
-  float pen=right?width*.5f-.003f*cameraSpeeds.mapSize-total:-width*.5f+.003f*cameraSpeeds.mapSize,top=height*.5f-.002f*cameraSpeeds.mapSize;
+  float pen=right?width*.5f-.003f*cameraSpeeds.mapSize-total:-width*.5f+.003f*cameraSpeeds.mapSize,top=height*.5f-(.002f+row*.008f)*cameraSpeeds.mapSize;
   std::vector<Vertex> glyphs;
   for(unsigned char ch:text){float u=(ch%16)/16.f,v=(ch/16)/16.f;
    auto a=panelPoint(pen-4*pixel,top,u,v),b=panelPoint(pen+28*pixel,top,u+1.f/16,v),c=panelPoint(pen-4*pixel,top-32*pixel,u,v+1.f/16),d=panelPoint(pen+28*pixel,top-32*pixel,u+1.f/16,v+1.f/16);
@@ -116,6 +116,7 @@ static void drawWristMap(const XrPosef&eye){
   drawMesh(glyphs,infoFont,1,1,1);
  };
  if(infoFont&&!originalDialogMode){
+  if(shadowDebugEnabled&&(sunAngleAdjustment.active||seconds()<sunAngleAdjustment.noticeUntil))drawMapNotice(sunAngleAdjustment.label(),false,1);
   if(fpsDisplay.enabled)drawMapNotice(fpsDisplay.label(),false);
   if(gameSpeed.value>=0&&seconds()<gameSpeed.until)drawMapNotice(std::string("Game Speed ")+gameSpeed.label(),true);
  }

@@ -14,7 +14,7 @@ static SpriteViewCache& spriteView(bool reflected){return reflected?reflectionSp
 static unsigned normalSpriteTested=0,normalSpriteDrawn=0;
 static double spriteBatchCPU[2]{};static unsigned spriteBatchPasses[2]{};
 static double spritePrepareCPU[2]{};static unsigned spriteBuilds[2]{},spriteReuse[2]{};
-static void beginSpriteFrame(){hd::begin();waterFrameTime=seconds();for(auto&c:spriteViews)c.reset();for(auto&c:reflectionSpriteViews)c.reset();trimColors(coloredSprites);}
+static void beginSpriteFrame(){updateModelAppearances();hd::begin();waterFrameTime=seconds();for(auto&c:spriteViews)c.reset();for(auto&c:reflectionSpriteViews)c.reset();trimColors(coloredSprites);}
 static void prepareSprites(const XrVector3f&center,bool reflected){
  auto&cache=spriteView(reflected);if(cache.ready){spriteReuse[reflected]++;return;}cache.ready=true;double began=seconds();spriteBuilds[reflected]++;
  auto&selectionFrames=cache.selectionFrames;auto&friendlyHover=cache.friendlyHover;auto&enemyHover=cache.enemyHover;auto&itemHover=cache.itemHover;
@@ -60,7 +60,7 @@ if(reflected&&!reflectionFull&&(o.objectType==3||o.objectType==4))continue;auto 
  }
  // Object FX are also present in the live particle stream. That pass sorts
  // transparent sprites and retains their original alpha instead of clipping at .5.
- if(blendedSprite(q))continue;
+ if(blendedSprite(q)||(o.transfer==1&&o.transferPhase>0)||(o.transfer==2&&o.transferPhase<65535))continue;
  PreparedSprite prepared;prepared.object=oi;prepared.colored=highTexture;prepared.texture=q.texture;prepared.vertices={a,b,c,b,d,c};for(auto&v:prepared.vertices)prepared.bounds.add(v.x,v.y,v.z);cache.sprites.push_back(prepared);
  }
  spritePrepareCPU[reflected]+=seconds()-began;

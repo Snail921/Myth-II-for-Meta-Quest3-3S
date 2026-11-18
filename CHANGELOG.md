@@ -2,6 +2,17 @@
 
 **English** | [日本語](CHANGELOG.ja.md)
 
+## Unreleased — 2026-11-19
+
+- Added vertex shading for distant, small sprites, with LOD diagnostic counts.
+- Aligned enhanced shadows with scenery shadows and added ground-overlay and sun-angle diagnostics.
+- Preserved enhanced shading on airborne death fragments and semi-transparent death animations.
+- Added world-knot teleport particles, sprite fading and static model appearance changes.
+- Return to the original results screen when a film finishes; disable in-game panel actions during that transition.
+- Fixed launcher packaging and a VR black screen caused by mismatched model-sync packet framing.
+
+For world-knot effects, use the updated APK and conversion tools, then reconvert and transfer existing level packs. Fresh conversions include the required data automatically; no extra setup steps are needed. These changes are in source and are not yet a new downloadable release.
+
 ## 0.3.0-beta — 2026-11-18
 
 - Added enhanced shadows, approximate self-shadowing, shadow strength, sampling and distance LOD.

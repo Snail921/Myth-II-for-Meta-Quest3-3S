@@ -4,12 +4,13 @@ static bool spriteSkipShadowLookup=false;
 static bool enhancedShadowsEnabled=true;static float enhancedShadowAmount=.45f;
 static int enhancedShadowSamples=9;static float enhancedShadowLodDistance=0;static XrVector3f shadowLodEye{};
 static void loadEnhancedShadows(const char*root){
+ shadowDebugEnabled=false;std::ifstream debug(std::string(root)+"/shadow-debug-overlay.enabled");char debugValue=0;if(debug.get(debugValue))shadowDebugEnabled=debugValue=='1';
  spriteSkipShadowLookup=false;std::ifstream skip(std::string(root)+"/diagnostic-skip-sprite-shadow.enabled");char skipValue=0;if(skip.get(skipValue))spriteSkipShadowLookup=skipValue=='1';
  enhancedShadowSamples=9;enhancedShadowLodDistance=0;
  std::ifstream samples(std::string(root)+"/enhanced-shadow-samples");int n=9;if(samples>>n)enhancedShadowSamples=std::clamp(n,1,9);
  std::ifstream lod(std::string(root)+"/enhanced-shadow-lod");int meters=0;if(lod>>meters)enhancedShadowLodDistance=float(std::clamp(meters,0,100));
-enhancedShadowAmount=.45f;std::ifstream amount(std::string(root)+"/enhanced-shadow-amount");int value=45;if(amount>>value)enhancedShadowAmount=std::clamp(value,0,100)/100.f;enhancedShadowsEnabled=true;std::ifstream f(std::string(root)+"/enhanced-shadows.enabled");char c=0;if(f.get(c)&&(c=='0'||c=='1'))enhancedShadowsEnabled=c=='1';}
-static GLuint sunDepthProgram=0,sunDepthFBO=0;
+enhancedShadowAmount=.45f;std::ifstream amount(std::string(root)+"/enhanced-shadow-amount");int value=45;if(amount>>value)enhancedShadowAmount=std::clamp(value,0,100)/100.f;enhancedShadowsEnabled=true;std::ifstream f(std::string(root)+"/enhanced-shadows.enabled");char c=0;if(f.get(c)&&(c=='0'||c=='1'))enhancedShadowsEnabled=c=='1';if(shadowDebugEnabled){enhancedShadowsEnabled=true;spriteSkipShadowLookup=false;}}
+static GLuint sunDepthProgram=0,sunDepthFBO=0,shadowDebugProgram=0;
 static unsigned sunStaticBuilds=0;
 static GLuint spriteLiveDepth=0,spriteLiveOwner=0,spriteLiveFBO=0;
 static uint64_t spriteShadowRevision=~uint64_t(0),sunGeometryKey=0;
@@ -26,7 +27,7 @@ static const char* sunDepthFS=R"(#version 300 es
 precision highp float;uniform sampler2D tex;uniform highp uint casterID;in vec2 tc;flat in float vertexOwner;layout(location=0) out vec4 owner;
 void main(){if(texture(tex,tc).a<.5)discard;highp uint id=casterID!=0u?casterID:uint(vertexOwner+.5);owner=vec4(float(id&255u),float((id>>8)&255u),float((id>>16)&255u),255.0)/255.0;})";
 static void resetSunShadows(){
- spriteCasterBatches.clear();spriteCasterVertices.clear();for(auto&b:spriteCasterBuffers)b=0;spriteCasterCursor=0;spriteCasterDraws=spriteCasterCount=0;
+ shadowDebugProgram=0;spriteCasterBatches.clear();spriteCasterVertices.clear();for(auto&b:spriteCasterBuffers)b=0;spriteCasterCursor=0;spriteCasterDraws=spriteCasterCount=0;
  sunDepthProgram=sunDepthFBO=waterStaticDepth=0;waterSunShadowReady=false;
  sunStaticBuilds=0;spriteLiveDepth=spriteLiveOwner=spriteLiveFBO=0;spriteShadowRevision=~uint64_t(0);sunGeometryKey=0;spriteShadowBuilds=0;
 }
@@ -88,7 +89,7 @@ static void bindSpriteShadows(){
  SpriteWaitScope total(spriteWait.kind,1);SpriteWaitScope part(spriteWait.kind,2);bindSpriteLighting();part.next(3);
  glUniform1i(glGetUniformLocation(program,"spriteSkipShadowLookup"),spriteSkipShadowLookup);
  glUniform1i(glGetUniformLocation(program,"spriteShadowSamples"),enhancedShadowSamples);
- glUniform1f(glGetUniformLocation(program,"spriteShadowLodDistance"),enhancedShadowLodDistance);
+ glUniform1f(glGetUniformLocation(program,"spriteShadowLodDistance"),shadowDebugEnabled?0.f:enhancedShadowLodDistance);
  glUniform3f(glGetUniformLocation(program,"spriteShadowLodEye"),shadowLodEye.x,shadowLodEye.y,shadowLodEye.z);
  glUniform1i(glGetUniformLocation(program,"spriteShadows"),enhancedShadowsEnabled&&waterSunShadowReady&&spriteLiveDepth);
  part.next(4);glUniform1f(glGetUniformLocation(program,"spriteShadowAmount"),enhancedShadowAmount);glUniform3f(glGetUniformLocation(program,"spriteSunDirection"),waterSun[0],waterSun[1],waterSun[2]);
@@ -98,6 +99,7 @@ static void bindSpriteShadows(){
  for(int i=0;i<3;i++){part.next(5+i);glActiveTexture(GL_TEXTURE8+i);glBindTexture(GL_TEXTURE_2D,ids[i]);glUniform1i(glGetUniformLocation(program,names[i]),8+i);}glActiveTexture(GL_TEXTURE0);
 }
 static void updateSunShadows(){
+ if(shadowDebugEnabled&&sunAngleAdjustment.dirty){sunAngleAdjustment.direction(waterSun);waterSunShadowReady=false;sunAngleAdjustment.dirty=false;}
  if(terrainRanges.empty()||(!enhancedShadowsEnabled&&(!reflectionEnabled||!waterWavesEnabled||reflectionPlanes.empty())))return; // Also required on dry maps and with water disabled.
  uint64_t geometryKey=terrainVBO;for(auto&m:normalModels)geometryKey=geometryKey*1099511628211ull+m.buffer*31ull+m.texture+m.count;
  if(geometryKey!=sunGeometryKey){waterSunShadowReady=false;sunGeometryKey=geometryKey;}
@@ -118,4 +120,19 @@ static void updateSunShadows(){
  glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);glDisable(GL_POLYGON_OFFSET_FILL);glBindFramebuffer(GL_FRAMEBUFFER,savedFBO);glViewport(viewport[0],viewport[1],viewport[2],viewport[3]);glUseProgram(savedProgram);glActiveTexture(GL_TEXTURE0);
  waterSunShadowReady=true;
  if(rebuild||spriteShadowBuilds%120==1)LOG("Sprite shadows static=%u live=%u enabled=%d casters=%u draws=%u submission_ms=%.3f",sunStaticBuilds,spriteShadowBuilds,enhancedShadowsEnabled,spriteCasterCount,spriteCasterDraws,(seconds()-started)*1000);
+}
+
+// Called after terrain/water, before models and units, only in the main eye pass.
+static void drawShadowDebug(const Mat&mvp){
+ if(!shadowDebugEnabled||!waterSunShadowReady||!spriteLiveDepth)return;
+ if(!shadowDebugProgram){shadowDebugProgram=glCreateProgram();auto v=shader(GL_VERTEX_SHADER,shadowDebugVS),f=shader(GL_FRAGMENT_SHADER,shadowDebugFS);glAttachShader(shadowDebugProgram,v);glAttachShader(shadowDebugProgram,f);glLinkProgram(shadowDebugProgram);glDeleteShader(v);glDeleteShader(f);GLint ok;glGetProgramiv(shadowDebugProgram,GL_LINK_STATUS,&ok);if(!ok)throw std::runtime_error("shadow debug shader");}
+ GLint savedProgram;glGetIntegerv(GL_CURRENT_PROGRAM,&savedProgram);glUseProgram(shadowDebugProgram);
+ auto u=[](const char*n){return glGetUniformLocation(shadowDebugProgram,n);};
+ glUniformMatrix4fv(u("mvp"),1,GL_FALSE,mvp.data());glUniformMatrix4fv(u("sunMatrix"),1,GL_FALSE,waterSunMatrix.data());glUniform1f(u("bias"),waterSunDepthBias);glUniform1i(u("samples"),enhancedShadowSamples);
+ const char*names[]={"staticDepth","liveDepth","liveOwner"};GLuint ids[]={waterStaticDepth,spriteLiveDepth,spriteLiveOwner};
+ for(int i=0;i<3;i++){glActiveTexture(GL_TEXTURE8+i);glBindTexture(GL_TEXTURE_2D,ids[i]);glUniform1i(u(names[i]),8+i);}
+ glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);glDepthFunc(GL_LEQUAL);
+ attributes(terrainVBO);glDrawArrays(GL_TRIANGLES,0,terrainCount);
+ glDepthFunc(GL_LESS);glDepthMask(GL_TRUE);glDisable(GL_BLEND);glUseProgram(savedProgram);glActiveTexture(GL_TEXTURE0);
+ glBindTexture(GL_TEXTURE_2D,textures[0]);
 }

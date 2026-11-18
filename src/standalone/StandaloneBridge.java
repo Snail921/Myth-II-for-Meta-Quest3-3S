@@ -272,6 +272,13 @@ public final class StandaloneBridge {
         LevelAssets.publish(c);
         activeLevel=level[0];activeDefinition=level;report("Level prepared: "+level[8]+" "+level[2]+"x"+level[3]+" collections="+matched);
     }
+    // Ending (0x02) plus the modal/result pause (0x20). A normal pause alone
+    // must remain in VR. Build 471b: 48ecf1 sets ending, 47e66a sets modal pause.
+    static boolean resultScreenFlags(int flags){return (flags&0x22)==0x22;}
+    private static boolean resultScreen(int pid){try(RandomAccessFile f=new RandomAccessFile("/proc/"+pid+"/mem","r")){
+        return shortAt(f,EngineProfile.GAME_STATE)==3&&resultScreenFlags(intAt(f,0x67ec10));
+    }catch(Exception e){return false;}}
+    static boolean originalResultScreen(){int pid=findGame();return pid>0&&resultScreen(pid);}
     private static boolean simulationStarted(int pid){try(RandomAccessFile f=new RandomAccessFile("/proc/"+pid+"/mem","r")){
         return shortAt(f,EngineProfile.GAME_STATE)==3&&intAt(f,EngineProfile.TICK)>=30&&(intAt(f,0x67ec10)&0x32)==0;
     }catch(Exception e){return false;}}
@@ -289,6 +296,7 @@ public final class StandaloneBridge {
                 if(windowReport.isFile()){byte[] data=Files.readAllBytes(windowReport.toPath());if(data.length==40&&!java.util.Arrays.equals(data,lastWindowReport)){lastWindowReport=data;java.nio.ByteBuffer b=java.nio.ByteBuffer.wrap(data).order(java.nio.ByteOrder.LITTLE_ENDIAN);report("Borderless result="+b.getInt(12)+" changes="+b.getInt(8)+" style="+Integer.toHexString(b.getInt(16))+" client="+b.getInt(24)+"x"+b.getInt(28)+" origin="+b.getInt(32)+","+b.getInt(36));}}
                 int currentState=pid>0?gameState(pid):-1;
                 if(opened&&(pid<0||currentState>=0&&currentState!=3))returnToPanel(activity,"state="+currentState+" pid="+pid);
+                if(opened&&pid>0&&resultScreen(pid))returnToPanel(activity,"original result screen");
                 if(pid<0&&++attempt%10==0){File log=new File(base,"files/guest-launch.log");if(log.isFile()){String text=new String(Files.readAllBytes(log.toPath()),StandardCharsets.UTF_8);report("Guest startup: "+text.substring(Math.max(0,text.length()-3000)));}}
                 String[] level=pid>0&&currentState==3?findLevel(c,pid):null;
                 if(opened&&(level==null||!level[0].equals(activeLevel)||meshPointer(pid)!=activeMesh))returnToPanel(activity,"map changed");

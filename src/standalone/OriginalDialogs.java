@@ -127,6 +127,9 @@ public final class OriginalDialogs {
         stage("escape press");server.getClass().getMethod("injectKeyPress",cls).invoke(server,key);try{Thread.sleep(60);}finally{stage("escape release");server.getClass().getMethod("injectKeyRelease",cls).invoke(server,key);}
     }
     private static void request(int op,int x,int y)throws Exception{
+        // Results share game state 3 and some dialog artwork with Pause Game.
+        // Never inject toolbar/cropped-dialog clicks into the result screen.
+        if(StandaloneBridge.originalResultScreen()){handoff("original result screen; toolbar disabled");return;}
         if(op==1||op==2){
             if(mode!=0)return;
             ByteBuffer image=capture();int[] button=locate(image,templates[op-1],true);
@@ -150,6 +153,7 @@ public final class OriginalDialogs {
         AtomicFile file=new AtomicFile(frame);FileOutputStream stream=file.startWrite();try{stream.write(b.array());file.finishWrite(stream);}catch(Exception e){file.failWrite(stream);throw e;}
     }
     private static void update()throws Exception{
+        if(StandaloneBridge.originalResultScreen()){handoff("original result screen; stop dialog mirror");return;}
         ByteBuffer image=capture();stage("locate dialog");Template template=templates[mode+1];
         int[] bounds=rw>0&&error(image,image.getInt(0),image.getInt(4),template,rx,ry,(float)rw/template.w)<18?new int[]{rx,ry,rw,rh}:locate(image,template,false);long now=System.currentTimeMillis();
         if(bounds!=null){stage("publish dialog");rx=bounds[0];ry=bounds[1];rw=bounds[2];rh=bounds[3];publish(image,mode);return;}

@@ -15,7 +15,7 @@ def main():
     raws=[(a['name'],a['runtime_index'],(BASE/a['file']).read_bytes()) for a in scene['assets'] if not a.get('model_material',False)]
     # Runtime signature 0x240a1862 was received but missing during combat.
     # guts contains the original blood-puff and flying-fragment sequences.
-    wanted={'fire','effe','buco','ebbf','mafi','guts','wate'}
+    wanted={'fire','effe','buco','ebbf','mafi','guts','wate','teef'}
     from tag_sources import inventory
     for (kind,tag),(path,t) in inventory().items():
         if not WORK and kind=='.256' and tag in wanted:

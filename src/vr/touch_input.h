@@ -215,13 +215,18 @@ static void updateInput(XrSession session,XrSpace space,XrTime time,const XrView
  pollOriginalDialog();
  wristMapPoseValid=false;mapHovered=false;infoPanelHovered=false;originalDialogHovered=false;
  input.hapticFocused=focused;if(!focused)input.tap.reset();
- if(!focused){coopMenuOpen=false;followCamera.active=false;input.lastNextGroup=true;input.lastFollowClick=input.lastWarpClick=true;orbitCamera.active=false;infoPanelGesture=false;mapGesture=false;input.lastMinimap=true;routePoints=0;clearMoveMarkers();pointerValid=false;radial.close();selectionGesture.cancel();selectionPreview.clear();lastTapID=0;commandQueue.clear();input.swallowRight=input.swallowLeft=true;input.lastSelect=input.lastClear=input.selectHeld=input.extendHeld=false;input.lastSpecial=input.lastOrders=input.lastFormations=true;return;}
- XrActiveActionSet active{input.set,XR_NULL_PATH};XrActionsSyncInfo sync{XR_TYPE_ACTIONS_SYNC_INFO};sync.countActiveActionSets=1;sync.activeActionSets=&active;XrResult synced=xrSyncActions(session,&sync);if(synced==XR_SESSION_NOT_FOCUSED){followCamera.active=false;input.lastNextGroup=true;input.lastFollowClick=input.lastWarpClick=true;orbitCamera.active=false;pointerValid=false;return;}ck(synced);
+ if(!focused){if(sunAngleAdjustment.moving)sunAngleAdjustment.step(0,0,0,seconds());coopMenuOpen=false;followCamera.active=false;input.lastNextGroup=true;input.lastFollowClick=input.lastWarpClick=true;orbitCamera.active=false;infoPanelGesture=false;mapGesture=false;input.lastMinimap=true;routePoints=0;clearMoveMarkers();pointerValid=false;radial.close();selectionGesture.cancel();selectionPreview.clear();lastTapID=0;commandQueue.clear();input.swallowRight=input.swallowLeft=true;input.lastSelect=input.lastClear=input.selectHeld=input.extendHeld=false;input.lastSpecial=input.lastOrders=input.lastFormations=true;return;}
+ XrActiveActionSet active{input.set,XR_NULL_PATH};XrActionsSyncInfo sync{XR_TYPE_ACTIONS_SYNC_INFO};sync.countActiveActionSets=1;sync.activeActionSets=&active;XrResult synced=xrSyncActions(session,&sync);if(synced==XR_SESSION_NOT_FOCUSED){if(sunAngleAdjustment.moving)sunAngleAdjustment.step(0,0,0,seconds());followCamera.active=false;input.lastNextGroup=true;input.lastFollowClick=input.lastWarpClick=true;orbitCamera.active=false;pointerValid=false;return;}ck(synced);
  bool select=input.trigger(session,input.select,input.selectHeld),clear=input.boolean(session,input.clear),extend=input.trigger(session,input.extend,input.extendHeld);
  bool followPressed=input.boolean(session,input.followClick),warpPressed=input.boolean(session,input.warpClick),cameraJump=false;
  bool mapPressed=input.boolean(session,input.minimap);
  bool groundAttack=input.trigger(session,input.groundAttack,input.groundAttackHeld);
  auto clicks=speedClick(warpPressed,followPressed,input.lastWarpClick,input.lastFollowClick,groundAttack);
+ if(shadowDebugEnabled&&!originalDialogMode&&!radial.kind&&!coopMenuOpen){
+  if(followPressed&&!input.lastFollowClick&&!groundAttack)sunAngleAdjustment.toggle(seconds());
+  if(sunAngleAdjustment.active){XrActionStateGetInfo sunGi{XR_TYPE_ACTION_STATE_GET_INFO};sunGi.action=input.elevateTurn;XrActionStateVector2f sunStick{XR_TYPE_ACTION_STATE_VECTOR2F};ck(xrGetActionStateVector2f(session,&sunGi,&sunStick));sunAngleAdjustment.step(sunStick.isActive?sunStick.currentState.x:0,sunStick.isActive?sunStick.currentState.y:0,dt,seconds());}
+ }
+
  bool special=input.trigger(session,input.special,input.specialHeld),orders=input.boolean(session,input.orders),formations=input.boolean(session,input.formations);
  bool speedChord=groundAttack&&(warpPressed||followPressed)&&!originalDialogMode&&!radial.kind&&!coopMenuOpen;
  if(!speedChord&&!originalDialogMode&&!coopMenuOpen&&mapPressed&&!input.lastMinimap){if(extend){infoPanelShown=!infoPanelShown;if(infoPanelShown)wristMapShown=true;LOG("Selection panel visible=%d",infoPanelShown);}else wristMapShown=!wristMapShown;}input.lastMinimap=mapPressed;
@@ -334,7 +339,7 @@ static void updateInput(XrSession session,XrSpace space,XrTime time,const XrView
    }
  // Separate axis dead zones allow height and yaw to be adjusted independently.
  gi.action=input.elevateTurn;XrActionStateVector2f rightStick{XR_TYPE_ACTION_STATE_VECTOR2F};ck(xrGetActionStateVector2f(session,&gi,&rightStick));
- if(rightStick.isActive){tutorialCameraBits|=tutorialStickBits(rightStick.currentState.x,-rightStick.currentState.y,groundAttack?4:0,8);auto axis=[](float v){return copysignf(std::clamp((fabsf(v)-.18f)/.82f,0.f,1.f),v);};
+ if(rightStick.isActive&&!(shadowDebugEnabled&&sunAngleAdjustment.active)){tutorialCameraBits|=tutorialStickBits(rightStick.currentState.x,-rightStick.currentState.y,groundAttack?4:0,8);auto axis=[](float v){return copysignf(std::clamp((fabsf(v)-.18f)/.82f,0.f,1.f),v);};
   float horizontal=axis(rightStick.currentState.x),angle=-horizontal*1.5707963268f*cameraSpeeds.stick*dt;
   if(followCamera.active){if(!groundAttack)followCamera.rotate(angle);cameraYaw+=angle;}
   else if(!groundAttack&&horizontal!=0){
