@@ -3,6 +3,19 @@ import json,os
 from pathlib import Path
 SETTINGS=Path(os.environ.get('APPDATA',Path.home()))/'MythIIVR/manager.json'
 PAIRS={
+'Questの空き容量が不足しています（転送用の一時領域も必要です）。':'Not enough free space on Quest, including temporary transfer storage.',
+'ノーマルマップフォルダ':'Normal map folder',
+'ノーマルマップをQuestへ転送':'Transfer normal maps to Quest',
+'フォルダ直下の.mvrnmを一括転送。同名ファイルは更新します。':'Transfer all .mvrnm files directly in the folder. Replace matching file names.',
+'ノーマルマップのフォルダを指定してください。':'Select a normal map folder.',
+'指定フォルダ直下に.mvrnmファイルがありません。':'No .mvrnm files directly in the selected folder.',
+'配置後のノーマルパック合計が64 MiBの読み込み上限を超えます。':'The resulting normal packs exceed the 64 MiB loading limit.',
+'ノーマルパックを検査':'Inspecting normal packs',
+'ノーマルパックを転送':'Transferring normal packs',
+'ノーマルパックを配置':'Installing normal packs',
+'ノーマルパックの配置が完了しました。レベルを読み直してください。':'Normal packs installed. Reload the level.',
+
+'スプライト材質エディター':'Sprite material editor',
 'プラグイン管理':'Plugin manager','原作フォルダ':'Original game folder','プラグインファイル':'Plugin file','作業・保存先':'Work / output folder','変換済み bundle':'Converted bundle','参照':'Browse','Quest シリアル':'Quest serial','接続確認':'Refresh devices','① レベルを検査':'1. Inspect levels','② 全レベルを変換':'2. Convert all levels','③ Questへ配置':'3. Deploy to Quest','保存先を開く':'Open output folder','レベル':'Level','検査結果':'Inspection result','入力':'Input','処理中':'Working','保存先':'Output folder','対応可能':'Supported','不足素材: ':'Missing assets: ','除外（未完成のエントリー）':'Excluded (unfinished entrypoint)','素材数が上限223を超えています':'Asset count exceeds the limit of 223',
 '原作フォルダとプラグインを選び、検査してください。':'Select the original game folder and plugin, then inspect.',
 '1.8.5 / 単独プラグイン対応。PCで変換し、Questへ配置します。':'1.8.5 / Single gameplay plugin. Convert on PC, then deploy to Quest.',

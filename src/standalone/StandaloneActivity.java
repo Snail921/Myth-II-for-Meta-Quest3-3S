@@ -9,7 +9,9 @@ import java.io.*;
 /** Development launcher. Initial data provisioning is separate from normal play. */
 public final class StandaloneActivity extends Activity implements SeekBar.OnSeekBarChangeListener {
     private String ui(String text){return UiLanguage.text(this,text);}
-    private TextView skyLabel,soundLabel;
+    private TextView skyLabel,soundLabel,shadowAmountLabel,lightingAmountLabel,lightingLimitLabel,lightingObjectLabel,lightingLodLabel;
+    private SeekBar shadowAmount,lightingAmount,lightingLimit,lightingObject,lightingLod,shadowSamples,shadowLod;
+    private TextView shadowSamplesLabel,shadowLodLabel;
     private SeekBar soundRange,mapSize,mapPitch,orbitDistance,radialSize,tapDistance;
     private TextView mapSizeLabel,mapPitchLabel,orbitDistanceLabel,radialSizeLabel,tapDistanceLabel;
     private final SeekBar[] cameraSpeeds=new SeekBar[2];
@@ -35,6 +37,9 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         button(layout,ui("Enter VR / VRに戻る"),()->StandaloneBridge.openVR(this));
         LinearLayout displayGroup=section(layout,"display","解像度・フレームレート","Resolution & frame rate",true);
         DisplaySettings.add(this,displayGroup);
+        Switch fpsDisplay=new Switch(this);fpsDisplay.setText(ui("FPSを表示 / Show FPS"));fpsDisplay.setTextSize(20);fpsDisplay.setChecked(graphics.getBoolean("fps_display",false));
+        saveLighting("fps-display.enabled",fpsDisplay.isChecked()?1:0);displayGroup.addView(fpsDisplay);
+        fpsDisplay.setOnCheckedChangeListener((button,enabled)->{if(saveLighting("fps-display.enabled",enabled?1:0))graphics.edit().putBoolean("fps_display",enabled).apply();});
         LinearLayout water=section(layout,"water","水面","Water",false);
         LinearLayout texturesGroup=section(layout,"textures","テクスチャ・影","Textures & shadows",false);
         LinearLayout weatherGroup=section(layout,"weather","天候","Weather",false);
@@ -59,6 +64,40 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         TextView waveHelp=new TextView(this);waveHelp.setText(ui("鏡面反射ON時に有効。波による映り込みの揺れと光沢を追加します。"));water.addView(waveHelp);
         Switch detailShadows=new Switch(this);detailShadows.setText(ui("高精細な影 / Detailed shadows"));detailShadows.setTextSize(20);detailShadows.setChecked(graphics.getBoolean("detail_shadows",true));texturesGroup.addView(detailShadows);
         detailShadows.setOnCheckedChangeListener((button,enabled)->graphics.edit().putBoolean("detail_shadows",enabled).apply());
+        Switch enhancedShadows=new Switch(this);enhancedShadows.setText(ui("強化された影 / Enhanced shadows"));enhancedShadows.setTextSize(20);enhancedShadows.setChecked(graphics.getBoolean("enhanced_shadows",true));saveEnhancedShadows(enhancedShadows.isChecked());texturesGroup.addView(enhancedShadows);
+        enhancedShadows.setOnCheckedChangeListener((button,enabled)->{if(saveEnhancedShadows(enabled))graphics.edit().putBoolean("enhanced_shadows",enabled).apply();});
+        shadowAmountLabel=new TextView(this);shadowAmountLabel.setTextSize(18);texturesGroup.addView(shadowAmountLabel);
+        shadowAmount=new ValueSeekBar();shadowAmount.setMax(100);shadowAmount.setProgress(Math.max(0,Math.min(100,graphics.getInt("enhanced_shadow_amount",45))));
+        shadowAmountLabel.setText(ui("影の最大減光量 / Maximum shadow dimming")+": "+shadowAmount.getProgress()+"%");saveShadowAmount(shadowAmount.getProgress());texturesGroup.addView(shadowAmount);
+        shadowAmount.setOnSeekBarChangeListener(this);
+        shadowSamplesLabel=new TextView(this);shadowSamplesLabel.setTextSize(18);texturesGroup.addView(shadowSamplesLabel);
+        shadowSamples=new ValueSeekBar();shadowSamples.setMax(8);shadowSamples.setProgress(Math.max(1,Math.min(9,graphics.getInt("enhanced_shadow_samples",9)))-1);
+        shadowSamplesLabel.setText(ui("影サンプル数 / Shadow samples")+": "+(shadowSamples.getProgress()+1));saveLighting("enhanced-shadow-samples",shadowSamples.getProgress()+1);texturesGroup.addView(shadowSamples);shadowSamples.setOnSeekBarChangeListener(this);
+        shadowLodLabel=new TextView(this);shadowLodLabel.setTextSize(18);texturesGroup.addView(shadowLodLabel);
+        shadowLod=new ValueSeekBar();shadowLod.setMax(100);shadowLod.setProgress(Math.max(0,Math.min(100,graphics.getInt("enhanced_shadow_lod",0))));
+        shadowLodLabel.setText(ui("強化影LOD開始距離 / Shadow LOD start distance")+": "+sliderValue(shadowLod));saveLighting("enhanced-shadow-lod",shadowLod.getProgress());texturesGroup.addView(shadowLod);shadowLod.setOnSeekBarChangeListener(this);
+        TextView lodHelp=new TextView(this);lodHelp.setText(ui("0でLODなし。指定距離までは最大品質、遠方・小さいスプライトはサンプルを段階的に削減。次回のVR起動時に反映。"));texturesGroup.addView(lodHelp);
+
+        TextView enhancedHelp=new TextView(this);enhancedHelp.setText(ui("受ける影と簡易セルフシャドウを調整。0%で減光なし。次回のVR起動時に反映されます。"));texturesGroup.addView(enhancedHelp);
+        Switch lighting=new Switch(this);lighting.setText(ui("強化されたライティング / Enhanced lighting"));lighting.setTextSize(20);lighting.setChecked(graphics.getBoolean("enhanced_lighting",true));saveLighting("enhanced-lighting.enabled",lighting.isChecked()?1:0);texturesGroup.addView(lighting);
+        lighting.setOnCheckedChangeListener((button,enabled)->{if(saveLighting("enhanced-lighting.enabled",enabled?1:0))graphics.edit().putBoolean("enhanced_lighting",enabled).apply();});
+        lightingAmountLabel=new TextView(this);lightingAmountLabel.setTextSize(18);texturesGroup.addView(lightingAmountLabel);
+        lightingAmount=new ValueSeekBar();lightingAmount.setMax(100);lightingAmount.setProgress(Math.max(0,Math.min(100,graphics.getInt("enhanced_lighting_amount",100))));
+        lightingAmountLabel.setText(ui("ライティングの影響度 / Lighting influence")+": "+lightingAmount.getProgress()+"%");saveLighting("enhanced-lighting-amount",lightingAmount.getProgress());texturesGroup.addView(lightingAmount);lightingAmount.setOnSeekBarChangeListener(this);
+        lightingLimitLabel=new TextView(this);lightingLimitLabel.setTextSize(18);texturesGroup.addView(lightingLimitLabel);
+        lightingLimit=new ValueSeekBar();lightingLimit.setMax(124);lightingLimit.setProgress(Math.max(4,Math.min(128,graphics.getInt("enhanced_lighting_limit",8)))-4);
+        lightingLimitLabel.setText(ui("ビュー全体の最大光源数 / Maximum lights per view")+": "+(lightingLimit.getProgress()+4));saveLighting("enhanced-lighting-limit",lightingLimit.getProgress()+4);texturesGroup.addView(lightingLimit);lightingLimit.setOnSeekBarChangeListener(this);
+        lightingObjectLabel=new TextView(this);lightingObjectLabel.setTextSize(18);texturesGroup.addView(lightingObjectLabel);
+        lightingObject=new ValueSeekBar();lightingObject.setMax(127);lightingObject.setProgress(Math.max(1,Math.min(128,graphics.getInt("enhanced_lighting_per_object",8)))-1);
+        lightingObjectLabel.setText(ui("オブジェクトごとの最大光源数 / Maximum lights per object")+": "+(lightingObject.getProgress()+1));saveLighting("enhanced-lighting-per-object",lightingObject.getProgress()+1);texturesGroup.addView(lightingObject);lightingObject.setOnSeekBarChangeListener(this);
+        lightingLodLabel=new TextView(this);lightingLodLabel.setTextSize(18);texturesGroup.addView(lightingLodLabel);
+        lightingLod=new ValueSeekBar();lightingLod.setMax(100);lightingLod.setProgress(Math.max(0,Math.min(100,graphics.getInt("enhanced_lighting_lod",10))));
+        lightingLodLabel.setText(ui("照明LOD開始距離（0で無効） / Lighting LOD start distance (0 disables)")+": "+lightingLod.getProgress());saveLighting("enhanced-lighting-lod",lightingLod.getProgress());texturesGroup.addView(lightingLod);lightingLod.setOnSeekBarChangeListener(this);
+        TextView lightingHelp=new TextView(this);lightingHelp.setText(ui("炎・爆発などの色でスプライトを照らし、影を緩和します。次回のVR起動時に反映されます。"));texturesGroup.addView(lightingHelp);
+        Switch cutoutSprites=new Switch(this);cutoutSprites.setText(ui("ハイレゾスプライトの高品質な輪郭（2パス） / High-quality hi-res sprite edges (2 passes)"));cutoutSprites.setTextSize(20);cutoutSprites.setChecked(graphics.getBoolean("sprite_high_quality_edges",false));
+        saveLighting("sprite-cutout-one-pass.enabled",cutoutSprites.isChecked()?0:1);texturesGroup.addView(cutoutSprites);
+        cutoutSprites.setOnCheckedChangeListener((button,enabled)->{if(saveLighting("sprite-cutout-one-pass.enabled",enabled?0:1))graphics.edit().putBoolean("sprite_high_quality_edges",enabled).apply();});
+        TextView cutoutHelp=new TextView(this);cutoutHelp.setText(ui("OFF（標準）：不透明1パスで軽量描画。ON：2パスで輪郭を滑らかに描画（負荷増）。炎・煙などの半透明効果は維持します。次回VR起動時に反映。 / OFF (default): fast opaque cutout in one pass. ON: smooth edges in two passes (higher cost). Fire, smoke and other translucent effects are preserved. Applies on next VR entry."));texturesGroup.addView(cutoutHelp);
         Switch hires=new Switch(this);hires.setText(ui("高解像度スプライト・モデル / Hi-res sprites and models"));hires.setTextSize(20);hires.setChecked(graphics.getBoolean("hires_sprites",true));texturesGroup.addView(hires);
         hires.setOnCheckedChangeListener((button,enabled)->graphics.edit().putBoolean("hires_sprites",enabled).apply());
         Switch details=new Switch(this);details.setText(ui("地形の高精細テクスチャ / Landscape detail textures"));details.setTextSize(20);details.setChecked(graphics.getBoolean("detail_textures",true));texturesGroup.addView(details);
@@ -73,32 +112,32 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         vrSnow.setOnCheckedChangeListener((button,enabled)->{if(saveSnow(enabled))graphics.edit().putBoolean("vr_snow",enabled).apply();});weatherGroup.addView(vrSnow);
         TextView snowHelp=new TextView(this);snowHelp.setText(ui("VR向け：視点の周囲にも雪を展開。原作の雪片・風・降り方を使用します。"));weatherGroup.addView(snowHelp);
         skyLabel=new TextView(this);skyLabel.setTextSize(18);water.addView(skyLabel);
-        SeekBar skyBlend=new SeekBar(this);skyBlend.setMax(100);skyBlend.setProgress(Math.max(0,Math.min(100,graphics.getInt("sky_reflection_blend",25))));
+        SeekBar skyBlend=new ValueSeekBar();skyBlend.setMax(100);skyBlend.setProgress(Math.max(0,Math.min(100,graphics.getInt("sky_reflection_blend",25))));
         skyLabel.setText(skyBlendLabel(skyBlend.getProgress()));saveSkyBlend(skyBlend.getProgress());
         skyBlend.setOnSeekBarChangeListener(this);water.addView(skyBlend);
         TextView skyHelp=new TextView(this);skyHelp.setText(ui("0：空の反射なし ／ 1：従来の強さ。ユニット・建物の反射は変わりません。"));water.addView(skyHelp);
         soundLabel=new TextView(this);soundLabel.setTextSize(18);audioGroup.addView(soundLabel);
-        soundRange=new SeekBar(this);soundRange.setMax(100);soundRange.setProgress(Math.max(0,Math.min(100,graphics.getInt("sound_range",150)-100)));
+        soundRange=new ValueSeekBar();soundRange.setMax(100);soundRange.setProgress(Math.max(0,Math.min(100,graphics.getInt("sound_range",150)-100)));
         soundLabel.setText(soundRangeLabel(soundRange.getProgress()));saveSoundRange(soundRange.getProgress());soundRange.setOnSeekBarChangeListener(this);audioGroup.addView(soundRange);
         TextView soundHelp=new TextView(this);soundHelp.setText(ui("1.00：原作の範囲 ／ 初期値1.50。VRへ戻ると反映されます。"));audioGroup.addView(soundHelp);
         for(int i=0;i<2;i++){
             cameraLabels[i]=new TextView(this);cameraLabels[i].setTextSize(18);cameraGroup.addView(cameraLabels[i]);
-            cameraSpeeds[i]=new SeekBar(this);cameraSpeeds[i].setMax(200);cameraSpeeds[i].setProgress(Math.max(0,Math.min(200,graphics.getInt(CAMERA_KEYS[i],100)-100)));
+            cameraSpeeds[i]=new ValueSeekBar();cameraSpeeds[i].setMax(200);cameraSpeeds[i].setProgress(Math.max(0,Math.min(200,graphics.getInt(CAMERA_KEYS[i],100)-100)));
             cameraLabels[i].setText(cameraSpeedLabel(i,cameraSpeeds[i].getProgress()));cameraSpeeds[i].setOnSeekBarChangeListener(this);cameraGroup.addView(cameraSpeeds[i]);
         }
         mapSizeLabel=new TextView(this);mapSizeLabel.setTextSize(18);mapGroup.addView(mapSizeLabel);
-        mapSize=new SeekBar(this);mapSize.setMax(150);mapSize.setProgress(Math.max(0,Math.min(150,graphics.getInt("wrist_map_size",100)-50)));
+        mapSize=new ValueSeekBar();mapSize.setMax(150);mapSize.setProgress(Math.max(0,Math.min(150,graphics.getInt("wrist_map_size",100)-50)));
         mapSizeLabel.setText(mapSizeLabel(mapSize.getProgress()));mapSize.setOnSeekBarChangeListener(this);mapGroup.addView(mapSize);
         mapPitchLabel=new TextView(this);mapPitchLabel.setTextSize(18);mapGroup.addView(mapPitchLabel);
         int pitchOffset=graphics.getInt("wrist_map_pitch_offset",Math.max(-45,Math.min(45,graphics.getInt("wrist_map_pitch",-30)+30)));
         if(!graphics.contains("wrist_map_pitch_offset"))graphics.edit().putInt("wrist_map_pitch_offset",pitchOffset).apply();
-        mapPitch=new SeekBar(this);mapPitch.setMax(90);mapPitch.setProgress(Math.max(0,Math.min(90,pitchOffset+45)));
+        mapPitch=new ValueSeekBar();mapPitch.setMax(90);mapPitch.setProgress(Math.max(0,Math.min(90,pitchOffset+45)));
         mapPitchLabel.setText(mapPitchLabel(mapPitch.getProgress()));mapPitch.setOnSeekBarChangeListener(this);mapGroup.addView(mapPitch);
         orbitDistanceLabel=new TextView(this);orbitDistanceLabel.setTextSize(18);cameraGroup.addView(orbitDistanceLabel);
-        orbitDistance=new SeekBar(this);orbitDistance.setMax(100);orbitDistance.setProgress(Math.max(0,Math.min(100,graphics.getInt("orbit_distance",15))));
+        orbitDistance=new ValueSeekBar();orbitDistance.setMax(100);orbitDistance.setProgress(Math.max(0,Math.min(100,graphics.getInt("orbit_distance",15))));
         orbitDistanceLabel.setText(orbitDistanceLabel(orbitDistance.getProgress()));orbitDistance.setOnSeekBarChangeListener(this);cameraGroup.addView(orbitDistance);
         radialSizeLabel=new TextView(this);radialSizeLabel.setTextSize(18);mapGroup.addView(radialSizeLabel);
-        radialSize=new SeekBar(this);radialSize.setMax(50);radialSize.setProgress(Math.max(0,Math.min(50,graphics.getInt("radial_size",100)-50)));
+        radialSize=new ValueSeekBar();radialSize.setMax(50);radialSize.setProgress(Math.max(0,Math.min(50,graphics.getInt("radial_size",100)-50)));
         radialSizeLabel.setText(radialSizeLabel(radialSize.getProgress()));radialSize.setOnSeekBarChangeListener(this);mapGroup.addView(radialSize);
         reuseFollowDistance=new Switch(this);reuseFollowDistance.setText(ui("追跡中に調整した距離を再利用 / Reuse follow distance"));reuseFollowDistance.setTextSize(20);
         reuseFollowDistance.setChecked(graphics.getBoolean("reuse_follow_distance",false));cameraGroup.addView(reuseFollowDistance);
@@ -111,7 +150,7 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         buttonGroups=new Switch(this);buttonGroups.setText(ui("Y/Bでグループ切替・ジェスチャーで選択解除"));buttonGroups.setTextSize(20);buttonGroups.setChecked(graphics.getBoolean("button_groups",true));inputGroup.addView(buttonGroups);
         tapGroups=new Switch(this);tapGroups.setText(ui("コントローラージェスチャー / Controller gesture"));tapGroups.setTextSize(20);tapGroups.setChecked(graphics.getBoolean("tap_groups",true));inputGroup.addView(tapGroups);
         tapDistanceLabel=new TextView(this);tapDistanceLabel.setTextSize(18);inputGroup.addView(tapDistanceLabel);
-        tapDistance=new SeekBar(this);tapDistance.setMax(90);tapDistance.setProgress(Math.max(0,Math.min(90,graphics.getInt("tap_distance",100)-10)));
+        tapDistance=new ValueSeekBar();tapDistance.setMax(90);tapDistance.setProgress(Math.max(0,Math.min(90,graphics.getInt("tap_distance",100)-10)));
         tapDistanceLabel.setText(tapDistanceLabel(tapDistance.getProgress()));tapDistance.setOnSeekBarChangeListener(this);inputGroup.addView(tapDistance);
         selectionHaptics=new Switch(this);selectionHaptics.setText(ui("ユニット選択時の振動 / Selection vibration"));selectionHaptics.setTextSize(20);selectionHaptics.setChecked(graphics.getBoolean("selection_haptics",true));inputGroup.addView(selectionHaptics);
         buttonGroups.setOnCheckedChangeListener((button,enabled)->{if(saveCameraSpeeds())graphics.edit().putBoolean("button_groups",enabled).apply();});
@@ -122,6 +161,18 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         button(setupGroup,ui("Initial setup / 初回データ展開"),()->importSeed());
         button(setupGroup,ui("Status / 状態を更新"),()->show(StandaloneBridge.status()));
         TextView debugHelp=new TextView(this);debugHelp.setText(ui("詳細ログをADBへ出力します。PCへの保存にはUSB接続と収集ツールが必要です。"));setupGroup.addView(debugHelp);
+        Switch fixedPose=new Switch(this);fixedPose.setText(ui("計測用：視点・コントローラー固定 / Benchmark: fixed view and controllers"));fixedPose.setTextSize(20);fixedPose.setChecked(graphics.getBoolean("benchmark_pose",false));
+        saveLighting("benchmark-pose.enabled",fixedPose.isChecked()?1:0);setupGroup.addView(fixedPose);
+        fixedPose.setOnCheckedChangeListener((button,enabled)->{if(saveLighting("benchmark-pose.enabled",enabled?1:0))graphics.edit().putBoolean("benchmark_pose",enabled).apply();});
+        TextView fixedHelp=new TextView(this);fixedHelp.setText(ui("シーン初期位置で固定。ボタン入力は有効。診断ログONで1秒ごとに記録します。次回VR起動時に反映。 / Locks to the scene start. Buttons remain active. Enable diagnostic logging for one-second reports. Applies on next VR entry."));setupGroup.addView(fixedHelp);
+        Switch skipShadowLookup=new Switch(this);skipShadowLookup.setText(ui("診断用：スプライトの影マップ参照を省略 / Diagnostic: skip sprite shadow-map lookup"));skipShadowLookup.setTextSize(20);skipShadowLookup.setChecked(graphics.getBoolean("diagnostic_skip_sprite_shadow",false));
+        saveLighting("diagnostic-skip-sprite-shadow.enabled",skipShadowLookup.isChecked()?1:0);setupGroup.addView(skipShadowLookup);
+        skipShadowLookup.setOnCheckedChangeListener((button,enabled)->{if(saveLighting("diagnostic-skip-sprite-shadow.enabled",enabled?1:0))graphics.edit().putBoolean("diagnostic_skip_sprite_shadow",enabled).apply();});
+        TextView skipShadowHelp=new TextView(this);skipShadowHelp.setText(ui("通常はOFF。ONはスプライトが受ける他物体の影だけを省略。影マップ生成・簡易セルフシャドウ・照明・水面の影は維持。次回VR起動時に反映。 / Normally OFF. ON skips shadows received from other objects on sprites only. Shadow-map generation, self-shading, lighting and water shadows remain enabled. Applies on next VR entry."));setupGroup.addView(skipShadowHelp);
+        Switch apiWaits=new Switch(this);apiWaits.setText(ui("診断用：描画APIの待機詳細 / Diagnostic: render API wait details"));apiWaits.setTextSize(20);apiWaits.setChecked(graphics.getBoolean("diagnostic_api_waits",false));
+        saveLighting("diagnostic-api-waits.enabled",apiWaits.isChecked()?1:0);setupGroup.addView(apiWaits);
+        apiWaits.setOnCheckedChangeListener((button,enabled)->{if(saveLighting("diagnostic-api-waits.enabled",enabled?1:0))graphics.edit().putBoolean("diagnostic_api_waits",enabled).apply();});
+        TextView apiHelp=new TextView(this);apiHelp.setText(ui("診断ログONと併用。17パスに1回を計測し、遅い呼び出しを記録します。OSトレースはPCから取得。次回VR起動時に反映。 / Requires diagnostic logging. Samples one in 17 passes and records slow calls. Capture OS traces from the PC. Applies on next VR entry."));setupGroup.addView(apiHelp);
         Switch diagnostics=new Switch(this);diagnostics.setText(ui("診断ログ / Diagnostic logging"));diagnostics.setTextSize(20);diagnostics.setChecked(graphics.getBoolean("diagnostic_logging",false));
         saveDiagnostics(diagnostics.isChecked());diagnostics.setOnCheckedChangeListener((button,enabled)->{if(saveDiagnostics(enabled))graphics.edit().putBoolean("diagnostic_logging",enabled).apply();});setupGroup.addView(diagnostics);
         formatSwitches(layout);
@@ -144,6 +195,32 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
     private void formatSwitches(LinearLayout layout){
         for(int i=0;i<layout.getChildCount();i++){android.view.View child=layout.getChildAt(i);if(child instanceof LinearLayout){formatSwitches((LinearLayout)child);continue;}if(!(child instanceof Switch))continue;Switch toggle=(Switch)child;CharSequence label=toggle.getText();toggle.setText("");layout.removeViewAt(i);LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(android.view.Gravity.CENTER_VERTICAL);row.setLayoutDirection(android.view.View.LAYOUT_DIRECTION_LTR);row.addView(toggle,new LinearLayout.LayoutParams(-2,-2));TextView text=new TextView(this);text.setText(label);text.setTextSize(20);text.setTextColor(toggle.getTextColors());text.setPadding(16,0,0,0);text.setOnClickListener(v->{if(toggle.isEnabled())toggle.toggle();});row.addView(text,new LinearLayout.LayoutParams(0,-2,1));toggle.setContentDescription(label);layout.addView(row,i,new LinearLayout.LayoutParams(-1,-2));}
     }
+    private String sliderValue(SeekBar bar){
+        int v=bar.getProgress();if(bar==shadowSamples)return Integer.toString(v+1);
+        if(bar==shadowLod)return v==0?"OFF":v+" m";
+        if(bar==lightingObject)return Integer.toString(v+1);if(bar==lightingLod)return Integer.toString(v);if(bar==lightingLimit)return Integer.toString(v+4);
+        if(bar==shadowAmount||bar==lightingAmount)return v+"%";
+        if(bar==orbitDistance)return v+" m";
+        if(bar==mapPitch)return String.format(java.util.Locale.ROOT,"%+d°",v-45);
+        if(bar==tapDistance)return String.format(java.util.Locale.ROOT,"%.2f×",(v+10)/100f);
+        if(bar==radialSize||bar==mapSize)return String.format(java.util.Locale.ROOT,"%.2f×",(v+50)/100f);
+        if(bar==soundRange||bar==cameraSpeeds[0]||bar==cameraSpeeds[1])return String.format(java.util.Locale.ROOT,"%.2f×",(v+100)/100f);
+        return String.format(java.util.Locale.ROOT,"%.2f",v/100f);
+    }
+    private final class ValueSeekBar extends SeekBar {
+        private final android.graphics.Paint paint=new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private final float dp=getResources().getDisplayMetrics().density;
+        ValueSeekBar(){super(StandaloneActivity.this);setLayoutDirection(android.view.View.LAYOUT_DIRECTION_LTR);setPadding((int)(24*dp),(int)(32*dp),(int)(24*dp),(int)(8*dp));setMinimumHeight((int)(80*dp));}
+        @Override protected synchronized void onDraw(android.graphics.Canvas canvas){
+            super.onDraw(canvas);String value=sliderValue(this);paint.setTextSize(16*dp);paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            float width=paint.measureText(value)+16*dp;
+            float x=getPaddingLeft()+(getWidth()-getPaddingLeft()-getPaddingRight())*getProgress()/(float)Math.max(1,getMax());
+            if(getThumb()!=null)x=getPaddingLeft()-getThumbOffset()+getThumb().getBounds().exactCenterX();
+            x=Math.max(width/2,Math.min(getWidth()-width/2,x));
+            float bottom=getPaddingTop()-3*dp;paint.setColor(0xff245d91);canvas.drawRoundRect(x-width/2,bottom-25*dp,x+width/2,bottom,5*dp,5*dp,paint);
+            paint.setColor(0xffffffff);paint.setTextAlign(android.graphics.Paint.Align.CENTER);canvas.drawText(value,x,bottom-6*dp,paint);
+        }
+    }
     private static final float LAUNCHER_LOGO_BRIGHTNESS=.35f;
     private void setLauncherContent(ScrollView scroll){
         FrameLayout root=new FrameLayout(this);root.setBackgroundColor(0xff0d0d0d);
@@ -164,9 +241,9 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         scroll.setBackgroundColor(android.graphics.Color.TRANSPARENT);
         root.addView(scroll,new FrameLayout.LayoutParams(-1,-1));setContentView(root);
     }
-    public void onProgressChanged(SeekBar bar,int value,boolean fromUser){if(bar==tapDistance){tapDistanceLabel.setText(tapDistanceLabel(value));return;}if(bar==radialSize){radialSizeLabel.setText(radialSizeLabel(value));return;}if(bar==orbitDistance){orbitDistanceLabel.setText(orbitDistanceLabel(value));return;}if(bar==mapPitch){mapPitchLabel.setText(mapPitchLabel(value));return;}if(bar==mapSize){mapSizeLabel.setText(mapSizeLabel(value));return;}for(int i=0;i<2;i++)if(bar==cameraSpeeds[i]){cameraLabels[i].setText(cameraSpeedLabel(i,value));return;}if(bar==soundRange)soundLabel.setText(soundRangeLabel(value));else skyLabel.setText(skyBlendLabel(value));}
+    public void onProgressChanged(SeekBar bar,int value,boolean fromUser){bar.invalidate();if(bar==lightingObject){lightingObjectLabel.setText(ui("オブジェクトごとの最大光源数 / Maximum lights per object")+": "+(value+1));return;}if(bar==lightingLod){lightingLodLabel.setText(ui("照明LOD開始距離（0で無効） / Lighting LOD start distance (0 disables)")+": "+value);return;}if(bar==shadowSamples){shadowSamplesLabel.setText(ui("影サンプル数 / Shadow samples")+": "+(value+1));return;}if(bar==shadowLod){shadowLodLabel.setText(ui("強化影LOD開始距離 / Shadow LOD start distance")+": "+sliderValue(bar));return;}if(bar==lightingLimit){lightingLimitLabel.setText(ui("ビュー全体の最大光源数 / Maximum lights per view")+": "+(value+4));return;}if(bar==lightingAmount){lightingAmountLabel.setText(ui("ライティングの影響度 / Lighting influence")+": "+value+"%");return;}if(bar==shadowAmount){shadowAmountLabel.setText(ui("影の最大減光量 / Maximum shadow dimming")+": "+value+"%");return;}if(bar==tapDistance){tapDistanceLabel.setText(tapDistanceLabel(value));return;}if(bar==radialSize){radialSizeLabel.setText(radialSizeLabel(value));return;}if(bar==orbitDistance){orbitDistanceLabel.setText(orbitDistanceLabel(value));return;}if(bar==mapPitch){mapPitchLabel.setText(mapPitchLabel(value));return;}if(bar==mapSize){mapSizeLabel.setText(mapSizeLabel(value));return;}for(int i=0;i<2;i++)if(bar==cameraSpeeds[i]){cameraLabels[i].setText(cameraSpeedLabel(i,value));return;}if(bar==soundRange)soundLabel.setText(soundRangeLabel(value));else skyLabel.setText(skyBlendLabel(value));}
     public void onStartTrackingTouch(SeekBar bar){}
-    public void onStopTrackingTouch(SeekBar bar){int value=bar.getProgress();if(bar==tapDistance){if(saveCameraSpeeds())getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt("tap_distance",value+10).apply();return;}if(bar==radialSize){if(saveCameraSpeeds())getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt("radial_size",value+50).apply();return;}if(bar==orbitDistance){if(saveCameraSpeeds())getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt("orbit_distance",value).apply();return;}if(bar==mapPitch){if(saveCameraSpeeds())getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt("wrist_map_pitch_offset",value-45).apply();return;}if(bar==mapSize){if(saveCameraSpeeds())getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt("wrist_map_size",value+50).apply();return;}for(int i=0;i<2;i++)if(bar==cameraSpeeds[i]){if(saveCameraSpeeds())getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt(CAMERA_KEYS[i],value+100).apply();return;}if(bar==soundRange){if(saveSoundRange(value))getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt("sound_range",value+100).apply();return;}if(saveSkyBlend(value))getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt("sky_reflection_blend",value).apply();}
+    public void onStopTrackingTouch(SeekBar bar){if(bar==lightingObject||bar==lightingLod){boolean object=bar==lightingObject;int value=bar.getProgress()+(object?1:0);if(saveLighting(object?"enhanced-lighting-per-object":"enhanced-lighting-lod",value))getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt(object?"enhanced_lighting_per_object":"enhanced_lighting_lod",value).apply();return;}if(bar==shadowSamples||bar==shadowLod){boolean samples=bar==shadowSamples;int value=bar.getProgress()+(samples?1:0);if(saveLighting(samples?"enhanced-shadow-samples":"enhanced-shadow-lod",value))getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt(samples?"enhanced_shadow_samples":"enhanced_shadow_lod",value).apply();return;}if(bar==lightingLimit){if(saveLighting("enhanced-lighting-limit",bar.getProgress()+4))getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt("enhanced_lighting_limit",bar.getProgress()+4).apply();return;}if(bar==lightingAmount){if(saveLighting("enhanced-lighting-amount",bar.getProgress()))getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt("enhanced_lighting_amount",bar.getProgress()).apply();return;}if(bar==shadowAmount){if(saveShadowAmount(bar.getProgress()))getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt("enhanced_shadow_amount",bar.getProgress()).apply();return;}int value=bar.getProgress();if(bar==tapDistance){if(saveCameraSpeeds())getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt("tap_distance",value+10).apply();return;}if(bar==radialSize){if(saveCameraSpeeds())getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt("radial_size",value+50).apply();return;}if(bar==orbitDistance){if(saveCameraSpeeds())getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt("orbit_distance",value).apply();return;}if(bar==mapPitch){if(saveCameraSpeeds())getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt("wrist_map_pitch_offset",value-45).apply();return;}if(bar==mapSize){if(saveCameraSpeeds())getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt("wrist_map_size",value+50).apply();return;}for(int i=0;i<2;i++)if(bar==cameraSpeeds[i]){if(saveCameraSpeeds())getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt(CAMERA_KEYS[i],value+100).apply();return;}if(bar==soundRange){if(saveSoundRange(value))getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt("sound_range",value+100).apply();return;}if(saveSkyBlend(value))getSharedPreferences("vr_graphics",MODE_PRIVATE).edit().putInt("sky_reflection_blend",value).apply();}
     private String tapDistanceLabel(int value){return String.format(java.util.Locale.ROOT,ui("ジェスチャー判定距離 / Gesture distance: %.2f倍"),(value+10)/100f);}
     private String radialSizeLabel(int value){return String.format(java.util.Locale.ROOT,ui("ダイヤルメニュー表示倍率 / Dial size: %.2f倍"),(value+50)/100f);}
     private String orbitDistanceLabel(int value){return String.format(java.util.Locale.ROOT,ui("未選択時のオービット距離 / Orbit distance: %d m"),value);}
@@ -188,6 +265,15 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         try{android.util.AtomicFile f=new android.util.AtomicFile(new File(getFilesDir(),"sky-reflection.blend"));FileOutputStream stream=f.startWrite();
             try{stream.write(String.format(java.util.Locale.ROOT,"%03d",Math.max(0,Math.min(100,value))).getBytes(java.nio.charset.StandardCharsets.US_ASCII));f.finishWrite(stream);}catch(Exception e){f.failWrite(stream);throw e;}return true;
         }catch(Exception e){Toast.makeText(this,ui("空の反射設定の保存に失敗しました: ")+e,Toast.LENGTH_LONG).show();return false;}
+    }
+    private boolean saveLighting(String name,int value){
+        try{android.util.AtomicFile f=new android.util.AtomicFile(new File(getFilesDir(),name));FileOutputStream out=f.startWrite();try{out.write(Integer.toString(value).getBytes(java.nio.charset.StandardCharsets.US_ASCII));f.finishWrite(out);}catch(Exception e){f.failWrite(out);throw e;}return true;}catch(Exception e){Toast.makeText(this,ui("照明設定の保存に失敗しました: ")+e,Toast.LENGTH_LONG).show();return false;}
+    }
+    private boolean saveShadowAmount(int value){
+        try{android.util.AtomicFile f=new android.util.AtomicFile(new File(getFilesDir(),"enhanced-shadow-amount"));FileOutputStream out=f.startWrite();try{out.write(Integer.toString(Math.max(0,Math.min(100,value))).getBytes(java.nio.charset.StandardCharsets.US_ASCII));f.finishWrite(out);}catch(Exception e){f.failWrite(out);throw e;}return true;}catch(Exception e){Toast.makeText(this,ui("影設定の保存に失敗しました: ")+e,Toast.LENGTH_LONG).show();return false;}
+    }
+    private boolean saveEnhancedShadows(boolean enabled){
+        try{android.util.AtomicFile f=new android.util.AtomicFile(new File(getFilesDir(),"enhanced-shadows.enabled"));FileOutputStream out=f.startWrite();try{out.write(enabled?'1':'0');f.finishWrite(out);}catch(Exception e){f.failWrite(out);throw e;}return true;}catch(Exception e){Toast.makeText(this,ui("影設定の保存に失敗しました: ")+e,Toast.LENGTH_LONG).show();return false;}
     }
     private boolean saveWaterWaves(boolean enabled){
         try{android.util.AtomicFile f=new android.util.AtomicFile(new File(getFilesDir(),"water-waves.enabled"));FileOutputStream out=f.startWrite();try{out.write(enabled?'1':'0');f.finishWrite(out);}catch(Exception e){f.failWrite(out);throw e;}return true;}catch(Exception e){Toast.makeText(this,ui("水面設定の保存に失敗しました: ")+e,Toast.LENGTH_LONG).show();return false;}

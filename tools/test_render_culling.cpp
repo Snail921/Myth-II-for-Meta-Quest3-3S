@@ -34,5 +34,10 @@ int main(){
  f.set(perspective,full,-100);
  for(float z:{-.11f,-1.f,-5.f}){Bounds b;b.add(0,0,z);assert(f.visible(b));}
  Bounds behindEye;behindEye.add(0,0,1);assert(!f.visible(behindEye));
+ // Per-eye visibility must not reuse the first eye's decision at the edge.
+ auto left=m,right=m;left[12]=-.04f;right[12]=.04f;
+ Frustum lf,rf;lf.set(left,full,-INFINITY);rf.set(right,full,-INFINITY);
+ Bounds stereoEdge;stereoEdge.add(1.02f,0,0);assert(lf.visible(stereoEdge)&&!rf.visible(stereoEdge));
+ Bounds spans;spans.add(-2,0,0);spans.add(2,0,0);assert(lf.visible(spans)&&rf.visible(spans));
  printf("PASS reflection culling: %u cases; crop, edges, clipping, scales, origins, water levels\n",checks);
 }

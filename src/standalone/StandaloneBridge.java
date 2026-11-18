@@ -24,12 +24,43 @@ public final class StandaloneBridge {
     private static Context audioContext;
     private static boolean lifecycleRegistered;
     private static java.lang.ref.WeakReference<Activity> immersiveActivity=new java.lang.ref.WeakReference<>(null);
+    private static volatile long diagnosticPosted, diagnosticAck;
+    private static volatile String diagnosticActivity="none";
+    private static void transition(Activity a,String event){
+        diagnosticActivity=a.getClass().getName()+":"+event;
+        if(!a.getSharedPreferences("vr_graphics",Context.MODE_PRIVATE).getBoolean("diagnostic_logging",false))return;
+        Log.i("MythTransition","mono="+android.os.SystemClock.elapsedRealtime()+" "+diagnosticActivity+" focus="+a.hasWindowFocus()+" finishing="+a.isFinishing()+" thread="+Thread.currentThread().getName());
+    }
+    private static void startDiagnosticWatch(Context context){
+        final Context c=context.getApplicationContext();
+        Thread watcher=new Thread(()->{long lastStack=0,lastAudio=0;boolean wasEnabled=false;
+            for(;;){try{Thread.sleep(1000);}catch(InterruptedException e){return;}
+                boolean enabled=c.getSharedPreferences("vr_graphics",Context.MODE_PRIVATE).getBoolean("diagnostic_logging",false);
+                if(!enabled){wasEnabled=false;continue;}
+                long now=android.os.SystemClock.elapsedRealtime();
+                if(!wasEnabled){diagnosticPosted=diagnosticAck=0;wasEnabled=true;}
+                if(diagnosticPosted>diagnosticAck&&now-diagnosticPosted>=1500&&now-lastStack>=5000){
+                    lastStack=now;StringBuilder b=new StringBuilder("UI stalled ms=").append(now-diagnosticPosted).append(" activity=").append(diagnosticActivity);
+                    StackTraceElement[] stack=Looper.getMainLooper().getThread().getStackTrace();for(int i=0;i<Math.min(16,stack.length);i++)b.append("\n  ").append(stack[i]);
+                    Log.w("MythTransition",b.toString());
+                }
+                if(now-lastAudio>=5000){lastAudio=now;try{
+                    android.media.AudioManager audio=(android.media.AudioManager)c.getSystemService(Context.AUDIO_SERVICE);
+                    Log.i("MythTransition","Audio mono="+now+" activity="+diagnosticActivity+" global_music_active="+audio.isMusicActive()+" visible_playback_configs="+audio.getActivePlaybackConfigurations().size()+" policy="+audioPolicyStatus());
+                }catch(Exception e){Log.w("MythTransition","Audio state unavailable",e);}}
+                if(diagnosticPosted<=diagnosticAck){final long sent=now;diagnosticPosted=sent;inputHandler.post(()->{
+                    long lag=android.os.SystemClock.elapsedRealtime()-sent;diagnosticAck=sent;
+                    if(lag>=250)Log.i("MythTransition","UI recovered lag_ms="+lag+" activity="+diagnosticActivity);
+                });}
+            }
+        },"MythTransitionWatch");watcher.setDaemon(true);watcher.start();
+    }
     private static synchronized void watchActivities(Context c){
-        if(lifecycleRegistered)return;lifecycleRegistered=true;
+        if(lifecycleRegistered)return;lifecycleRegistered=true;startDiagnosticWatch(c);
         ((android.app.Application)c.getApplicationContext()).registerActivityLifecycleCallbacks(new android.app.Application.ActivityLifecycleCallbacks(){
-            public void onActivityCreated(Activity a,android.os.Bundle b){if(a instanceof android.app.NativeActivity)immersiveActivity=new java.lang.ref.WeakReference<>(a);}
-            public void onActivityDestroyed(Activity a){report("Activity destroyed: "+a.getClass().getName()+" finishing="+a.isFinishing());exportDiagnostics(a);if(immersiveActivity.get()==a)immersiveActivity.clear();}
-            public void onActivityStarted(Activity a){} public void onActivityResumed(Activity a){} public void onActivityPaused(Activity a){} public void onActivityStopped(Activity a){} public void onActivitySaveInstanceState(Activity a,android.os.Bundle b){}
+            public void onActivityCreated(Activity a,android.os.Bundle b){transition(a,"created");if(a instanceof android.app.NativeActivity)immersiveActivity=new java.lang.ref.WeakReference<>(a);}
+            public void onActivityDestroyed(Activity a){transition(a,"destroyed");report("Activity destroyed: "+a.getClass().getName()+" finishing="+a.isFinishing());exportDiagnostics(a);if(immersiveActivity.get()==a)immersiveActivity.clear();}
+            public void onActivityStarted(Activity a){transition(a,"started");} public void onActivityResumed(Activity a){transition(a,"resumed");Log.i("MythTransition",audioPolicyStatus());} public void onActivityPaused(Activity a){transition(a,"paused");} public void onActivityStopped(Activity a){transition(a,"stopped");} public void onActivitySaveInstanceState(Activity a,android.os.Bundle b){}
         });
     }
     public static boolean keepRuntimeForRemovedTask(Intent rootIntent){
@@ -38,6 +69,7 @@ public final class StandaloneBridge {
         report("VR task removed; preserving original runtime and result panel");return true;
     }
     private static void returnToPanel(Activity engine,String reason){
+        transition(engine,"return-request:"+reason);
         opened=false;activeDefinition=null;if(capture!=null){capture.destroy();capture=null;}
         report("Returning to original panel: "+reason);
         inputHandler.post(()->{
@@ -276,7 +308,7 @@ public final class StandaloneBridge {
     public static void openVR(Activity activity){
         int pid=findGame();
         if(base==null||activeDefinition==null||pid<0||gameState(pid)!=3||meshPointer(pid)!=activeMesh){state="Start a supported original map first";return;}
-        Intent i=new Intent(Intent.ACTION_MAIN);i.addCategory("com.oculus.intent.category.VR");i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);i.setClassName(activity,"android.app.NativeActivity");activity.startActivity(i);report("Requested immersive VR");
+        Intent i=new Intent(Intent.ACTION_MAIN);i.addCategory("com.oculus.intent.category.VR");i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);i.setClassName(activity,"android.app.NativeActivity");transition(activity,"VR-startActivity-begin");activity.startActivity(i);transition(activity,"VR-startActivity-return");report("Requested immersive VR");
     }
     static boolean dialogGameRunning(){int pid=findGame();return pid>0&&simulationStarted(pid);}
     static void dialogToPanel(Activity engine,String reason){returnToPanel(engine,reason);}

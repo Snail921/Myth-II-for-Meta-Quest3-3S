@@ -8,7 +8,7 @@
 - Quest 3 / 3Sと、データ通信できるUSBケーブル
 - Windows PC
 - 自分のMyth II CD ISOとWindows用1.8.5アップデーター
-- [Release](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.1.0-beta.2026.11.17)から入手するManager、APK、初回ランタイム
+- [Release](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.3.0-beta)から入手するManager、APK、初回ランタイム
 
 Myth II 1.8.5パッチ、高精細マップテクスチャ・ハイレゾスプライト（Twice Born Edition）、The Fallen Levelsなどのプラグインは、[Project Magma](https://projectmagma.net/)から入手できます。
 
@@ -113,3 +113,5 @@ python -m pip install -r requirements-manager.txt
 [操作方法](CONTROLS.ja.md) · [更新履歴](../CHANGELOG.ja.md)
 
 更新時は新APKを上書きインストールしてください。アンインストールや初回セットアップのやり直しは不要です。
+
+任意の追加機能：[描画設定・FPS](GRAPHICS.ja.md) · [ノーマルマップの作成・転送](MATERIALS.ja.md)

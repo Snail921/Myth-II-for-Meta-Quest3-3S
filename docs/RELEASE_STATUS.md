@@ -10,4 +10,6 @@ The initial test omitted the original patch archives from the test data copy. Al
 
 The new build scripts use the pinned upstream Winlator APK and project sources. They do not depend on the old development APK or a device-exported runtime. See [build instructions](BUILD.md).
 
-Use the APK and runtime from the same release. Existing installations retain their game data and saves; do not repeat base setup over an existing Game folder.
+Use the runtime linked from the latest release; it is unchanged from 0.1.0-beta. Existing installations retain their game data and saves; do not repeat base setup over an existing Game folder.
+
+See the [changelog](../CHANGELOG.md) and [graphics guide](GRAPHICS.md) for 0.3.0-beta. The initial runtime remains the same as 0.1.0-beta; use the link in the latest release. FPS depends on the scene and settings; enhanced features do not guarantee 90 FPS.

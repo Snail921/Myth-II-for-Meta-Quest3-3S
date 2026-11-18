@@ -3,7 +3,7 @@ struct PreparedSprite {size_t object;unsigned texture;GLuint colored=0;std::arra
 struct SpriteViewCache {
  bool ready=false,uploaded=false;std::vector<PreparedSprite> sprites;
  std::vector<Vertex> selectionFrames,friendlyHover,enemyHover,itemHover,healthBars,manaBars;
- std::map<GLuint,std::vector<Vertex>> batches;
+ std::map<std::pair<GLuint,unsigned>,std::vector<Vertex>> batches;
  SpriteStream stream;
  std::vector<size_t> visible,previousVisible;
  void reset(){ready=uploaded=false;visible.clear();previousVisible.clear();sprites.clear();selectionFrames.clear();friendlyHover.clear();enemyHover.clear();itemHover.clear();healthBars.clear();manaBars.clear();for(auto it=batches.begin();it!=batches.end();){if(it->second.empty())it=batches.erase(it);else{it->second.clear();++it;}}}
@@ -11,6 +11,8 @@ struct SpriteViewCache {
 static SpriteViewCache spriteViews[2];
 static std::array<SpriteViewCache,16> reflectionSpriteViews;
 static SpriteViewCache& spriteView(bool reflected){return reflected?reflectionSpriteViews.at(activeReflectionPlane):spriteViews[0];}
+static unsigned normalSpriteTested=0,normalSpriteDrawn=0;
+static double spriteBatchCPU[2]{};static unsigned spriteBatchPasses[2]{};
 static double spritePrepareCPU[2]{};static unsigned spriteBuilds[2]{},spriteReuse[2]{};
 static void beginSpriteFrame(){hd::begin();waterFrameTime=seconds();for(auto&c:spriteViews)c.reset();for(auto&c:reflectionSpriteViews)c.reset();trimColors(coloredSprites);}
 static void prepareSprites(const XrVector3f&center,bool reflected){
@@ -63,19 +65,19 @@ if(reflected&&!reflectionFull&&(o.objectType==3||o.objectType==4))continue;auto 
  }
  spritePrepareCPU[reflected]+=seconds()-began;
 }
-static void drawPreparedSprites(const XrVector3f&center,bool reflected){
- prepareSprites(center,reflected);auto&cache=spriteView(reflected);
- if(!reflected&&cache.uploaded){cache.stream.draw();return;}
+static void drawPreparedSprites(const XrVector3f&center,bool reflected,const Mat&mvp){
+ SpriteWaitScope phase(reflected,8);prepareSprites(center,reflected);phase.next(9);auto&cache=spriteView(reflected);
+ rendercull::Frustum viewCull;if(!reflected)viewCull.set(mvp,{-1,-1,1,1},-INFINITY);
  cache.visible.clear();
- for(size_t i=0;i<cache.sprites.size();i++){if(reflected){reflectObjectsTested++;if(!reflectionCull.visible(cache.sprites[i].bounds))continue;reflectObjectsDrawn++;}cache.visible.push_back(i);}
- if(cache.uploaded&&cache.visible==cache.previousVisible){cache.stream.draw();return;}
- cache.previousVisible=cache.visible;
+ for(size_t i=0;i<cache.sprites.size();i++){if(reflected){reflectObjectsTested++;if(!reflectionCull.visible(cache.sprites[i].bounds))continue;reflectObjectsDrawn++;}else{if(diagnosticEnabled)normalSpriteTested++;if(!viewCull.visible(cache.sprites[i].bounds))continue;if(diagnosticEnabled)normalSpriteDrawn++;}cache.visible.push_back(i);}
+ if(cache.uploaded&&cache.visible==cache.previousVisible){phase.next(11);cache.stream.draw(reflected);return;}
+ double batchStart=diagnosticEnabled?seconds():0;cache.previousVisible=cache.visible;
  for(auto&b:cache.batches)b.second.clear();
  bool sampled=reflected&&spriteProfile.sample();if(sampled)spriteProfile.passes++;
  for(auto index:cache.visible){auto&p=cache.sprites[index];SpriteScope profile(sampled);profile.next(1);
   profile.next(2);if(!p.colored)p.colored=coloredTexture(objects[p.object],p.texture);
-  profile.next(3);auto&batch=cache.batches[p.colored];batch.insert(batch.end(),p.vertices.begin(),p.vertices.end());
+  profile.next(3);auto&batch=cache.batches[{p.colored,spriteLightingOwner(objects[p.object],p.object)}];batch.insert(batch.end(),p.vertices.begin(),p.vertices.end());
  }
- double began=sampled?seconds():0;cache.stream.upload(cache.batches);cache.stream.draw();cache.uploaded=true;
+ if(diagnosticEnabled){spriteBatchCPU[reflected]+=seconds()-batchStart;spriteBatchPasses[reflected]++;}double began=sampled?seconds():0;phase.next(10);cache.stream.upload(cache.batches);phase.next(11);cache.stream.draw(reflected);cache.uploaded=true;
  if(sampled)spriteProfile.ms[3]+=(seconds()-began)*1000;
 }

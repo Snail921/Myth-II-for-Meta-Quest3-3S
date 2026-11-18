@@ -34,10 +34,26 @@ class App:
   self.progress=ttk.Progressbar(frame,style='Blue.Horizontal.TProgressbar',mode='indeterminate');self.progress.grid(row=10,column=0,columnspan=3,sticky='ew',pady=3)
   ttk.Label(frame,textvariable=self.status,wraplength=920).grid(row=11,column=0,columnspan=3,sticky='w')
   ttk.Label(frame,text='配置は原作ゲームを終了してから。旧パックは退避され、APKの更新は不要です。').grid(row=12,column=0,columnspan=3,sticky='w',pady=5)
+  self.button(bar,'スプライト材質エディター',self.material_editor).pack(side='left',padx=(0,8))
+  self.material_folder=tk.StringVar(value=str(ROOT/'UserData/Materials'))
+  materials=ttk.Frame(frame);materials.grid(row=13,column=0,columnspan=3,sticky='ew',pady=5);materials.columnconfigure(1,weight=1)
+  ttk.Label(materials,text='ノーマルマップフォルダ').grid(row=0,column=0,sticky='w')
+  ttk.Entry(materials,textvariable=self.material_folder).grid(row=0,column=1,sticky='ew',padx=6)
+  self.button(materials,'参照',lambda:self.browse(self.material_folder,True)).grid(row=0,column=2,padx=4)
+  self.button(materials,'ノーマルマップをQuestへ転送',self.deploy_materials).grid(row=0,column=3)
+  ttk.Label(frame,text='フォルダ直下の.mvrnmを一括転送。同名ファイルは更新します。').grid(row=14,column=0,columnspan=3,sticky='w')
   self.add_setup()
   language=ttk.Combobox(frame,values=['日本語','English'],state='readonly',width=12);language.set('English' if self.language=='en' else '日本語');language.grid(row=0,column=2,sticky='e');language.bind('<<ComboboxSelected>>',lambda e:self.set_language('en' if language.get()=='English' else 'ja'))
   self.capture_labels(root);self.set_language(self.language,False)
   root.after(100,self.poll);root.protocol('WM_DELETE_WINDOW',self.close)
+ def deploy_materials(self):
+  from sprite_material_deploy import deploy
+  folder,adb,serial=self.material_folder.get().strip(),self.adb.get(),self.serial.get()
+  if not folder:self.error('入力','ノーマルマップのフォルダを指定してください。');return
+  self.task(lambda:deploy(folder,Device(adb,serial,self.log)))
+ def material_editor(self):
+  from sprite_material_editor import Editor
+  window=tk.Toplevel(self.root);editor=Editor(window);editor.lang.set("English" if self.language=="en" else "日本語");editor.translate()
  def error(self,title,message):messagebox.showerror(self.tr(title),self.tr(message))
  def info(self,title,message):messagebox.showinfo(self.tr(title),self.tr(message))
  def tr(self,text):return i18n.translate(text,self.language)

@@ -36,9 +36,9 @@ def bundle_inputs(bundle,plugin):
  return result,req,original
 class Device:
  def __init__(self,adb=ADB_DEFAULT,serial='',log=print):self.adb=str(adb);self.serial=serial;self.log=log
- def call(self,*args):
+ def call(self,*args,timeout=None):
   cmd=[self.adb]+(['-s',self.serial] if self.serial else [])+list(args)
-  p=subprocess.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,encoding='utf8',errors='replace')
+  p=subprocess.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,encoding='utf8',errors='replace',timeout=timeout)
   if p.returncode:raise RuntimeError(p.stdout.strip() or 'ADB failed')
   return p.stdout.strip()
  def shell(self,command):return self.call('shell',command)

@@ -49,7 +49,7 @@ struct TouchInput {
  }
  bool boolean(XrSession s,XrAction a){XrActionStateGetInfo gi{XR_TYPE_ACTION_STATE_GET_INFO};gi.action=a;XrActionStateBoolean v{XR_TYPE_ACTION_STATE_BOOLEAN};ck(xrGetActionStateBoolean(s,&gi,&v));return v.isActive&&v.currentState;}
  bool trigger(XrSession s,XrAction a,bool&held){XrActionStateGetInfo gi{XR_TYPE_ACTION_STATE_GET_INFO};gi.action=a;XrActionStateFloat v{XR_TYPE_ACTION_STATE_FLOAT};ck(xrGetActionStateFloat(s,&gi,&v));held=v.isActive&&v.currentState>=(held?.40f:.55f);return held;}
- bool pose(XrSession s,XrAction a,XrSpace hand,XrSpace base,XrTime time,XrPosef&out){XrActionStateGetInfo gi{XR_TYPE_ACTION_STATE_GET_INFO};gi.action=a;XrActionStatePose state{XR_TYPE_ACTION_STATE_POSE};ck(xrGetActionStatePose(s,&gi,&state));if(!state.isActive)return false;XrSpaceLocation loc{XR_TYPE_SPACE_LOCATION};ck(xrLocateSpace(hand,base,time,&loc));if((loc.locationFlags&3)!=3)return false;out=loc.pose;return true;}
+ bool pose(XrSession s,XrAction a,XrSpace hand,XrSpace base,XrTime time,XrPosef&out){if(benchmarkPose.enabled){out=benchmarkPose.hand(a==leftGrip);return true;}XrActionStateGetInfo gi{XR_TYPE_ACTION_STATE_GET_INFO};gi.action=a;XrActionStatePose state{XR_TYPE_ACTION_STATE_POSE};ck(xrGetActionStatePose(s,&gi,&state));if(!state.isActive)return false;XrSpaceLocation loc{XR_TYPE_SPACE_LOCATION};ck(xrLocateSpace(hand,base,time,&loc));if((loc.locationFlags&3)!=3)return false;out=loc.pose;return true;}
 };
 static TouchInput input;static Terrain terrain;
 static int infoPanelButton=0,originalDialogMode=0;
@@ -90,6 +90,7 @@ static unsigned lastTapID=0;static double lastTapTime=0;
 static OrbitCamera orbitCamera;static FollowCamera followCamera;
 struct OrbitTarget{unsigned id,key;Vec3 position;bool alive=true;};
 static std::vector<OrbitTarget> orbitTargets;
+static Vec3 benchmarkCamera{};static float benchmarkYaw=0,benchmarkHeight=0;
 static Vec3 camera{0,1.6f,4};static float cameraYaw=0,cameraGroundOffset=1.6f;static bool cameraReady=false;
 static bool pointerValid=false,groundValid=false;
 static Vec3 pointerStart{},pointerEnd{},groundHit{},lastMove{};static unsigned hoverID=0;static bool hoverFriendly=false;static double lastMoveTime=0;static float lastMoveDiameter=1.f;static bool lastMoveGroundAttack=false;
@@ -209,7 +210,7 @@ static void clickPointer(bool extend,bool groundAttack,bool fixedMove,Vec3 desti
 }
 #include "coop_transfer_input.h"
 static void updateInput(XrSession session,XrSpace space,XrTime time,const XrView*views,float dt,bool focused){
- if(!cameraReady){followCamera.active=false;orbitCamera.active=false;if(levelInitialCamera){camera.x=mythWorldX(levelCamera[0],originX,scale);camera.z=(levelCamera[1]-originY)*scale;cameraYaw=levelCamera[3]+1.5707963268f;cameraGroundOffset=std::clamp((levelCamera[2]-originZ)*scale-terrain.elevation(camera.x,camera.z),1.6f,20.f);}camera.y=terrain.elevation(camera.x,camera.z)+cameraGroundOffset;cameraReady=true;requestSeq=(uint32_t)(seconds()*1000);}
+ if(!cameraReady){followCamera.active=false;orbitCamera.active=false;if(levelInitialCamera){camera.x=mythWorldX(levelCamera[0],originX,scale);camera.z=(levelCamera[1]-originY)*scale;cameraYaw=levelCamera[3]+1.5707963268f;cameraGroundOffset=std::clamp((levelCamera[2]-originZ)*scale-terrain.elevation(camera.x,camera.z),1.6f,20.f);}camera.y=terrain.elevation(camera.x,camera.z)+cameraGroundOffset;cameraReady=true;if(benchmarkPose.enabled){benchmarkCamera=camera;benchmarkYaw=cameraYaw;benchmarkHeight=cameraGroundOffset;LOG("Benchmark initial camera=%.3f,%.3f,%.3f yaw=%.3f",camera.x,camera.y,camera.z,cameraYaw);}requestSeq=(uint32_t)(seconds()*1000);}
  if(requestPending&&seconds()-requestTime>2){LOG("Input ACK timeout seq=%u",requestPending);patrolRequest=0;routePoints=0;clearMoveMarkers();requestPending=0;commandQueue.clear();input.hapticRequests.clear();input.groupRequests.clear();commandFailed=true;}
  pollOriginalDialog();
  wristMapPoseValid=false;mapHovered=false;infoPanelHovered=false;originalDialogHovered=false;
@@ -247,7 +248,7 @@ static void updateInput(XrSession session,XrSpace space,XrTime time,const XrView
   routePoints=0;clearMoveMarkers();selectionGesture.cancel();lastTapID=0;mapGesture=infoPanelGesture=false;
   XrSpaceLocation view{XR_TYPE_SPACE_LOCATION};
   auto valid=XR_SPACE_LOCATION_POSITION_VALID_BIT|XR_SPACE_LOCATION_ORIENTATION_VALID_BIT;
-  if(XR_SUCCEEDED(xrLocateSpace(input.viewSpace,space,time,&view))&&(view.locationFlags&valid)==valid)openCoopTransfer(view.pose);
+  if(XR_SUCCEEDED(xrLocateSpace(input.viewSpace,space,time,&view))&&(view.locationFlags&valid)==valid)openCoopTransfer(benchmarkPose.enabled?head:view.pose);
   else commandFailed=true;menuEvent=true;input.swallowRight=true;input.swallowLeft=true;
  }
  if(transferModal||coopMenuOpen||transferChord){
@@ -284,7 +285,7 @@ static void updateInput(XrSession session,XrSpace space,XrTime time,const XrView
  bool newScriptCamera=cameraInfo[0]==0x314d4143&&cameraInfo[1]&&cameraInfo[1]!=lastScriptSerial;
  scriptCameraBlocked=scriptCameraGate.update((cameraInfo[10]&0x10000)!=0,newScriptCamera,seconds());
  if(scriptCameraBlocked){followCamera.active=false;orbitCamera.active=false;}
- if(newScriptCamera){
+ if(newScriptCamera&&!benchmarkPose.enabled){
   lastScriptSerial=cameraInfo[1];
   float gx=int32_t(cameraInfo[4])/512.f,gy=int32_t(cameraInfo[5])/512.f;
   if(gx>=0&&gy>=0&&gx<terrain.width&&gy<terrain.height&&cameraInfo[6]<=65535){
@@ -300,7 +301,7 @@ static void updateInput(XrSession session,XrSpace space,XrTime time,const XrView
   }
  }
  unsigned tutorialCameraBits=0;
- if(!scriptCameraBlocked){
+ if(!scriptCameraBlocked&&!benchmarkPose.enabled){
  if(clicks.follow||clicks.warp){
   std::vector<Vec3> selected;std::vector<OrbitTarget> targets;
   for(const auto&o:objects)if(o.unitID&&o.selected&&o.health>0&&objectVisible(o)){
@@ -354,6 +355,7 @@ static void updateInput(XrSession session,XrSpace space,XrTime time,const XrView
  if(orbitCamera.active||cameraJump)orbitCamera.constrainHeight(camera,ground,head.position.y,cameraGroundOffset);
  else{float target=ground+cameraGroundOffset;camera.y+=(target-camera.y)*(1-expf(-12*dt));}
  }
+ if(benchmarkPose.enabled){camera=benchmarkCamera;cameraYaw=benchmarkYaw;cameraGroundOffset=benchmarkHeight;followCamera.active=false;orbitCamera.active=false;}
  input.lastFollowClick=followPressed;input.lastWarpClick=warpPressed;
  coopHover=-1;XrPosef aim{};pointerValid=input.pose(session,input.aim,input.aimSpace,space,time,aim);hoverID=0;hoverItem=0;groundValid=false;
  XrPosef localAim=aim;

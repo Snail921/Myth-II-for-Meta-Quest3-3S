@@ -12,7 +12,7 @@ static void initWeatherSetting(const char*root){weatherVR=snowVR=true;weatherPol
 
 static void initWeather(){
  if(weatherProgram)return;
- std::string vs=mythVertexShader,fs=mythFragmentShader;
+ std::string vs=spriteShaderSource(mythVertexShader,false,false),fs=spriteShaderSource(mythFragmentShader,false,false);
  auto replace=[](std::string&s,const char*a,const char*b){auto p=s.find(a);if(p==std::string::npos)throw std::runtime_error("weather shader template");s.replace(p,strlen(a),b);};
  replace(vs,"out float worldHeight;","out float worldHeight;out vec3 worldPosition;");
  replace(vs,"worldHeight=pos.y;","worldHeight=pos.y;worldPosition=pos;");

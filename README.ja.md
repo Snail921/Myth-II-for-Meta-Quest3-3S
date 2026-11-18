@@ -6,7 +6,7 @@ Myth II: SoulblighterをQuest 3 / 3Sで遊ぶ非公式VR版です。戦場を立
 
 **APK・初回ランタイム・Plugin Managerを下のリンクからダウンロードできます。** 原作のISOと1.8.5アップデーターは別途ご用意ください。
 
-[ダウンロード](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.2.0-beta) · [導入手順](docs/INSTALL.ja.md) · [操作方法](docs/CONTROLS.ja.md)
+[ダウンロード](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.3.0-beta) · [導入手順](docs/INSTALL.ja.md) · [操作方法](docs/CONTROLS.ja.md)
 
 <p>
   <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-01.png"><img src="docs/images/screenshot-01.png" height="120" alt=""></a>
@@ -54,6 +54,10 @@ Myth II 1.8.5パッチ、高精細マップテクスチャ・ハイレゾスプ�
 
 ## 更新履歴
 
+**0.3.0-beta** — 強化影・照明とLOD、ノーマルマップ作成・転送、FPS表示、描画の軽量化。
+
 **0.2.0-beta** — 描画品質設定、Co-op割譲、方向指定・グループ操作の改善、影とスプライト表示の修正。
 
 [すべての更新履歴](CHANGELOG.ja.md)
+
+[描画設定・FPS](docs/GRAPHICS.ja.md) · [スプライト材質エディタ](docs/MATERIALS.ja.md)

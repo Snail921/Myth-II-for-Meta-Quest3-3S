@@ -7,6 +7,19 @@ import java.util.*;
 final class UiLanguage {
  static final Map<String,String[]> translations=new HashMap<>();
  static {
+  translations.put("FPSを表示 / Show FPS",new String[]{"FPSを表示","Show FPS"});
+  translations.put("影サンプル数 / Shadow samples",new String[]{"影サンプル数","Shadow samples"});
+  translations.put("強化影LOD開始距離 / Shadow LOD start distance",new String[]{"強化影LOD開始距離","Shadow LOD start distance"});
+  translations.put("0でLODなし。指定距離までは最大品質、遠方・小さいスプライトはサンプルを段階的に削減。次回のVR起動時に反映。",new String[]{"0でLODなし。指定距離までは最大品質、遠方・小さいスプライトはサンプルを段階的に削減。次回のVR起動時に反映。","0 disables LOD. Full quality up to this distance; fewer samples for distant/small sprites. Applies on next VR start."});
+  translations.put("最大光源数 / Maximum lights",new String[]{"最大光源数","Maximum lights"});
+  translations.put("強化されたライティング / Enhanced lighting",new String[]{"強化されたライティング","Enhanced lighting"});
+  translations.put("ライティングの影響度 / Lighting influence",new String[]{"ライティングの影響度","Lighting influence"});
+  translations.put("炎・爆発などの色でスプライトを照らし、影を緩和します。次回のVR起動時に反映されます。",new String[]{"炎・爆発などの色でスプライトを照らし、影を緩和します。次回のVR起動時に反映されます。","Lights sprites with fire/explosion colors and reduces shadows. Applies on the next VR start."});
+  translations.put("照明設定の保存に失敗しました: ",new String[]{"照明設定の保存に失敗しました: ","Could not save lighting settings: "});
+  translations.put("影の最大減光量 / Maximum shadow dimming",new String[]{"影の最大減光量","Maximum shadow dimming"});
+  translations.put("強化された影 / Enhanced shadows",new String[]{"強化された影","Enhanced shadows"});
+  translations.put("受ける影と簡易セルフシャドウを調整。0%で減光なし。次回のVR起動時に反映されます。",new String[]{"受ける影と簡易セルフシャドウを調整。0%で減光なし。次回のVR起動時に反映されます。","Controls received shadows and simplified self-shadowing. 0% disables dimming. Applies on the next VR start."});
+  translations.put("影設定の保存に失敗しました: ",new String[]{"影設定の保存に失敗しました: ","Could not save shadow settings: "});
   translations.put("カメラ移動（水平・上下）",new String[]{"カメラ移動（水平・上下）","Camera movement (horizontal / vertical)"});
   translations.put("スティック回転（オービット・パン）",new String[]{"スティック回転（オービット・パン）","Stick rotation (orbit / pan)"});
   translations.put("鏡面反射 / Water reflections",new String[]{"鏡面反射","Water reflections"});
@@ -62,7 +75,8 @@ final class UiLanguage {
   translations.put("Ready. Press Start Myth II. / 準備完了。原作を起動してください。",new String[]{"準備完了。原作を起動してください。","Ready. Press Start Myth II."});
   translations.put("Initial runtime data has not been provisioned. / 初期データの配置が必要です。",new String[]{"初期データの配置が必要です。","Initial runtime data has not been provisioned."});
  }
- static {translations.put("Myth II Standalone Test\nLoad a campaign level in the original menu. VR opens automatically when the map is ready.\n原作メニューでキャンペーンのレベルをロードするとVRに切り替わります。",new String[]{"原作メニューでレベルを開始すると、自動でVRへ切り替わります。","Load a level in the original menu to enter VR automatically."});}
+ static {
+  translations.put("最大光源数 / Maximum lights",new String[]{"最大光源数","Maximum lights"});translations.put("Myth II Standalone Test\nLoad a campaign level in the original menu. VR opens automatically when the map is ready.\n原作メニューでキャンペーンのレベルをロードするとVRに切り替わります。",new String[]{"原作メニューでレベルを開始すると、自動でVRへ切り替わります。","Load a level in the original menu to enter VR automatically."});}
  static boolean english(Context c){return c.getSharedPreferences("launcher_ui",0).getString("language","ja").equals("en");}
  static String text(Context c,String s){String[] v=translations.get(s);return v==null?s:v[english(c)?1:0];}
  static void selector(Activity a,LinearLayout layout,java.util.function.BooleanSupplier busy){

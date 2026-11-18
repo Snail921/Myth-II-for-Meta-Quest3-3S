@@ -74,3 +74,5 @@ Return units using the same operation. While the list is open, battlefield selec
 Use the right pointer and right trigger in the launcher and original game menus. To open the original level selector, enable **Hold Shift** in the input keyboard, then click **New Game** while the holding indicator is visible.
 
 Launcher settings are grouped into collapsible sections. The display section offers automatic resolution or 1680 × 1760, 1832 × 1920, 1920 × 2048 and 2064 × 2208 per eye; 72 / 80 / 90 / 120 Hz; and MSAA off / 2×. Unsupported refresh rates fall back to a supported runtime setting. A selected refresh rate is a target, not a guaranteed frame rate. Apply changes on the next VR start.
+
+[Enhanced shadows, lighting, LOD and FPS settings](GRAPHICS.md)
