@@ -13,6 +13,14 @@ if "classes.dex" in replacements:
   required=b"Landroidx/core/content/FileProvider;"
   if required in original.read("classes.dex") and required not in Path(replacements["classes.dex"]).read_bytes():
    raise ValueError("Base DEX would lose FileProvider; standalone code must replace classes2.dex")
+# Preserve the generated 1.8.5 external-layout launcher when replacing its DEX.
+if "classes2.dex" in replacements:
+ with zipfile.ZipFile(source) as original:
+  previous=original.read("classes2.dex")
+  current=Path(replacements["classes2.dex"]).read_bytes()
+  game=b"/storage/emulated/0/Android/data/org.mythvr.standalone/files/Game/Myth II.exe"
+  if game in previous and (game not in current or b"Lorg/mythvr/standalone/Engine185Data;" not in current):
+   raise ValueError("Generated 1.8.5 launcher lost: run prepare_185_full.py before compiling; do not overwrite generated Java with raw sources")
 with zipfile.ZipFile(source) as src, open(source, "rb") as raw, zipfile.ZipFile(target,"w",zipfile.ZIP_DEFLATED) as dst:
  entries=sorted(src.infolist(), key=lambda i:i.header_offset)
  for n,entry in enumerate(entries):

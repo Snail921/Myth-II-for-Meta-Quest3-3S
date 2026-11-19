@@ -2,7 +2,7 @@
 
 **English** | [日本語](CONTROLS.ja.md) · [README](../README.md) · [Setup](INSTALL.md)
 
-These are the default VR controls in **0.2.0-beta**. The right controller aims the pointer; the **left trigger** confirms battlefield selections and orders. A grip is the side button, not the trigger under your index finger.
+These are the default VR controls in **0.4.0-beta**. The right controller aims the pointer; the **left trigger** confirms battlefield selections and orders. A grip is the side button, not the trigger under your index finger.
 
 ## Select and command units
 
@@ -30,7 +30,8 @@ Point at a friendly unit and hold the left trigger for about **0.35 seconds**. W
 | Register the selection | Hold the right trigger and X, choose a group slot, then release X |
 | Choose a registered group from the menu | Hold the right grip and X, choose a slot, then release X |
 | Previous / next group | Y / B |
-| Clear selection | Either controller's group gesture, with gestures enabled |
+| Clear selection | Right grip + B (does not cycle groups) |
+| Clear selection using a gesture | Either controller's group gesture, with gestures enabled |
 
 After clearing or changing selection manually, the **first Y or B press recalls the last group**. Further presses cycle through registered groups. Empty groups are skipped.
 

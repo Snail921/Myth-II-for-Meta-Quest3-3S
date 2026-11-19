@@ -2,6 +2,18 @@
 
 **English** | [日本語](CHANGELOG.ja.md)
 
+## 0.4.0-beta — 2026-11-19
+
+- Added optional sprite atlas batching for all levels, with shared normal maps, stereo upload reuse, 2048-pixel pages and a 768 MiB budget with fallback. Record per-level high-water usage for playthrough diagnosis.
+- Added optional distant terrain-detail simplification and terrain back-face culling.
+- Replaced per-triangle water screen-bound calculations with conservative bounds; skip reflections for water hidden behind terrain/buildings using asynchronous stereo visibility queries.
+- Fixed weather atlas sampling and made snow face the camera; retained rain streak orientation.
+- Added Auto Switch UI/Gizmo Color (default OFF), configurable accent color (default RGB 245, 182, 66), and independent Thick Pointer UI (1.0–4.0x, default 1.0x).
+- Added right grip + B to deselect without cycling groups.
+- Fixed original-game launch packaging and clarified the Start Myth II button.
+
+Update the APK and Manager/source ZIP. Runtime, skyboxes and 0.3.2 normal packs are unchanged.
+
 ## 0.3.2-beta — 2026-11-19
 
 - Store source-image SHA-256 and normal pixels in MVRNORM2 packs; original image pixels are no longer included. Legacy MVRNORM1 packs remain readable.

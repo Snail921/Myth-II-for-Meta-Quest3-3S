@@ -1,10 +1,12 @@
 #pragma once
+#include "terrain_options.h"
 // Optional external detail map. Original terrain, live stains/shade/light stay in tex unit 0.
 static GLuint detailArray=0,detailBuffer=0;
 static unsigned detailCount=0;
 static std::vector<unsigned char> detailVertices,detailTriangles;
 static std::vector<float> detailScales;
 static void loadDetailTerrain(android_app*a){
+ loadTerrainOptions(a->activity->internalDataPath);
  detailCount=0;detailVertices.clear();detailTriangles.clear();detailScales.clear();
  std::string path=std::string(a->activity->internalDataPath)+"/active-detail.pack";FILE*f=fopen(path.c_str(),"rb");if(!f)return;
  try{
@@ -43,6 +45,7 @@ static void useDetailTerrain(bool enable){
  enable=enable&&detailCount&&detailBuffer;
  glUniform1i(glGetUniformLocation(program,"detailEnabled"),enable?1:0);
  if(enable){
+  glUniform2f(glGetUniformLocation(program,"detailLodRange"),terrainDetailLod?terrainDetailNear:0.f,terrainDetailLod?terrainDetailFar:0.f);
   glActiveTexture(GL_TEXTURE1);glBindTexture(GL_TEXTURE_2D_ARRAY,detailArray);glActiveTexture(GL_TEXTURE0);
   glUniform1i(glGetUniformLocation(program,"detailTex"),1);glUniform2f(glGetUniformLocation(program,"detailDimensions"),levelWidth,levelHeight);glUniform2fv(glGetUniformLocation(program,"detailScales"),detailCount,detailScales.data());
   glBindBuffer(GL_ARRAY_BUFFER,detailBuffer);for(unsigned i=2;i<4;i++){glEnableVertexAttribArray(i);glVertexAttribPointer(i,3,GL_FLOAT,GL_FALSE,6*sizeof(float),(void*)(uintptr_t)((i-2)*3*sizeof(float)));}

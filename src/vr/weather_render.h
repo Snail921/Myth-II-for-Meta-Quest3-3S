@@ -1,8 +1,12 @@
 #pragma once
+#include "weather_stream.h"
+#include "weather_billboard.h"
 // Shared physical weather geometry for both eyes and all reflected water planes.
-static GLuint weatherProgram=0;static SpriteStream weatherStream;static bool weatherReady=false;
+static GLuint weatherProgram=0;static WeatherStream weatherStream;static bool weatherReady=false;
 static XrVector3f weatherCenter{};static float weatherNear=28,weatherFar=36;
 static unsigned weatherDrops=0;static float weatherOpacity=.3f;
+static double weatherBuildMs=0,weatherUploadMs=0,weatherSubmitMs=0;static unsigned weatherBuilds=0,weatherPasses=0;static uint64_t weatherBytes=0,weatherDrawCalls=0;
+static void reportWeather(unsigned frames){if(!frames)return;LOG("Weather stages drops=%u builds=%u passes=%u draws=%llu bytes=%llu build_ms_frame=%.3f upload_ms_frame=%.3f submit_ms_frame=%.3f atlas=0",weatherDrops,weatherBuilds,weatherPasses,(unsigned long long)weatherDrawCalls,(unsigned long long)weatherBytes,weatherBuildMs/frames,weatherUploadMs/frames,weatherSubmitMs/frames);weatherBuildMs=weatherUploadMs=weatherSubmitMs=0;weatherBuilds=weatherPasses=0;weatherBytes=weatherDrawCalls=0;}
 static bool weatherVR=true,snowVR=true;static char weatherSettingPath[1024]{},snowSettingPath[1024]{};static double weatherPoll=-1;
 static void pollWeatherSetting(){
  double now=seconds();if(weatherPoll>=0&&now-weatherPoll<1)return;weatherPoll=now;
@@ -12,7 +16,7 @@ static void initWeatherSetting(const char*root){weatherVR=snowVR=true;weatherPol
 
 static void initWeather(){
  if(weatherProgram)return;
- std::string vs=spriteShaderSource(mythVertexShader,false,false),fs=spriteShaderSource(mythFragmentShader,false,false);
+ std::string vs=spriteShaderSource(mythVertexShader,false,false,false),fs=spriteShaderSource(mythFragmentShader,false,false,false);
  auto replace=[](std::string&s,const char*a,const char*b){auto p=s.find(a);if(p==std::string::npos)throw std::runtime_error("weather shader template");s.replace(p,strlen(a),b);};
  replace(vs,"out float worldHeight;","out float worldHeight;out vec3 worldPosition;");
  replace(vs,"worldHeight=pos.y;","worldHeight=pos.y;worldPosition=pos;");
@@ -23,7 +27,7 @@ static void initWeather(){
 static void drawWeather(const Mat&mvp,bool reflected){
  pollWeatherSetting();
  if(!weatherReady){
-  weatherReady=true;weatherDrops=0;std::map<GLuint,std::vector<Vertex>> batches;
+  double buildStart=diagnosticEnabled?seconds():0;weatherReady=true;weatherDrops=0;std::map<GLuint,std::vector<Vertex>> batches;
   float cx=originX-weatherCenter.x/scale,cy=originY+weatherCenter.z/scale;
   for(const auto&p:liveParticles){if(p[15]!=2)continue;auto it=particleQuads.find({particleCollectionKey(p),p[2],p[3],(p[11]>>8)&63});if(it==particleQuads.end())continue;auto q=it->second;
    bool streak=(q.flags&16)!=0,vr=streak?weatherVR:snowVR;weatherOpacity=streak?.30f:1.f;
@@ -37,23 +41,23 @@ static void drawWeather(const Mat&mvp,bool reflected){
    float zPeriod=(p[11]>>16)/512.f;if(zPeriod<.1f)zPeriod=5.f;
    float cz=originZ+weatherCenter.y/scale;
    int bottomTile=vr?(int)floorf((cz-radius-bz)/zPeriod):0,topTile=vr?(int)ceilf((cz+radius-bz)/zPeriod):0;
-   GLuint texture=particleTexture(q.texture,255); // weather uses its own original palette, not a team variant
+   GLuint texture=particleTexture(q.texture,255,q.col); // weather uses its own original palette, not a team variant
    for(int ty=(int)floorf((cy-radius-by)/period);ty<=(int)ceilf((cy+radius-by)/period);ty++)for(int tx=(int)floorf((cx-radius-bx)/period);tx<=(int)ceilf((cx+radius-bx)/period);tx++)for(int tz=bottomTile;tz<=topTile;tz++){
     float x=bx+tx*period,y=by+ty*period;if(!vr&&(x<0||y<0||x>=levelWidth-1||y>=levelHeight-1))continue;
     Vec3 pos{mythWorldX(x,originX,scale),(bz+tz*zPeriod-originZ)*scale,(y-originY)*scale},toward{weatherCenter.x-pos.x,weatherCenter.y-pos.y,weatherCenter.z-pos.z};if(dot(toward,toward)>weatherFar*weatherFar||weatherDrops>=20000)continue;
-    Vec3 right,up;if(q.flags&16){right=arrowRight({-float(int32_t(p[10])),float(int32_t(p[14])),float(int32_t(p[12]))});up=arrowUp(right,toward);}else{float n=sqrtf(toward.x*toward.x+toward.z*toward.z);if(n<.001f)continue;right={toward.z/n,0,-toward.x/n};float length=sqrtf(dot(toward,toward));up={-toward.y*right.z/length,n/length,toward.y*right.x/length};}
+    Vec3 right,up;if(q.flags&16){right=arrowRight({-float(int32_t(p[10])),float(int32_t(p[14])),float(int32_t(p[12]))});up=arrowUp(right,toward);}else if(!snowBillboard(toward,right,up))continue;
     auto vertex=[&](float a,float b,float u,float v){auto w=add(pos,add(times(right,a),times(up,b)));return Vertex{w.x,w.y,w.z,u,v};};
     Vertex a=vertex(l,t,u0,v0),bb=vertex(r,t,u1,v0),c=vertex(l,b,u0,v1),d=vertex(r,b,u1,v1);auto&out=batches[texture];out.insert(out.end(),{a,bb,c,bb,d,c});weatherDrops++;
    }
   }
   } // density copies
-  weatherStream.upload(batches);
+  double uploadStart=diagnosticEnabled?seconds():0;weatherStream.upload(batches);if(diagnosticEnabled){weatherBuildMs+=(uploadStart-buildStart)*1000;weatherUploadMs+=(seconds()-uploadStart)*1000;weatherBytes+=weatherStream.packed.size()*sizeof(Vertex);++weatherBuilds;}
  }
- if(!weatherDrops)return;initWeather();glUseProgram(weatherProgram);applyFog(weatherProgram);
+ if(!weatherDrops)return;double submitStart=diagnosticEnabled?seconds():0;initWeather();glUseProgram(weatherProgram);applyFog(weatherProgram);
  glUniformMatrix4fv(glGetUniformLocation(weatherProgram,"mvp"),1,GL_FALSE,mvp.data());glUniform4f(glGetUniformLocation(weatherProgram,"tint"),1,1,1,weatherOpacity);glUniform1f(glGetUniformLocation(weatherProgram,"alphaCutoff"),.003f);glUniform1i(glGetUniformLocation(weatherProgram,"tex"),0);
  // GLES forbids different sampler types sharing a unit, even with detailEnabled=false.
  glUniform1i(glGetUniformLocation(weatherProgram,"detailTex"),1);glUniform1i(glGetUniformLocation(weatherProgram,"detailEnabled"),0);glUniform1i(glGetUniformLocation(weatherProgram,"softOnly"),0);glActiveTexture(GL_TEXTURE0);
  glUniform1f(glGetUniformLocation(weatherProgram,"reflectionClip"),reflected?1:0);glUniform1f(glGetUniformLocation(weatherProgram,"reflectionHeight"),reflectionLevel);glUniform3f(glGetUniformLocation(weatherProgram,"weatherEye"),weatherCenter.x,weatherCenter.y,weatherCenter.z);glUniform2f(glGetUniformLocation(weatherProgram,"weatherFade"),weatherNear,weatherFar);
- glEnable(GL_BLEND);if(reflected)glBlendFuncSeparate(GL_ONE,GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE_MINUS_SRC_ALPHA);else glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);// SpriteStream::draw is a cutout/HD pass tied to program, not weatherProgram.
- attributes(weatherStream.buffers[weatherStream.cursor]);for(auto&r:weatherStream.ranges){glBindTexture(GL_TEXTURE_2D,r.texture);glDrawArrays(GL_TRIANGLES,r.first,r.count);}glDepthMask(GL_TRUE);glDisable(GL_BLEND);glUseProgram(program);
+ glEnable(GL_BLEND);if(reflected)glBlendFuncSeparate(GL_ONE,GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE_MINUS_SRC_ALPHA);else glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);// Dedicated original-texture weather stream; no enhanced sprite state.
+ weatherStream.draw();if(diagnosticEnabled){weatherSubmitMs+=(seconds()-submitStart)*1000;++weatherPasses;weatherDrawCalls+=weatherStream.ranges.size();}glDepthMask(GL_TRUE);glDisable(GL_BLEND);glUseProgram(program);
 }

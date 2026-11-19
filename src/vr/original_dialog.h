@@ -39,5 +39,5 @@ static void drawOriginalDialog(){
  glBindTexture(GL_TEXTURE_2D,dialogTexture);glUniform4f(glGetUniformLocation(program,"tint"),1,1,1,1);glBufferData(GL_ARRAY_BUFFER,vertices.size()*sizeof(Vertex),vertices.data(),GL_STREAM_DRAW);glDrawArrays(GL_TRIANGLES,0,vertices.size());
  if(pointerValid){std::vector<Vertex> line{{pointerStart.x,pointerStart.y,pointerStart.z,0,0},{pointerEnd.x,pointerEnd.y,pointerEnd.z,0,0}};
   if(originalDialogHovered)for(int i=0;i<24;i++){float a=i*6.2831853f/24,b=(i+1)*6.2831853f/24;for(float angle:{a,b}){auto p=add(pointerEnd,add(times(m.right,cosf(angle)*.002f*s),times(m.up,sinf(angle)*.002f*s)));line.push_back({p.x,p.y,p.z,0,0});}}
-  glBindTexture(GL_TEXTURE_2D,whiteTexture);glUniform4f(glGetUniformLocation(program,"tint"),1,originalDialogHovered?1.f:.8f,0,1);glBufferData(GL_ARRAY_BUFFER,line.size()*sizeof(Vertex),line.data(),GL_STREAM_DRAW);glDrawArrays(GL_LINES,0,line.size());}
+  glBindTexture(GL_TEXTURE_2D,whiteTexture);glUniform4f(glGetUniformLocation(program,"tint"),1,originalDialogHovered?1.f:.8f,0,1);glBufferData(GL_ARRAY_BUFFER,line.size()*sizeof(Vertex),line.data(),GL_STREAM_DRAW);{pointer_style::Lines width;glDrawArrays(GL_LINES,0,2);}if(line.size()>2)glDrawArrays(GL_LINES,2,line.size()-2);}
 }

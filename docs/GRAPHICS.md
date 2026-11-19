@@ -40,3 +40,20 @@ Enable enhanced lighting and diagnostic logging, then trigger one explosion. `Li
 Distant sprites that appear small use vertex shading without normal maps. Large sprites retain detailed shading even at a distance. Diagnostic logs include the number using each path.
 
 Enable the ground shadow-color diagnostic to compare enhanced shadows with scenery shadows. While it is enabled, right stick click toggles sun-angle adjustment; move the right stick to adjust the angle. Values are written to the diagnostic log. Turn this mode off for normal play.
+
+## Atlas batching, terrain and water
+
+Enable **Sprite atlas batching (comparison)** under Textures & shadows to compare with the original rendering path. It works across levels; no collection export or preprocessing is required. Atlas pages normally use 2048×2048 pixels. Color and normal maps remain separate textures; normal images are shared. The 768 MiB budget includes both. Images that cannot be packed use the existing rendering path.
+
+`atlas-high-water.tsv` in the app's external files folder records per-level peak pages, bytes and fallbacks. It updates when maxima rise, including periodic/level-exit checks; it is not a continuous frame log.
+
+**Simplify distant terrain detail** is optional (default OFF): fades detail between distances 20 and 40 and skips it beyond 40, keeping terrain color and shadows. Terrain back-face culling is automatic. Water bounds use conservative tile bounds. Hidden-water reflections are skipped automatically using completed visibility queries; no synchronous GPU wait is introduced. Reflections can reappear a frame or more after water becomes visible.
+
+## Pointer color and thickness
+
+In **Minimap & menus**, these settings are independent and apply on the next VR entry:
+
+- **Auto Switch UI/Gizmo Color** (default OFF): samples terrain at level load and replaces yellow control highlights on bright/snow-like or yellow terrain with the chosen accent. Default RGB is **245, 182, 66**; use the color picker to change it. Enemy/status colors are retained.
+- **Thick Pointer UI**: **1.0–4.0x**, in 0.1 increments; default **1.0x**. Changes pointer rays, ground pointer/move rings, facing arrows and hovered-target rectangle borders. It does not enlarge hit areas or change selected-unit borders, health bars or box-selection lines. The slider value follows its handle.
+
+Snow faces the camera; rain retains its streak orientation. Weather textures use their own UVs rather than sampling an entire atlas page.

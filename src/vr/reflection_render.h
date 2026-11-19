@@ -1,4 +1,5 @@
 #include "water_flow.h"
+#include "water_visibility.h"
 #include "water_surface.h"
 // One original water plane. Each eye gets its own render, consumed immediately.
 static bool reflectionEnabled=true,reflectionReady=false,reflectionFull=false,reflectionHigh=false;
@@ -11,14 +12,17 @@ static int reflectionW=0,reflectionH=0;
 static std::vector<Vertex> reflectionWater;
 struct ReflectionBounds{float lo[3],hi[3];size_t first=0,count=0;};
 static GLuint reflectionMaskProgram=0;
-static unsigned waterChunksTested=0,waterChunksVisible=0,waterTrianglesProjected=0;
+static unsigned waterChunksTested=0,waterChunksVisible=0,waterCornersProjected=0;
 static double waterProjectionCPU=0;
 static std::vector<ReflectionBounds> reflectionBounds;
 struct ReflectionPlane {
- float level=0;bool ready=false;GLuint fbo=0,texture=0,depth=0,vbo=0,flowVbo=0;int w=0,h=0;
+ WaterVisibility visibility;float level=0;bool ready=false;GLuint fbo=0,texture=0,depth=0,vbo=0,flowVbo=0;int w=0,h=0;
  std::vector<Vertex> water;std::vector<ReflectionBounds> bounds;
 };
 static std::vector<ReflectionPlane> reflectionPlanes;static int activeReflectionPlane=-1;
+static uint64_t waterVisibilityFrame=0;static double waterQueryCPU=0;
+static void beginReflectionFrame(){++waterVisibilityFrame;for(auto&p:reflectionPlanes)p.visibility.poll(waterVisibilityFrame);}
+static void releaseWaterVisibility(){for(auto&p:reflectionPlanes)p.visibility.release();waterVisibilityFrame=0;}
 static void swapReflectionPlane(ReflectionPlane&p){
  std::swap(p.level,reflectionLevel);std::swap(p.ready,reflectionReady);std::swap(p.fbo,reflectionFBO);std::swap(p.texture,reflectionTexture);std::swap(p.depth,reflectionDepth);std::swap(p.vbo,reflectionWaterVBO);std::swap(p.flowVbo,reflectionFlowVBO);std::swap(p.w,reflectionW);std::swap(p.h,reflectionH);p.water.swap(reflectionWater);p.bounds.swap(reflectionBounds);
 }
@@ -38,7 +42,7 @@ static void loadReflections(android_app*a){
  auto b=asset(a,"reflection-water.pack");if(b.size()<12)throw std::runtime_error("reflection water header");
  bool grouped=!memcmp(b.data(),"MYTHRF03",8);bool multi=grouped||!memcmp(b.data(),"MYTHRF02",8);if(!multi&&memcmp(b.data(),"MYTHRF01",8))throw std::runtime_error("reflection magic");
  size_t pos=multi?12:8;unsigned planes=multi?u32(b.data()+8):1;if(planes>16)throw std::runtime_error("reflection plane count");
- reflectionPlanes.clear();activeReflectionPlane=-1;reflectionWater.clear();reflectionBounds.clear();reflectionFBO=reflectionTexture=reflectionDepth=reflectionWaterVBO=reflectionFlowVBO=0;reflectionW=reflectionH=0;reflectionReady=false;
+ releaseWaterVisibility();reflectionPlanes.clear();activeReflectionPlane=-1;reflectionWater.clear();reflectionBounds.clear();reflectionFBO=reflectionTexture=reflectionDepth=reflectionWaterVBO=reflectionFlowVBO=0;reflectionW=reflectionH=0;reflectionReady=false;
  for(unsigned pi=0;pi<planes;pi++){
   if(pos+8>b.size())throw std::runtime_error("reflection plane header");float level;memcpy(&level,b.data()+pos,4);unsigned n=u32(b.data()+pos+4);pos+=8;
   if(!std::isfinite(level)||n>levelWidth*levelHeight*6||n%3||size_t(n)*12>b.size()-pos)throw std::runtime_error("reflection bounds");
@@ -95,8 +99,8 @@ static void compositeReflections(const Mat&mvp){
 
 static rendercull::Rect projectReflectionWater(const Mat&m){
  double start=seconds();rendercull::Rect result;rendercull::Frustum frustum;frustum.set(m,{-1,-1,1,1},-INFINITY);
- for(auto&b:reflectionBounds){waterChunksTested++;rendercull::Bounds bounds;for(int i=0;i<3;i++){bounds.lo[i]=b.lo[i];bounds.hi[i]=b.hi[i];}if(!frustum.visible(bounds))continue;waterChunksVisible++;waterTrianglesProjected+=b.count/3;
- auto r=rendercull::projectedTriangles(m,reflectionWater.data()+b.first,b.count);if(r.valid()){result.add(r.l,r.b);result.add(r.r,r.t);}}
+ for(auto&b:reflectionBounds){waterChunksTested++;rendercull::Bounds bounds;for(int i=0;i<3;i++){bounds.lo[i]=b.lo[i];bounds.hi[i]=b.hi[i];}if(!frustum.visible(bounds))continue;waterChunksVisible++;waterCornersProjected+=8;
+ auto r=rendercull::projectedBounds(m,bounds);if(r.valid()){result.add(r.l,r.b);result.add(r.r,r.t);}}
  waterProjectionCPU+=seconds()-start;return result;
 }
 static void maskReflectionWater(const Mat&normalMVP){
@@ -107,4 +111,12 @@ static void maskReflectionWater(const Mat&normalMVP){
  glUseProgram(reflectionMaskProgram);glUniformMatrix4fv(glGetUniformLocation(reflectionMaskProgram,"mvp"),1,GL_FALSE,normalMVP.data());attributes(reflectionWaterVBO);glDrawArrays(GL_TRIANGLES,0,(GLsizei)reflectionWater.size());
  glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);glDepthMask(GL_TRUE);glEnable(GL_DEPTH_TEST);glStencilMask(0);glStencilFunc(GL_EQUAL,1,0xff);glStencilOp(GL_KEEP,GL_KEEP,GL_KEEP);glUseProgram(program);
 }
-static void reportReflectionWater(){LOG("Reflection water chunks=%u/%u projected_triangles=%u projection_ms=%.3f stencil=1 waves=%d",waterChunksVisible,waterChunksTested,waterTrianglesProjected,waterProjectionCPU*1000,waterWavesEnabled);waterChunksVisible=waterChunksTested=waterTrianglesProjected=0;waterProjectionCPU=0;}
+// Called after opaque terrain/models, before sprites and overlays. Query drawing
+// writes neither color nor depth, and continues even when reflections are skipped.
+static void queryReflectionVisibility(const Mat&mvp,unsigned eye){
+ if(!reflectionEnabled||reflectionPlanes.empty())return;double start=seconds();GLint oldDepthFunc;glGetIntegerv(GL_DEPTH_FUNC,&oldDepthFunc);
+ glUseProgram(reflectionMaskProgram);glUniformMatrix4fv(glGetUniformLocation(reflectionMaskProgram,"mvp"),1,GL_FALSE,mvp.data());glColorMask(GL_FALSE,GL_FALSE,GL_FALSE,GL_FALSE);glDepthMask(GL_FALSE);glEnable(GL_DEPTH_TEST);glDepthFunc(GL_LEQUAL);glDisable(GL_CULL_FACE);
+ for(unsigned i=0;i<reflectionPlanes.size();i++){activateReflectionPlane(i);auto&q=reflectionPlanes[i].visibility;if(q.begin(eye,waterVisibilityFrame)){attributes(reflectionWaterVBO);glDrawArrays(GL_TRIANGLES,0,(GLsizei)reflectionWater.size());q.end();}}
+ glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);glDepthMask(GL_TRUE);glDepthFunc(oldDepthFunc);glUseProgram(program);waterQueryCPU+=seconds()-start;
+}
+static void reportReflectionWater(){unsigned issued=0,completed=0,busy=0,skipped=0;for(auto&p:reflectionPlanes){auto&q=p.visibility;issued+=q.issued;completed+=q.completed;busy+=q.busy;skipped+=q.skipped;q.issued=q.completed=q.busy=q.skipped=0;}LOG("Water visibility issued=%u completed=%u busy=%u skipped_eye_passes=%u query_cpu_ms=%.3f",issued,completed,busy,skipped,waterQueryCPU*1000);waterQueryCPU=0;LOG("Reflection water chunks=%u/%u projected_corners=%u projection_ms=%.3f stencil=1 waves=%d",waterChunksVisible,waterChunksTested,waterCornersProjected,waterProjectionCPU*1000,waterWavesEnabled);waterChunksVisible=waterChunksTested=waterCornersProjected=0;waterProjectionCPU=0;}

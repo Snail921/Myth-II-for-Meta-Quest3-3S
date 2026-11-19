@@ -14,6 +14,7 @@ static uint64_t prefixHash(const unsigned char*p,size_t n){uint64_t h=1469598103
 struct Binding{GLuint texture=0;float sx=1,sy=1,ox=0,oy=0;};
 static std::vector<Entry> entries;
 static std::map<GLuint,Binding> bindings;
+static std::map<GLuint,std::pair<unsigned,unsigned>> textureDimensions;
 static std::map<std::pair<unsigned,unsigned>,std::vector<size_t>> dimensions;
 static size_t totalBytes=0;
 static std::map<material_hash::Digest,size_t> hashIndex;
@@ -26,7 +27,7 @@ static void reportTiming(){LOG("Sprite material stages requests=%u hits=%u legac
 struct Uniforms{GLuint program=0;bool valid=false;GLint enabled=-1,map=-1,uv=-1;};static Uniforms uniforms;
 static void locate(GLuint program){if(uniforms.valid&&uniforms.program==program)return;uniforms={program,true,glGetUniformLocation(program,"spriteNormalEnabled"),glGetUniformLocation(program,"spriteNormalMap"),glGetUniformLocation(program,"spriteNormalUV")};glUniform1i(uniforms.map,11);}
 
-static void clear(){if(timing.matches)reportTiming();timing={};hashIndex.clear();hashDimensions.clear();++bindingRevision;uniforms={};for(auto&e:entries)if(e.texture)glDeleteTextures(1,&e.texture);entries.clear();packs.clear();bindings.clear();dimensions.clear();totalBytes=normalGpuBytes=0;}
+static void clear(){if(timing.matches)reportTiming();timing={};hashIndex.clear();hashDimensions.clear();++bindingRevision;uniforms={};for(auto&e:entries)if(e.texture)glDeleteTextures(1,&e.texture);entries.clear();textureDimensions.clear();packs.clear();bindings.clear();dimensions.clear();totalBytes=normalGpuBytes=0;}
 static void load(const char*root){
  double indexStart=materialTime();clear();if(!enhancedSpritePath)return;std::string folder=std::string(root)+"/SpriteMaterials";DIR*d=opendir(folder.c_str());if(!d)return;
  std::vector<std::string> paths;while(auto*f=readdir(d)){std::string n=f->d_name;if(n.size()>6&&n.substr(n.size()-6)==".mvrnm")paths.push_back(folder+"/"+n);}closedir(d);std::sort(paths.begin(),paths.end());
@@ -44,7 +45,7 @@ static Binding normalEntry(size_t index){
  double start=materialTime();size_t bytes=size_t(e.w)*e.h*4;std::ifstream in(packs[e.pack],std::ios::binary);in.seekg(e.offset+(e.hashed?0:bytes));std::vector<unsigned char> normal(bytes);
  if(!in.read((char*)normal.data(),bytes)){timing.read+=materialTime()-start;LOG("Sprite material read failed %s",packs[e.pack].c_str());return {};}
  timing.read+=materialTime()-start;start=materialTime();
- glGenTextures(1,&e.texture);glBindTexture(GL_TEXTURE_2D,e.texture);glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,e.w,e.h,0,GL_RGBA,GL_UNSIGNED_BYTE,normal.data());glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);normalGpuBytes+=bytes;timing.upload+=materialTime()-start;
+ glGenTextures(1,&e.texture);glBindTexture(GL_TEXTURE_2D,e.texture);glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,e.w,e.h,0,GL_RGBA,GL_UNSIGNED_BYTE,normal.data());glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);textureDimensions[e.texture]={e.w,e.h};normalGpuBytes+=bytes;timing.upload+=materialTime()-start;
  return {e.texture,1,1,0,0};
 }
 static Binding match(unsigned w,unsigned h,const unsigned char*p){

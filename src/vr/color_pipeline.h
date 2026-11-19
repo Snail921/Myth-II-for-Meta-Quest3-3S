@@ -10,6 +10,8 @@ precision highp float;
 precision highp int;
 layout(location=0) in vec3 pos;layout(location=1) in vec2 uv;
 layout(location=2) in vec3 detailIds;layout(location=3) in vec3 detailWeights;
+layout(location=6) in vec4 atlasColorRect;layout(location=7) in vec4 atlasNormalRect;layout(location=8) in vec4 atlasNormalMapping;
+flat out vec4 atlasColor;flat out vec4 atlasNormal;flat out vec4 atlasMapping;
 layout(location=4) in float shadowOwner;layout(location=5) in vec4 lightBounds;
 flat out float spriteOwner;flat out vec3 materialIds;out vec3 materialWeights;
 flat out highp uvec4 spriteLightMask;
@@ -20,7 +22,7 @@ uniform int spriteShadowSamples;uniform float spriteShadowLodDistance;uniform ve
 flat out float shadowSampleBudget;
 uniform vec4 spriteLights[128];uniform vec4 spriteLightAxes[128];
 void main(){
- spriteOwner=shadowOwner;gl_Position=mvp*vec4(pos,1);tc=uv;materialIds=detailIds;materialWeights=detailWeights;worldHeight=pos.y;fogPosition=pos;
+ atlasColor=atlasColorRect;atlasNormal=atlasNormalRect;atlasMapping=atlasNormalMapping;spriteOwner=shadowOwner;gl_Position=mvp*vec4(pos,1);tc=uv;materialIds=detailIds;materialWeights=detailWeights;worldHeight=pos.y;fogPosition=pos;
  shadowSampleBudget=float(spriteShadowSamples>0?spriteShadowSamples:9);
  if(spriteLightCull&&spriteShadowLodDistance>0.0){
   float d=distance(lightBounds.xyz,spriteShadowLodEye),start=spriteShadowLodDistance;
@@ -50,6 +52,7 @@ precision highp int;
 flat in highp uvec4 spriteLightMask;
 flat in float shadowSampleBudget;
 in vec2 tc;
+flat in vec4 atlasColor;flat in vec4 atlasNormal;flat in vec4 atlasMapping;uniform bool spriteAtlas;
 in float worldHeight;
 in vec3 fogPosition;
 uniform vec4 fogColorDensity;
@@ -60,6 +63,7 @@ uniform sampler2D tex;
 uniform highp sampler2DArray detailTex;
 uniform bool detailEnabled;
 uniform vec2 detailDimensions;
+uniform vec2 detailLodRange;
 uniform vec2 detailScales[128];
 flat in vec3 materialIds;
 in vec3 materialWeights;
@@ -129,7 +133,7 @@ vec3 spriteBodyNormal(){
 // Authoring Y is image-up; UV V grows down. Derivative basis follows all
 // artwork flips, including HD crops, without reversing world-space lighting.
 vec3 spriteMappedNormal(vec3 fallback){
- vec2 uv=tc*spriteNormalUV.xy+spriteNormalUV.zw;
+ vec4 mapping=spriteAtlas?atlasMapping:spriteNormalUV;vec2 uv=tc*mapping.xy+mapping.zw;
  vec3 px=dFdx(fogPosition),py=dFdy(fogPosition);vec2 ux=dFdx(uv),uy=dFdy(uv);
  float det=ux.x*uy.y-uy.x*ux.y;
  if(abs(det)<1e-10)return fallback;
@@ -137,7 +141,7 @@ vec3 spriteMappedNormal(vec3 fallback){
  if(dot(t,t)<1e-12||dot(b,b)<1e-12)return fallback;
  t=normalize(t);b=normalize(b-t*dot(t,b));vec3 face=normalize(cross(t,b));
  if(dot(face,fogEye-fogPosition)<0.0)face=-face;
- vec4 packed=texture(spriteNormalMap,uv);
+ vec4 packed=texture(spriteNormalMap,spriteAtlas?clamp(uv,0.0,1.0)*atlasNormal.xy+atlasNormal.zw:uv);
  if(packed.a<.01||any(lessThan(uv,vec2(0)))||any(greaterThan(uv,vec2(1))))return fallback;
  vec3 n=packed.rgb*2.0-1.0;n.xy=(packed.rg*255.0-128.0)/127.0;
  return normalize(t*n.x-b*n.y+face*max(.001,n.z));
@@ -159,17 +163,24 @@ void main() {
     float selfVisibility=1.0;
     if(spriteShadows && spriteOwner>0.0 && spriteShadowAmount>0.0)selfVisibility=spriteSelfVisibility(bodyNormal);
     if(reflectionClip>0.5 && worldHeight<reflectionHeight) discard;
-    vec4 sampleColor = texture(tex, tc);
+    vec4 sampleColor = texture(tex, spriteAtlas?clamp(tc,0.0,1.0)*atlasColor.xy+atlasColor.zw:tc);
     if (sampleColor.a < alphaCutoff || (softOnly && sampleColor.a>=.995)) discard;
     vec4 encoded = sampleColor * tint;
     if(spriteCutout)encoded.a=1.0;
     if(detailEnabled){
-        vec3 factor=vec3(1.0);
-        for(int i=0;i<3;i++){
-            int id=int(materialIds[i]+0.5);
-            if(id>0)factor+=(texture(detailTex,vec3(tc*detailDimensions*detailScales[id],float(id))).rgb*2.0-1.0)*materialWeights[i];
+        // Explicit gradients keep mip selection defined across distance branches.
+        vec2 baseUV=tc*detailDimensions;
+        vec2 gradientX=dFdx(baseUV),gradientY=dFdy(baseUV);
+        float weight=detailLodRange.y>detailLodRange.x
+            ?1.0-smoothstep(detailLodRange.x,detailLodRange.y,distance(fogPosition,fogEye)):1.0;
+        if(weight>0.0){
+            vec3 factor=vec3(1.0);
+            for(int i=0;i<3;i++){
+                int id=int(materialIds[i]+0.5);
+                if(id>0)factor+=(textureGrad(detailTex,vec3(baseUV*detailScales[id],float(id)),gradientX*detailScales[id],gradientY*detailScales[id]).rgb*2.0-1.0)*materialWeights[i];
+            }
+            encoded.rgb*=mix(vec3(1.0),factor,weight);
         }
-        encoded.rgb*=factor;
     }
     float visibility=1.0;
     if(spriteShadows && spriteOwner>0.0 && spriteShadowAmount>0.0)visibility=min(spriteVisibility(),selfVisibility);
@@ -250,9 +261,10 @@ out vec4 vertexLocalLight;
 
 // Compile the OFF path with literal constants so lighting/shadow branches and
 // their attributes/samplers can be eliminated by the driver, not merely skipped.
-static std::string spriteShaderSource(const char*source,bool shadows,bool lighting){
+static std::string spriteShaderSource(const char*source,bool shadows,bool lighting,bool atlas=true){
  std::string s=(shadows||lighting)?spriteVertexLodSource(source):std::string(source);
  auto replace=[&](const char*a,const char*b){auto at=s.find(a);if(at!=std::string::npos)s.replace(at,strlen(a),b);};
+ if(!atlas)replace("uniform bool spriteAtlas;","const bool spriteAtlas=false;");
  if(!lighting){replace("uniform int spriteLightCount;","const int spriteLightCount=0;");replace("flat in highp uvec4 spriteLightMask;","const uvec4 spriteLightMask=uvec4(0);");}
  if(!shadows){replace("uniform bool spriteShadows;","const bool spriteShadows=false;");replace("uniform float spriteShadowLodDistance;","const float spriteShadowLodDistance=0.0;");}
  if(!shadows&&!lighting)replace("uniform bool spriteNormalEnabled;","const bool spriteNormalEnabled=false;");

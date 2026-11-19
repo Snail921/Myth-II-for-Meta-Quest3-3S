@@ -19,6 +19,7 @@ static void loadSurfaceEffects(android_app*a){
  glActiveTexture(GL_TEXTURE0);glGenTextures(1,&waterShadowTexture);glBindTexture(GL_TEXTURE_2D,waterShadowTexture);glPixelStorei(GL_UNPACK_ALIGNMENT,1);glTexImage2D(GL_TEXTURE_2D,0,GL_R8,w,height,0,GL_RED,GL_UNSIGNED_BYTE,g.shadow.data());glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
  initialSurfaceIndices=g.indices;initialSurfaceShade=g.base;appliedSurfaceEpoch=0;
  auto lut=take(256*256*4);g.lut.assign(lut,lut+256*256*4);
+ ui_contrast::analyze(w,height,g.indices.data(),g.base.data(),g.lut.data());LOG("Auto UI contrast enabled=%d orange=%d samples=%u pale=%u yellow=%u level=%s",ui_contrast::enabled,ui_contrast::active,ui_contrast::samples,ui_contrast::pale,ui_contrast::yellow,levelName.c_str());
  for(unsigned i=0;i<nm;i++){auto h=take(24);unsigned id=u32(h),kind=u32(h+4),mw=u32(h+16),mh=u32(h+20);
   if(kind>2||!mw||!mh||mw>1024||mh>1024)throw std::runtime_error("surface mask size");
   surface::Mask m{kind,i32(h+8),i32(h+12),(int)mw,(int)mh,{}};auto pixels=take(size_t(mw)*mh);m.pixels.assign(pixels,pixels+size_t(mw)*mh);if(!g.masks.emplace(id,std::move(m)).second)throw std::runtime_error("duplicate surface mask");

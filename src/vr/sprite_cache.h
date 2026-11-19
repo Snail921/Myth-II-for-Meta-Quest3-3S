@@ -1,17 +1,18 @@
 #pragma once
-struct PreparedSprite {size_t object;unsigned texture;GLuint colored=0;std::array<Vertex,6> vertices;rendercull::Bounds bounds;};
+struct PreparedSprite {size_t object;unsigned texture;GLuint colored=0;std::array<Vertex,6> vertices;rendercull::Bounds bounds;std::array<float,4> lightBounds{};};
 struct SpriteViewCache {
  bool ready=false,uploaded=false;std::vector<PreparedSprite> sprites;
  std::vector<Vertex> selectionFrames,friendlyHover,enemyHover,itemHover,healthBars,manaBars;
- std::map<std::pair<GLuint,unsigned>,std::vector<Vertex>> batches;
+ std::vector<SpriteStream::Input> inputs;
  SpriteStream stream;
  std::vector<size_t> visible,previousVisible;
- void reset(){ready=uploaded=false;visible.clear();previousVisible.clear();sprites.clear();selectionFrames.clear();friendlyHover.clear();enemyHover.clear();itemHover.clear();healthBars.clear();manaBars.clear();for(auto it=batches.begin();it!=batches.end();){if(it->second.empty())it=batches.erase(it);else{it->second.clear();++it;}}}
+ void reset(){ready=uploaded=false;visible.clear();previousVisible.clear();sprites.clear();selectionFrames.clear();friendlyHover.clear();enemyHover.clear();itemHover.clear();healthBars.clear();manaBars.clear();inputs.clear();}
+
 };
 static SpriteViewCache spriteViews[2];
 static std::array<SpriteViewCache,16> reflectionSpriteViews;
 static SpriteViewCache& spriteView(bool reflected){return reflected?reflectionSpriteViews.at(activeReflectionPlane):spriteViews[0];}
-static unsigned normalSpriteTested=0,normalSpriteDrawn=0;
+static unsigned normalSpriteTested=0,normalSpriteDrawn=0,stereoUploadReuses=0;
 static double spriteBatchCPU[2]{};static unsigned spriteBatchPasses[2]{};
 static double spritePrepareCPU[2]{};static unsigned spriteBuilds[2]{},spriteReuse[2]{};
 static void beginSpriteFrame(){updateModelAppearances();hd::begin();waterFrameTime=seconds();for(auto&c:spriteViews)c.reset();for(auto&c:reflectionSpriteViews)c.reset();trimColors(coloredSprites);}
@@ -20,7 +21,7 @@ static void prepareSprites(const XrVector3f&center,bool reflected){
  auto&selectionFrames=cache.selectionFrames;auto&friendlyHover=cache.friendlyHover;auto&enemyHover=cache.enemyHover;auto&itemHover=cache.itemHover;
  for(size_t oi=0;oi<objects.size();oi++){const auto&o=objects[oi];if(!objectVisible(o))continue;
 if(reflected&&!reflectionFull&&(o.objectType==3||o.objectType==4))continue;auto it=quads.find(key(o.col,o.seq,o.frame,0));if(it==quads.end())continue;Quad q=it->second;if(o.unitID)fixedUnitFrame(o,q);float px=mythWorldX(o.x,originX,scale),py=(o.z-originZ)*scale,pz=(o.y-originY)*scale;float dx=center.x-px,dz=center.z-pz,len=sqrtf(dx*dx+dz*dz);if(len<.001f)continue;float rx=dz/len,rz=-dx/len;unsigned objectFlips=(o.rawFlags>>17)&3;unsigned dir=myth_object_sprite_direction(dx,dz,o.yaw,q.views,objectFlips);if(!(q.seqflags&4)){auto jt=quads.find(key(o.col,o.seq,o.frame,dir));if(jt!=quads.end())q=jt->second;}
- GLuint highTexture=hdSprite(o,q);
+ sprite_atlas::registerTexture(textures[q.texture],unsigned(q.w),unsigned(q.h),q.col);GLuint highTexture=hdSprite(o,q);
  float ps=q.scale*(10.f/512.f)*scale*o.scale;float left=-q.rx*ps,right=(q.w-q.rx)*ps,bottom=(q.ry-q.h)*ps,top=q.ry*ps;if(reflected&&((!reflectionFull&&!o.unitID&&top-bottom<.65f)||py+top<reflectionLevel))continue;unsigned flags=q.flags;if(objectFlips&1){float old=left;left=-right;right=-old;flags^=1;}if(objectFlips&2){float old=bottom;bottom=-top;top=-old;flags^=2;}float u0=(flags&1)?1:0,u1=1-u0,v0=(flags&2)?1:0,v1=1-v0;Vertex a{px+rx*left,py+top,pz+rz*left,u0,v0},b{px+rx*right,py+top,pz+rz*right,u1,v0},c{px+rx*left,py+bottom,pz+rz*left,u0,v1},d{px+rx*right,py+bottom,pz+rz*right,u1,v1};
  // Flight textures marked by projectile dependency metadata use axial billboards.
  if(!o.unitID&&(q.flags&0x40000000u)&&q.views==1){
@@ -34,7 +35,7 @@ if(reflected&&!reflectionFull&&(o.objectType==3||o.objectType==4))continue;auto 
  auto point=[&](float x,float y){return Vertex{px+rx*x+dx/len*.018f,py+y,pz+rz*x+dz/len*.018f,0,0};};
  auto&h=!o.unitID?itemHover:(o.friendly?friendlyHover:enemyHover);
  auto strip=[&](float l,float bot,float r,float t){auto a=point(l,t),b=point(r,t),c=point(l,bot),d=point(r,bot);h.insert(h.end(),{a,b,c,b,d,c});};
- float l=bounds.left-.025f,r=bounds.right+.025f,bot=bounds.bottom-.025f,t=bounds.top+.025f,thickness=.022f;
+ float l=bounds.left-.025f,r=bounds.right+.025f,bot=bounds.bottom-.025f,t=bounds.top+.025f,thickness=.022f*(((!o.unitID&&o.objectKey==hoverItem)||(o.unitID&&o.unitID==hoverID))?pointer_style::scale:1.f);
  strip(l,bot,l+thickness,t);strip(r-thickness,bot,r,t);strip(l+thickness,bot,r-thickness,bot+thickness);strip(l+thickness,t-thickness,r-thickness,t);
  }
  if(!reflected&&o.selected&&o.unitID){
@@ -61,23 +62,24 @@ if(reflected&&!reflectionFull&&(o.objectType==3||o.objectType==4))continue;auto 
  // Object FX are also present in the live particle stream. That pass sorts
  // transparent sprites and retains their original alpha instead of clipping at .5.
  if(blendedSprite(q)||(o.transfer==1&&o.transferPhase>0)||(o.transfer==2&&o.transferPhase<65535))continue;
- PreparedSprite prepared;prepared.object=oi;prepared.colored=highTexture;prepared.texture=q.texture;prepared.vertices={a,b,c,b,d,c};for(auto&v:prepared.vertices)prepared.bounds.add(v.x,v.y,v.z);cache.sprites.push_back(prepared);
+ PreparedSprite prepared;prepared.object=oi;prepared.colored=highTexture;prepared.texture=q.texture;prepared.vertices={a,b,c,b,d,c};for(auto&v:prepared.vertices)prepared.bounds.add(v.x,v.y,v.z);if(enhancedSpritePath)prepared.lightBounds=SpriteLightBoundsStream::calculate(prepared.vertices.data(),6);cache.sprites.push_back(prepared);
  }
  spritePrepareCPU[reflected]+=seconds()-began;
 }
 static void drawPreparedSprites(const XrVector3f&center,bool reflected,const Mat&mvp){
  SpriteWaitScope phase(reflected,8);prepareSprites(center,reflected);phase.next(9);auto&cache=spriteView(reflected);
- rendercull::Frustum viewCull;if(!reflected)viewCull.set(mvp,{-1,-1,1,1},-INFINITY);
+ if(!reflected&&cache.uploaded){++stereoUploadReuses;phase.next(11);cache.stream.draw(false);return;}
+ rendercull::StereoFrustum views;if(!reflected)views.set(lightingEyeMatrices);
  cache.visible.clear();
- for(size_t i=0;i<cache.sprites.size();i++){if(reflected){reflectObjectsTested++;if(!reflectionCull.visible(cache.sprites[i].bounds))continue;reflectObjectsDrawn++;}else{if(diagnosticEnabled)normalSpriteTested++;if(!viewCull.visible(cache.sprites[i].bounds))continue;if(diagnosticEnabled)normalSpriteDrawn++;}cache.visible.push_back(i);}
+ for(size_t i=0;i<cache.sprites.size();i++){if(reflected){reflectObjectsTested++;if(!reflectionCull.visible(cache.sprites[i].bounds))continue;reflectObjectsDrawn++;}else{if(diagnosticEnabled)normalSpriteTested++;if(!views.visible(cache.sprites[i].bounds))continue;if(diagnosticEnabled)normalSpriteDrawn++;}cache.visible.push_back(i);}
  if(cache.uploaded&&cache.visible==cache.previousVisible){phase.next(11);cache.stream.draw(reflected);return;}
  double batchStart=diagnosticEnabled?seconds():0;cache.previousVisible=cache.visible;
- for(auto&b:cache.batches)b.second.clear();
+ cache.inputs.clear();
  bool sampled=reflected&&spriteProfile.sample();if(sampled)spriteProfile.passes++;
  for(auto index:cache.visible){auto&p=cache.sprites[index];SpriteScope profile(sampled);profile.next(1);
   profile.next(2);if(!p.colored)p.colored=coloredTexture(objects[p.object],p.texture);
-  profile.next(3);auto&batch=cache.batches[{p.colored,spriteLightingOwner(objects[p.object],p.object)}];batch.insert(batch.end(),p.vertices.begin(),p.vertices.end());
+  profile.next(3);cache.inputs.push_back({p.colored,spriteLightingOwner(objects[p.object],p.object),p.vertices.data(),6,&p.lightBounds});
  }
- if(diagnosticEnabled){spriteBatchCPU[reflected]+=seconds()-batchStart;spriteBatchPasses[reflected]++;}double began=sampled?seconds():0;phase.next(10);cache.stream.upload(cache.batches);phase.next(11);cache.stream.draw(reflected);cache.uploaded=true;
+ if(diagnosticEnabled){spriteBatchCPU[reflected]+=seconds()-batchStart;spriteBatchPasses[reflected]++;}double began=sampled?seconds():0;phase.next(10);cache.stream.uploadReferences(cache.inputs);phase.next(11);cache.stream.draw(reflected);cache.uploaded=true;
  if(sampled)spriteProfile.ms[3]+=(seconds()-began)*1000;
 }

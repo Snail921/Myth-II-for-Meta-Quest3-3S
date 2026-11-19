@@ -7,6 +7,10 @@ import java.util.*;
 final class UiLanguage {
  static final Map<String,String[]> translations=new HashMap<>();
  static {
+  translations.put("強調色 / Accent color",new String[]{"強調色","Accent color"});
+  translations.put("適用 / Apply",new String[]{"適用","Apply"});
+  translations.put("初期値 / Default",new String[]{"初期値","Default"});
+  translations.put("明るい地面では黄色の操作表示を設定した強調色に変更。次回VR起動時に反映。 / Uses the selected accent on bright terrain. Applies on next VR entry.",new String[]{"明るい地面では黄色の操作表示を設定した強調色に変更。次回VR起動時に反映。","Uses the selected accent on bright terrain. Applies on next VR entry."});
   translations.put("FPSを表示 / Show FPS",new String[]{"FPSを表示","Show FPS"});
   translations.put("影サンプル数 / Shadow samples",new String[]{"影サンプル数","Shadow samples"});
   translations.put("強化影LOD開始距離 / Shadow LOD start distance",new String[]{"強化影LOD開始距離","Shadow LOD start distance"});
@@ -47,7 +51,7 @@ final class UiLanguage {
   translations.put("ユニット選択時の振動 / Selection vibration",new String[]{"ユニット選択時の振動","Selection vibration"});
   translations.put("1.00：従来の速度。各項目1.00～3.00倍。VRへ戻ると反映されます。\n左手メニューボタン：手首ミニマップの表示切り替え。",new String[]{"1.00：従来の速度。各項目1.00～3.00倍。VRへ戻ると反映されます。\n左手メニューボタン：手首ミニマップの表示切り替え。","1.00: original speed. Range: 1.00–3.00x. Applied when returning to VR.\nLeft menu button toggles the wrist minimap."});
   translations.put("Initial setup / 初回データ展開",new String[]{"初回データ展開","Initial setup"});
-  translations.put("Start Myth II / 原作を起動",new String[]{"原作を起動","Start Myth II"});
+  translations.put("Start Myth II / Myth II を起動",new String[]{"Myth II を起動","Start Myth II"});
   translations.put("Enter VR / VRに戻る",new String[]{"VRに戻る","Enter VR"});
   translations.put("Status / 状態を更新",new String[]{"状態を更新","Status"});
   translations.put("詳細ログをADBへ出力します。PCへの保存にはUSB接続と収集ツールが必要です。",new String[]{"詳細ログをADBへ出力します。PCへの保存にはUSB接続と収集ツールが必要です。","Writes detailed logs to ADB. Saving logs on a PC requires USB and a log capture tool."});
@@ -72,7 +76,7 @@ final class UiLanguage {
   translations.put("設定の保存に失敗しました: ",new String[]{"設定の保存に失敗しました: ","Could not save settings: "});
   translations.put("Runtime already exists; preserving its data. / 既存のデータを保持します。",new String[]{"既存のデータを保持します。","Runtime already exists; preserving its data."});
   translations.put("Verifying and importing initial data… / 初期データを検証・展開中…",new String[]{"初期データを検証・展開中…","Verifying and importing initial data…"});
-  translations.put("Ready. Press Start Myth II. / 準備完了。原作を起動してください。",new String[]{"準備完了。原作を起動してください。","Ready. Press Start Myth II."});
+  translations.put("Ready. Press Start Myth II. / 準備完了。Myth II を起動してください。",new String[]{"準備完了。Myth II を起動してください。","Ready. Press Start Myth II."});
   translations.put("Initial runtime data has not been provisioned. / 初期データの配置が必要です。",new String[]{"初期データの配置が必要です。","Initial runtime data has not been provisioned."});
  }
  static {

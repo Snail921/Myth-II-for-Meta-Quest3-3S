@@ -13,7 +13,7 @@ static void drawCoopTransfer(){
   for(const unsigned char*p=(const unsigned char*)name;*p;p++){float u=(*p%16)/16.f,v=(*p/16)/16.f;auto a=point(pen-4*pixel,y,u,v),b=point(pen+28*pixel,y,u+1.f/16,v),c=point(pen-4*pixel,y-32*pixel,u,v+1.f/16),d=point(pen+28*pixel,y-32*pixel,u+1.f/16,v+1.f/16);glyphs.insert(glyphs.end(),{a,b,c,b,d,c});pen+=infoAdvance[*p]*pixel;}
   mesh(glyphs,infoFont,1,1,1);
  }
- if(pointerValid){std::vector<Vertex> line{{pointerStart.x,pointerStart.y,pointerStart.z,0,0},{pointerEnd.x,pointerEnd.y,pointerEnd.z,0,0}};glBindTexture(GL_TEXTURE_2D,whiteTexture);glUniform4f(glGetUniformLocation(program,"tint"),1,1,0,1);glBufferData(GL_ARRAY_BUFFER,line.size()*sizeof(Vertex),line.data(),GL_STREAM_DRAW);glDrawArrays(GL_LINES,0,line.size());}
+ if(pointerValid){std::vector<Vertex> line{{pointerStart.x,pointerStart.y,pointerStart.z,0,0},{pointerEnd.x,pointerEnd.y,pointerEnd.z,0,0}};glBindTexture(GL_TEXTURE_2D,whiteTexture);uiAccent(1);glBufferData(GL_ARRAY_BUFFER,line.size()*sizeof(Vertex),line.data(),GL_STREAM_DRAW);{pointer_style::Lines width;glDrawArrays(GL_LINES,0,2);}if(line.size()>2)glDrawArrays(GL_LINES,2,line.size()-2);}
  if(pointerValid&&coopHover>=0){
   // UI cursor uses the panel plane, not the terrain's horizontal plane.
   std::vector<Vertex> ring;auto right=turn(coopRight,cameraYaw),up=turn(coopUp,cameraYaw);

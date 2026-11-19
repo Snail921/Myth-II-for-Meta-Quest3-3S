@@ -271,6 +271,20 @@ static void updateInput(XrSession session,XrSpace space,XrTime time,const XrView
   if(!coopMenuOpen){input.swallowRight=true;input.swallowLeft=true;}return;
  }
 
+ // Right grip + B owns B before group cycling and consumes held triggers.
+ // Keep modal UI behavior unchanged; deselect is a gameplay command.
+ if(groundAttack&&nextGroup&&!originalDialogMode&&!radial.kind){
+  if(!input.lastNextGroup){if(routePoints)command(14,3);command(2);LOG("Right grip+B deselect");}
+  routePoints=0;clearMoveMarkers();selectionGesture.cancel();selectionPreview.clear();
+  movePressValid=false;moveFacing=0;pressFacingCandidate=false;lastMoveTime=0;lastTapID=0;
+  mapGesture=infoPanelGesture=false;input.tap.reset();
+  input.swallowRight=select;input.swallowLeft=extend;
+  input.lastSelect=select;input.lastClear=clear;input.lastNextGroup=nextGroup;
+  input.lastOrders=orders;input.lastFormations=formations;input.lastSpecial=special;input.lastExtend=extend;
+  input.lastFollowClick=followPressed;input.lastWarpClick=warpPressed;
+  return;
+ }
+
  bool tapAllowed=cameraSpeeds.tapGroups&&gripOK&&leftOK&&!originalDialogMode&&!radial.kind&&!orders&&!formations&&!select&&!extend&&!special&&!groundAttack&&!selectionGesture.pending&&(!routePoints||cameraSpeeds.buttonGroups);
  int tapDirection=input.tap.update(leftOK?Vec3{leftGrip.position.x,leftGrip.position.y,leftGrip.position.z}:Vec3{},gripOK?Vec3{grip.position.x,grip.position.y,grip.position.z}:Vec3{},seconds(),tapAllowed,cameraSpeeds.tapDistance);
  if(tapDirection&&cameraSpeeds.buttonGroups){if(routePoints)command(14,3);routePoints=0;clearMoveMarkers();if(command(2)){input.hapticRequests[requestSeq]=tapDirection>0?1:0;menuEvent=true;lastTapID=0;}}

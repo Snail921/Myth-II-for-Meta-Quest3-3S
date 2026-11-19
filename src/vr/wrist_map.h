@@ -84,7 +84,7 @@ static void drawWristMap(const XrPosef&eye){
   unsigned group=o.selected?0:o.controllable?1:(o.friendly||o.team<0)?3:2;
   quad(markers[group],o.x/levelWidth,o.y/levelHeight,dot/width,dot/height);
  }
- const float colors[4][3]={{1,1,0},{.1f,1,.2f},{1,.15f,.1f},{.1f,.4f,1}};
+ const float colors[4][3]={{ui_contrast::red(),ui_contrast::green(),ui_contrast::blue()},{.1f,1,.2f},{1,.15f,.1f},{.1f,.4f,1}};
  for(int i=0;i<4;i++)drawMesh(markers[i],whiteTexture,colors[i][0],colors[i][1],colors[i][2]);
  // Original map x is reversed relative to OpenXR world x; map y follows world z.
  Vec3 headWorld=add(camera,turn(wristMapViewer,cameraYaw));
@@ -98,12 +98,12 @@ static void drawWristMap(const XrPosef&eye){
   auto c=panelPoint(marker.x+px[i]*size*inner,marker.y+py[i]*size*inner),d=panelPoint(marker.x+px[j]*size*inner,marker.y+py[j]*size*inner);
   arrow.insert(arrow.end(),{a,b,c,b,d,c});
  }
- drawMesh(arrow,whiteTexture,1,1,0);
+ drawMesh(arrow,whiteTexture,ui_contrast::red(),ui_contrast::green(),ui_contrast::blue());
  if(mapHovered&&pointerValid){
   std::vector<Vertex> line{{pointerStart.x,pointerStart.y,pointerStart.z,0,0},{mapPointerHit.x,mapPointerHit.y,mapPointerHit.z,0,0}};
   auto p=local(mapPointerU,mapPointerV);float r=.002f*cameraSpeeds.mapSize;
   for(int i=0;i<24;i++){float a=i*6.2831853f/24,b=(i+1)*6.2831853f/24;line.push_back(panelPoint(p.x+cosf(a)*r,p.y+sinf(a)*r));line.push_back(panelPoint(p.x+cosf(b)*r,p.y+sinf(b)*r));}
-  glBindTexture(GL_TEXTURE_2D,whiteTexture);glUniform4f(glGetUniformLocation(program,"tint"),1,mapWarpRejected?.15f:1.f,0,1);glBufferData(GL_ARRAY_BUFFER,line.size()*sizeof(Vertex),line.data(),GL_STREAM_DRAW);glDrawArrays(GL_LINES,0,line.size());
+  glBindTexture(GL_TEXTURE_2D,whiteTexture);glUniform4f(glGetUniformLocation(program,"tint"),1,mapWarpRejected?.15f:1.f,0,1);glBufferData(GL_ARRAY_BUFFER,line.size()*sizeof(Vertex),line.data(),GL_STREAM_DRAW);{pointer_style::Lines width;glDrawArrays(GL_LINES,0,2);}if(line.size()>2)glDrawArrays(GL_LINES,2,line.size()-2);
  }
  auto drawMapNotice=[&](const std::string& text,bool right,float row=0){float pixel=.00022f*cameraSpeeds.mapSize,total=0;
   for(unsigned char c:text)total+=infoAdvance[c]*pixel;

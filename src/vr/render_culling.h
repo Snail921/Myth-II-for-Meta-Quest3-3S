@@ -21,6 +21,23 @@ struct Frustum {
   for(auto&p:planes){float maximum=p[3];for(int j=0;j<3;j++)maximum+=p[j]*(p[j]>=0?b.hi[j]:b.lo[j]);if(maximum < -.0001f)return false;}return true;
  }
 };
+// Conservative screen bounds from eight corners. Near-plane intersections
+// expand to the full viewport instead of underestimating clipped water.
+inline Rect projectedBounds(const std::array<float,16>&m,const Bounds&bounds){
+ Frustum f;f.set(m,{-1,-1,1,1},-INFINITY);if(!f.visible(bounds))return {};
+ Rect result;
+ for(unsigned i=0;i<8;i++){float v[]={i&1?bounds.hi[0]:bounds.lo[0],i&2?bounds.hi[1]:bounds.lo[1],i&4?bounds.hi[2]:bounds.lo[2],1},p[4]{};
+  for(int r=0;r<4;r++)for(int c=0;c<4;c++)p[r]+=m[c*4+r]*v[c];
+  if(p[3]<=1e-6f||p[2]+p[3]<=0)return {-1,-1,1,1};
+  result.add(std::clamp(p[0]/p[3],-1.f,1.f),std::clamp(p[1]/p[3],-1.f,1.f));
+ }return result;
+}
+// Conservative union: an object seen by either eye is submitted to both.
+struct StereoFrustum {
+ Frustum eyes[2];
+ void set(const std::array<std::array<float,16>,2>&matrices){for(unsigned i=0;i<2;i++)eyes[i].set(matrices[i],{-1,-1,1,1},-INFINITY);}
+ bool visible(const Bounds&bounds)const{return eyes[0].visible(bounds)||eyes[1].visible(bounds);}
+};
 // Homogeneous polygon clipping handles the near plane without projecting behind-eye points.
 using Clip=std::array<float,4>;
 inline float distance(const Clip&p,int plane){return p[3]+((plane&1)?-p[plane/2]:p[plane/2]);}
