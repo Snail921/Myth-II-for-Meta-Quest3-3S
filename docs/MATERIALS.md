@@ -22,9 +22,9 @@ Quest packs are stored in `Android/data/org.mythvr.standalone/files/SpriteMateri
 
 [Install the downloadable normal-map collection](NORMAL_LIBRARY.md)
 
-## Hash-only packs (development build)
+## Hash-only packs (0.3.2-beta and later)
 
-With the APK, editor and Manager built from current source, **Export for Quest** writes MVRNORM2: normal pixels and the source image SHA-256. Recipients simply transfer the folder of `.mvrnm` files with Manager; adding or restoring original images is unnecessary. The published 0.3.1-beta APK cannot read this new format.
+With APK, editor and Manager version 0.3.2-beta or later, **Export for Quest** writes MVRNORM2: normal pixels and the source image SHA-256. Recipients simply transfer the folder of `.mvrnm` files with Manager; adding or restoring original images is unnecessary. The published 0.3.1-beta APK cannot read this new format.
 
 Quest matches dimensions and the hash of the complete RGBA image. Different images with the same name do not match, while identical images can share normals across levels. HD replacements with different pixels need matching packs. Legacy packs remain supported.
 

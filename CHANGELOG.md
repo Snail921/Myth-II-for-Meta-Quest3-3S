@@ -2,14 +2,14 @@
 
 **English** | [日本語](CHANGELOG.ja.md)
 
-## Unreleased — hash-only normal packs
+## 0.3.2-beta — 2026-11-19
 
 - Store source-image SHA-256 and normal pixels in MVRNORM2 packs; original image pixels are no longer included. Legacy MVRNORM1 packs remain readable.
 - Updated editor export and Manager validation/transfer. Existing packs can be converted without changing the normals; the normal-only library can be unpacked without selecting original images.
 - Index hashes once per level and load only matching normals. Added separate hash, lookup, file-read and upload-submission timings.
 - Device testing confirmed correct shading and a shorter VR transition. Converting 206 packs preserved all 41,353 normal images and reduced total size from about 1.14 GB to 574 MB.
 
-These changes require an APK and tools built from this revision. The downloadable 0.3.1-beta release still uses the old pack format.
+Update both the APK and Manager ZIP. The normal-map ZIP now contains ready-to-transfer packs. Initial runtime is unchanged.
 
 ## 0.3.1-beta — 2026-11-19
 
