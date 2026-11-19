@@ -7,6 +7,18 @@
 
 Normal maps for 206 collections. Not every asset or animation has been visually checked. Original sprite images and editable projects are not included. The helper matches your own converted assets to create Quest packs.
 
+## Development build: unpack without original images
+
+The APK and Manager built from current source can use hash-only Quest packs created directly from the ZIP above. No original-image selection or source-pixel restoration is needed. Run this from the updated source folder, then transfer the output folder with Manager:
+
+```powershell
+python tools/normal_library.py unpack "MythIIVR-NormalMaps-2026.11.18.zip" "UserData/DownloadedNormalPacks"
+```
+
+The updated `tools/normal_library.py gui` also asks only for the ZIP and output folder. If a download already contains new-format `.mvrnm` files, extract and transfer them directly.
+
+**For the published 0.3.1-beta APK, use the legacy instructions below.** The restoration helper inside the existing download has not changed.
+
 ## 1. Prepare
 
 - Use Quest app **0.3.0-beta or later** and the latest Plugin Manager ZIP.

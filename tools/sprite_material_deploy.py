@@ -16,7 +16,8 @@ def validate(path):
     if not 12 <= size <= LIMIT:
         raise ValueError('Invalid material pack size: ' + path.name)
     with path.open('rb') as f:
-        if f.read(8) != b'MVRNORM1':
+        magic = f.read(8)
+        if magic not in (b'MVRNORM1', b'MVRNORM2'):
             raise ValueError('Invalid material pack format: ' + path.name)
         count, = struct.unpack('<I', f.read(4))
         if not 1 <= count <= 10000:
@@ -26,9 +27,9 @@ def validate(path):
             if len(header) != 8:
                 raise ValueError('Truncated material pack: ' + path.name)
             w, h = struct.unpack('<II', header)
-            if not (1 <= w <= 2048 and 1 <= h <= 2048) or f.tell() + w*h*8 > size:
+            if not (1 <= w <= 2048 and 1 <= h <= 2048) or f.tell() + (32+w*h*4 if magic==b'MVRNORM2' else w*h*8) > size:
                 raise ValueError('Invalid material image: ' + path.name)
-            f.seek(w*h*8, 1)
+            f.seek(32+w*h*4 if magic==b'MVRNORM2' else w*h*8, 1)
         if f.tell() != size:
             raise ValueError('Unexpected material data: ' + path.name)
     return size

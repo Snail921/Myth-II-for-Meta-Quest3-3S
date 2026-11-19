@@ -20,15 +20,45 @@ def frames(path):
             yield w,h,source,normal
         if f.read(1):raise ValueError('Trailing bytes')
 
+def hashed_frames(path):
+    from sprite_material_deploy import validate
+    path=Path(path);validate(path)
+    with path.open('rb') as f:
+        magic=f.read(8);count,=struct.unpack('<I',f.read(4))
+        for _ in range(count):
+            w,h=struct.unpack('<II',f.read(8));size=w*h*4
+            key=f.read(32).hex() if magic==b'MVRNORM2' else identity(w,h,f.read(size))
+            yield w,h,key,f.read(size)
+
+
+def convert_packs(folder,output):
+    """Convert existing packs without regenerating or changing any normals."""
+    import os
+    folder=Path(folder);output=Path(output);output.mkdir(parents=True,exist_ok=True)
+    paths=sorted(folder.glob('*.mvrnm'))
+    if not paths:raise ValueError('No .mvrnm files')
+    for p in paths:
+        rows=list(hashed_frames(p));fd,temp=tempfile.mkstemp(dir=output,suffix='.tmp');os.close(fd)
+        try:
+            with open(temp,'wb') as f:
+                f.write(b'MVRNORM2'+struct.pack('<I',len(rows)))
+                for w,h,key,normal in rows:f.write(struct.pack('<II',w,h)+bytes.fromhex(key)+normal)
+            from sprite_material_deploy import validate
+            validate(Path(temp));os.replace(temp,output/p.name)
+        finally:
+            if os.path.exists(temp):os.unlink(temp)
+    return len(paths)
+
+
 def export_library(folder,output):
     packs=[];seen=set();paths=sorted(Path(folder).glob('*.mvrnm'))
     with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
         for i,p in enumerate(paths):
             rows=[]
-            for w,h,source,normal in frames(p):
+            for w,h,source,normal in hashed_frames(p):
                 key=hashlib.sha256(normal).hexdigest()
                 if key not in seen:z.writestr('normals/'+key+'.rgba',normal);seen.add(key)
-                rows.append(dict(w=w,h=h,source=identity(w,h,source),normal=key))
+                rows.append(dict(w=w,h=h,source=source,normal=key))
             packs.append(dict(name=p.name,frames=rows))
             print(f'Export {i+1}/{len(paths)}: {p.name}',flush=True)
         z.writestr('library.json',json.dumps(dict(version=1,packs=packs),ensure_ascii=False))
@@ -66,7 +96,8 @@ def restore_library(library,collections,output):
             key=identity(w,h,rgba)
             if key in needed and key not in found:
                 Path(scratch,key).write_bytes(rgba);found.add(key)
-        files=sorted(p for p in Path(collections).rglob('*') if p.is_file() and p.suffix.lower() in ('.bin','.collection','.256','.mvrnm','.png'))
+        files=sorted(p for p in Path(collections).rglob('*') if p.is_file() and p.suffix.lower() in ('.bin','.collection','.256','.mvrnm','.png')) if collections is not None else []
+        if collections is None:found=set(needed)
         for i,p in enumerate(files):
             try:
                 if p.suffix.lower() in ('.bin','.collection','.256'):
@@ -85,18 +116,18 @@ def restore_library(library,collections,output):
         for pack in data['packs']:
             rows=[row for row in pack['frames'] if row['source'] in found];total+=len(pack['frames'])
             if not rows:continue
-            size=12+sum(8+row['w']*row['h']*8 for row in rows)
+            size=12+sum(8+(32+row['w']*row['h']*4 if collections is None else row['w']*row['h']*8) for row in rows)
             if size>LIMIT:raise ValueError('Pack exceeds 64 MiB: '+pack['name'])
             target=output/pack['name'];temp=target.with_suffix('.tmp')
             try:
                 with temp.open('wb') as f:
-                    f.write(b'MVRNORM1'+struct.pack('<I',len(rows)))
+                    f.write((b'MVRNORM2' if collections is None else b'MVRNORM1')+struct.pack('<I',len(rows)))
                     for row in rows:
                         size=row['w']*row['h']*4;member='normals/'+row['normal']+'.rgba'
                         if z.getinfo(member).file_size!=size:raise ValueError('Normal size mismatch')
                         normal=z.read(member)
                         if hashlib.sha256(normal).hexdigest()!=row['normal']:raise ValueError('Normal hash mismatch')
-                        f.write(struct.pack('<II',row['w'],row['h']));f.write(Path(scratch,row['source']).read_bytes());f.write(normal)
+                        f.write(struct.pack('<II',row['w'],row['h']));f.write(bytes.fromhex(row['source']) if collections is None else Path(scratch,row['source']).read_bytes());f.write(normal)
                 temp.replace(target)
             finally:
                 if temp.exists():temp.unlink()
@@ -114,8 +145,7 @@ def gui():
     if not (library/'library.json').exists():
         library=filedialog.askopenfilename(title='Normal map library ZIP / ノーマルマップ集ZIP',filetypes=[('ZIP','*.zip')])
         if not library:return
-    collections=filedialog.askdirectory(title='Your converted collections / 自分の変換済みコレクションのフォルダ')
-    if not collections:return
+    collections=None # V2 packs do not need user-supplied originals.
     output=filedialog.askdirectory(title='Output folder for Quest packs / Quest用パックの保存先')
     if not output:return
     root.destroy()
@@ -126,8 +156,12 @@ def main():
     p=argparse.ArgumentParser(description=__doc__);sub=p.add_subparsers(dest='command',required=True)
     sub.add_parser('gui');e=sub.add_parser('export');e.add_argument('folder');e.add_argument('output')
     r=sub.add_parser('restore');r.add_argument('library');r.add_argument('collections');r.add_argument('output')
+    c=sub.add_parser('convert');c.add_argument('folder');c.add_argument('output')
+    u=sub.add_parser('unpack');u.add_argument('library');u.add_argument('output')
     a=p.parse_args()
     if a.command=='gui':gui()
     elif a.command=='export':export_library(a.folder,a.output)
+    elif a.command=='convert':convert_packs(a.folder,a.output)
+    elif a.command=='unpack':restore_library(a.library,None,a.output)
     else:restore_library(a.library,a.collections,a.output)
 if __name__=='__main__':main()

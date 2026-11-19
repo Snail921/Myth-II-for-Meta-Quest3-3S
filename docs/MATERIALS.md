@@ -21,3 +21,15 @@ The transfer reads `.mvrnm` files directly inside the selected folder. Same-name
 Quest packs are stored in `Android/data/org.mythvr.standalone/files/SpriteMaterials`. The 64MiB limit is per pack, not for the entire folder. Only needed normal images are loaded, and they are released when moving to another level.
 
 [Install the downloadable normal-map collection](NORMAL_LIBRARY.md)
+
+## Hash-only packs (development build)
+
+With the APK, editor and Manager built from current source, **Export for Quest** writes MVRNORM2: normal pixels and the source image SHA-256. Recipients simply transfer the folder of `.mvrnm` files with Manager; adding or restoring original images is unnecessary. The published 0.3.1-beta APK cannot read this new format.
+
+Quest matches dimensions and the hash of the complete RGBA image. Different images with the same name do not match, while identical images can share normals across levels. HD replacements with different pixels need matching packs. Legacy packs remain supported.
+
+To convert existing packs, run this from the updated source folder. All `.mvrnm` files directly in the input folder are converted without changing normal pixels or strength. Transfer the output folder with Manager.
+
+```powershell
+python tools/normal_library.py convert "old pack folder" "new pack folder"
+```

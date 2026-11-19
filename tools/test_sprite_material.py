@@ -34,10 +34,11 @@ class MaterialTests(unittest.TestCase):
         p=Project([f])
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'unit.mvrnm';p.export_runtime(path);data=path.read_bytes()
-            self.assertEqual(data[:8],b'MVRNORM1')
+            self.assertEqual(data[:8],b'MVRNORM2')
             self.assertEqual(struct.unpack_from('<III',data,8),(1,4,3))
-            self.assertEqual(data[20:68],f.image.tobytes())
-            self.assertEqual(data[68:],p.normal(f).tobytes())
+            import hashlib
+            self.assertEqual(data[20:52],hashlib.sha256(struct.pack('<II',4,3)+f.image.tobytes()).digest())
+            self.assertEqual(data[52:],p.normal(f).tobytes())
 
     def test_flat_and_transparent_boundary(self):
         a=np.zeros((7,7,4),dtype=np.uint8);a[1:6,1:6]=(100,100,100,255)

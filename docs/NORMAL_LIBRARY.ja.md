@@ -7,6 +7,18 @@
 
 206コレクション分のノーマルマップです。全素材・全アニメーションを目視確認したものではありません。原作スプライト画像や編集用プロジェクトは含みません。自分の変換済み素材と照合してQuest用パックを作ります。
 
+## 開発版：原作画像の指定なしで展開する
+
+現在のソースから作成したAPKとManagerでは、上のZIPからハッシュ形式のQuest用パックを直接作れます。原作画像の選択・照合用データの復元は不要です。更新済みソースのフォルダで次を実行し、出力先をManagerからQuestへ転送してください。
+
+```powershell
+python tools/normal_library.py unpack "MythIIVR-NormalMaps-2026.11.18.zip" "UserData/DownloadedNormalPacks"
+```
+
+更新済み`tools/normal_library.py gui`でもZIPと保存先だけを選べます。新形式の`.mvrnm`がそのまま配布されている場合は、展開後すぐに転送できます。
+
+**公開済み0.3.1-betaを使う場合は、以下の旧形式の手順を使ってください。** ダウンロードZIPに入っている従来の復元ツールは変更されていません。
+
 ## 1. 準備
 
 - Questアプリは **0.3.0-beta以降**、Plugin Managerも最新ZIPを使います。

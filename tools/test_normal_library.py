@@ -17,6 +17,24 @@ class NormalLibraryTest(unittest.TestCase):
                 z.extractall(r/'extracted')
             with contextlib.redirect_stdout(io.StringIO()):restore_library(r/'extracted',owned,r/'out2')
             self.assertEqual((r/'out2/unit.mvrnm').read_bytes(),original)
+    def test_hash_pack_conversion_and_direct_unpack(self):
+        from normal_library import convert_packs,hashed_frames
+        from sprite_material_deploy import validate
+        import hashlib
+        with tempfile.TemporaryDirectory() as d:
+            r=Path(d);src=r/'packs';src.mkdir()
+            source=bytes(range(80));normal=bytes([128,128,255,255])*20
+            (src/'unit.mvrnm').write_bytes(b'MVRNORM1'+struct.pack('<III',1,4,5)+source+normal)
+            convert_packs(src,r/'new');pack=(r/'new/unit.mvrnm').read_bytes()
+            self.assertEqual(pack,b'MVRNORM2'+struct.pack('<III',1,4,5)+hashlib.sha256(struct.pack('<II',4,5)+source).digest()+normal)
+            validate(r/'new/unit.mvrnm')
+            with contextlib.redirect_stdout(io.StringIO()):
+                export_library(r/'new',r/'library.zip');restore_library(r/'library.zip',None,r/'direct')
+            self.assertEqual((r/'direct/unit.mvrnm').read_bytes(),pack)
+            for data in (pack[:-1],pack+b'x'):
+                (r/'bad.mvrnm').write_bytes(data)
+                with self.assertRaises(ValueError):validate(r/'bad.mvrnm')
+
     def test_reject_path(self):
         with tempfile.TemporaryDirectory() as d:
             r=Path(d)

@@ -177,11 +177,11 @@ class Project:
         fd, temp = tempfile.mkstemp(dir=path.parent, suffix='.tmp'); os.close(fd)
         try:
             with open(temp, 'wb') as out:
-                out.write(b'MVRNORM1'); out.write(struct.pack('<I', len(self.frames)))
+                out.write(b'MVRNORM2'); out.write(struct.pack('<I', len(self.frames)))
                 for i, frame in enumerate(self.frames):
                     if max(frame.image.size)>2048:raise ValueError('Runtime material exceeds 2048 pixels')
                     out.write(struct.pack('<II', *frame.image.size))
-                    out.write(frame.image.tobytes());out.write(self.normal(frame).tobytes())
+                    out.write(hashlib.sha256(struct.pack('<II', *frame.image.size)+frame.image.tobytes()).digest());out.write(self.normal(frame).tobytes())
                     progress(i+1,len(self.frames))
                 if out.tell()>64*1024*1024:raise ValueError('Runtime material exceeds 64 MiB')
             os.replace(temp,path)
