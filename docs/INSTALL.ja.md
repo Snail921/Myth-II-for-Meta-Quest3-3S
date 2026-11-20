@@ -12,7 +12,7 @@
 
 Myth II 1.8.5パッチ、高精細マップテクスチャ・ハイレゾスプライト（Twice Born Edition）、The Fallen Levelsなどのプラグインは、[Project Magma](https://projectmagma.net/)から入手できます。
 
-PCには次のソフトをインストールしてください。
+VR用データの作成、転送に以下のソフトが必要になります。下記をPCにインストールしてください。
 
 | ソフト | 用途 |
 | --- | --- |
@@ -38,7 +38,7 @@ python -m pip install -r requirements-manager.txt
 
 | 項目 | 選ぶもの |
 | --- | --- |
-| ISOファイル | 自分のMyth IIのISO |
+| ISOファイル | ISO化したMyth IIのCD |
 | 1.8.5アップデーター | Windows用アップデーターEXE |
 | 7-Zip | 通常は `C:\Program Files\7-Zip\7z.exe` |
 | スカイボックス（任意） | スカイボックスZIPを展開した中の `Skyboxes` フォルダ |
