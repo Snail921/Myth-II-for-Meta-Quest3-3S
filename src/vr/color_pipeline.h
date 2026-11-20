@@ -9,6 +9,7 @@ static constexpr const char* mythVertexShader = R"GLSL(#version 300 es
 precision highp float;
 precision highp int;
 layout(location=0) in vec3 pos;layout(location=1) in vec2 uv;
+layout(location=9) in vec4 particleAlpha;flat out float vertexAlpha;
 layout(location=2) in vec3 detailIds;layout(location=3) in vec3 detailWeights;
 layout(location=6) in vec4 atlasColorRect;layout(location=7) in vec4 atlasNormalRect;layout(location=8) in vec4 atlasNormalMapping;
 flat out vec4 atlasColor;flat out vec4 atlasNormal;flat out vec4 atlasMapping;
@@ -22,7 +23,7 @@ uniform int spriteShadowSamples;uniform float spriteShadowLodDistance;uniform ve
 flat out float shadowSampleBudget;
 uniform vec4 spriteLights[128];uniform vec4 spriteLightAxes[128];
 void main(){
- atlasColor=atlasColorRect;atlasNormal=atlasNormalRect;atlasMapping=atlasNormalMapping;spriteOwner=shadowOwner;gl_Position=mvp*vec4(pos,1);tc=uv;materialIds=detailIds;materialWeights=detailWeights;worldHeight=pos.y;fogPosition=pos;
+ vertexAlpha=particleAlpha.w;atlasColor=atlasColorRect;atlasNormal=atlasNormalRect;atlasMapping=atlasNormalMapping;spriteOwner=shadowOwner;gl_Position=mvp*vec4(pos,1);tc=uv;materialIds=detailIds;materialWeights=detailWeights;worldHeight=pos.y;fogPosition=pos;
  shadowSampleBudget=float(spriteShadowSamples>0?spriteShadowSamples:9);
  if(spriteLightCull&&spriteShadowLodDistance>0.0){
   float d=distance(lightBounds.xyz,spriteShadowLodEye),start=spriteShadowLodDistance;
@@ -51,7 +52,7 @@ precision highp float;
 precision highp int;
 flat in highp uvec4 spriteLightMask;
 flat in float shadowSampleBudget;
-in vec2 tc;
+in vec2 tc;flat in float vertexAlpha;
 flat in vec4 atlasColor;flat in vec4 atlasNormal;flat in vec4 atlasMapping;uniform bool spriteAtlas;
 in float worldHeight;
 in vec3 fogPosition;
@@ -166,6 +167,7 @@ void main() {
     vec4 sampleColor = texture(tex, spriteAtlas?clamp(tc,0.0,1.0)*atlasColor.xy+atlasColor.zw:tc);
     if (sampleColor.a < alphaCutoff || (softOnly && sampleColor.a>=.995)) discard;
     vec4 encoded = sampleColor * tint;
+    encoded.a *= vertexAlpha;
     if(spriteCutout)encoded.a=1.0;
     if(detailEnabled){
         // Explicit gradients keep mip selection defined across distance branches.
@@ -249,7 +251,7 @@ out vec4 vertexLocalLight;
  }
 )GLSL");
  }else{
-  replace("in vec2 tc;","in vec2 tc;\nflat in float vertexShadeWeight;\nin float vertexVisibility;\nin vec4 vertexLocalLight;");
+  replace("in vec2 tc;flat in float vertexAlpha;","in vec2 tc;flat in float vertexAlpha;\nflat in float vertexShadeWeight;\nin float vertexVisibility;\nin vec4 vertexLocalLight;");
   replace("if(spriteOwner>0.0&&(any", "if(vertexShadeWeight<1.0&&spriteOwner>0.0&&(any");
   replace("if(spriteShadows && spriteOwner>0.0 && spriteShadowAmount>0.0)selfVisibility", "if(vertexShadeWeight<1.0&&spriteShadows && spriteOwner>0.0 && spriteShadowAmount>0.0)selfVisibility");
   replace("if(spriteShadows && spriteOwner>0.0 && spriteShadowAmount>0.0)visibility", "if(vertexShadeWeight<1.0&&spriteShadows && spriteOwner>0.0 && spriteShadowAmount>0.0)visibility");

@@ -1,0 +1,39 @@
+#include <EGL/egl.h>
+#include <GLES3/gl3.h>
+#include <cstdio>
+#include <cassert>
+#include <cmath>
+#include "../src/vr/scene_correction.h"
+#include "../src/vr/color_pipeline.h"
+GLuint compile(GLenum type,const char*s){GLuint x=glCreateShader(type);glShaderSource(x,1,&s,0);glCompileShader(x);GLint ok;glGetShaderiv(x,GL_COMPILE_STATUS,&ok);if(!ok){char b[8192];glGetShaderInfoLog(x,sizeof(b),0,b);puts(b);}assert(ok);return x;}
+int main(){auto d=eglGetDisplay(EGL_DEFAULT_DISPLAY);assert(eglInitialize(d,0,0));EGLint a[]={EGL_SURFACE_TYPE,EGL_PBUFFER_BIT,EGL_RENDERABLE_TYPE,EGL_OPENGL_ES3_BIT,EGL_RED_SIZE,8,EGL_GREEN_SIZE,8,EGL_BLUE_SIZE,8,EGL_ALPHA_SIZE,8,EGL_NONE};EGLConfig cfg;EGLint n;assert(eglChooseConfig(d,a,&cfg,1,&n)&&n);EGLint ca[]={EGL_CONTEXT_CLIENT_VERSION,3,EGL_NONE},pa[]={EGL_WIDTH,16,EGL_HEIGHT,16,EGL_NONE};auto ctx=eglCreateContext(d,cfg,EGL_NO_CONTEXT,ca);auto surface=eglCreatePbufferSurface(d,cfg,pa);assert(eglMakeCurrent(d,surface,surface,ctx));
+for(bool shadows:{false,true})for(bool lighting:{false,true}){GLuint p=glCreateProgram();auto vs=spriteShaderSource(mythVertexShader,shadows,lighting),fs=spriteShaderSource(mythFragmentShader,shadows,lighting);assert(scene_correction::fragment(fs,false)==fs);fs=scene_correction::fragment(fs,true);glAttachShader(p,compile(GL_VERTEX_SHADER,vs.c_str()));glAttachShader(p,compile(GL_FRAGMENT_SHADER,fs.c_str()));glLinkProgram(p);GLint ok;glGetProgramiv(p,GL_LINK_STATUS,&ok);assert(ok);glUseProgram(p);auto u=[&](const char*s){return glGetUniformLocation(p,s);};if(!shadows){assert(u("spriteStaticDepth")==-1);assert(u("spriteLiveDepth")==-1);assert(u("spriteLiveOwner")==-1);assert(u("spriteShadows")==-1);}if(!lighting)assert(u("spriteLightCount")==-1);if(!shadows&&!lighting)assert(u("spriteNormalEnabled")==-1);printf("variant shadows=%d lighting=%d\n",shadows,lighting);GLint count;glGetProgramiv(p,GL_ACTIVE_UNIFORMS,&count);int unit=1;for(int i=0;i<count;i++){char name[128];GLint size;GLenum type;glGetActiveUniform(p,i,128,0,&size,&type,name);if(type==GL_SAMPLER_2D||type==GL_SAMPLER_2D_ARRAY)glUniform1i(u(name),strcmp(name,"tex")==0?0:unit++);}
+float ident[]={1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};glUniformMatrix4fv(u("mvp"),1,GL_FALSE,ident);glUniform4f(u("tint"),1,1,1,1);glUniform1f(u("reflectionHeight"),-100);GLuint vao,vbo,tx;glGenVertexArrays(1,&vao);glBindVertexArray(vao);glVertexAttrib4f(9,0,0,0,1);glGenBuffers(1,&vbo);glBindBuffer(GL_ARRAY_BUFFER,vbo);float verts[]={-1,-1,0,0,0, 1,-1,0,1,0, -1,1,0,0,1, -1,1,0,0,1, 1,-1,0,1,0, 1,1,0,1,1};glBufferData(GL_ARRAY_BUFFER,sizeof(verts),verts,GL_STATIC_DRAW);glEnableVertexAttribArray(0);glVertexAttribPointer(0,3,GL_FLOAT,0,20,0);glEnableVertexAttribArray(1);glVertexAttribPointer(1,2,GL_FLOAT,0,20,(void*)12);glGenTextures(1,&tx);glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,tx);unsigned char pixels[]={255,255,255,64,255,255,255,192};glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,2,1,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);glViewport(0,0,16,16);
+glDisable(GL_DITHER);
+for(float strength:{0.f,.5f,1.f})for(float density:{0.f,.7f,100.f})for(int reflection:{0,1}){
+ unsigned char texel[]={64,128,220,128};glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,1,1,0,GL_RGBA,GL_UNSIGNED_BYTE,texel);
+ glUniform1f(u("sceneCorrectionStrength"),strength);glUniform1f(u("reflectionClip"),reflection);
+ glUniform3f(u("fogEye"),0,0,10);glUniform4f(u("fogColorDensity"),.3f,.3f,.3f,density);
+ glDrawArrays(GL_TRIANGLES,0,6);unsigned char actual[4];glReadPixels(8,8,1,1,GL_RGBA,GL_UNSIGNED_BYTE,actual);
+ float f=1-std::exp(-density*std::sqrt(100.f+2*.0625f*.0625f));
+ for(int c=0;c<3;c++){float x=texel[c]/255.f;x+=strength*(std::fmin(1.f,x*255/199)-x);x+=(.3f-x)*f*f;float linear=x<=.04045f?x/12.92f:std::pow((x+.055f)/1.055f,2.4f);if(reflection)linear*=128/255.f;assert(std::abs(int(actual[c])-int(std::round(linear*255)))<=2);}assert(actual[3]==128);assert(glGetError()==GL_NO_ERROR);
+}
+glUniform1f(u("sceneCorrectionStrength"),0);glUniform4f(u("fogColorDensity"),0,0,0,0);
+glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,2,1,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels);
+
+for(int reflection=0;reflection<2;reflection++){glUniform1f(u("reflectionClip"),reflection);for(int mode=0;mode<3;mode++){glClearColor(0,0,0,0);glClear(GL_COLOR_BUFFER_BIT);glUniform1i(u("spriteCutout"),mode==0);glUniform1i(u("softOnly"),mode==2);glUniform1f(u("alphaCutoff"),mode==0?.5f:mode==1?.995f:.003f);glDrawArrays(GL_TRIANGLES,0,6);unsigned char lo[4],hi[4];glReadPixels(4,8,1,1,GL_RGBA,GL_UNSIGNED_BYTE,lo);glReadPixels(12,8,1,1,GL_RGBA,GL_UNSIGNED_BYTE,hi);assert(glGetError()==GL_NO_ERROR);if(mode==0){assert(lo[3]==0&&hi[3]==255&&hi[0]>250);}if(mode==1)assert(lo[3]==0&&hi[3]==0);if(mode==2)assert(lo[3]>=63&&lo[3]<=65&&hi[3]>=191&&hi[3]<=193);}}
+// Same ordered overlapping geometry: three uniform-alpha draws versus one
+// draw with a flat alpha attribute. Exercise normal and premultiplied reflection.
+float all[90],alpha[72];for(int i=0;i<3;i++){memcpy(all+i*30,verts,sizeof(verts));for(int j=0;j<6;j++){for(int k=0;k<3;k++)alpha[(i*6+j)*4+k]=0;alpha[(i*6+j)*4+3]=(.2f+i*.27f);}}
+glBindBuffer(GL_ARRAY_BUFFER,vbo);glBufferData(GL_ARRAY_BUFFER,sizeof(all),all,GL_STATIC_DRAW);
+GLuint ab;glGenBuffers(1,&ab);glBindBuffer(GL_ARRAY_BUFFER,ab);glBufferData(GL_ARRAY_BUFFER,sizeof(alpha),alpha,GL_STATIC_DRAW);glVertexAttribPointer(9,4,GL_FLOAT,GL_FALSE,16,0);
+glUniform1i(u("spriteCutout"),0);glUniform1i(u("softOnly"),0);glUniform1f(u("alphaCutoff"),.003f);glEnable(GL_BLEND);
+for(int reflected=0;reflected<2;reflected++){
+ glUniform1f(u("reflectionClip"),reflected);if(reflected)glBlendFuncSeparate(GL_ONE,GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE_MINUS_SRC_ALPHA);else glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+ unsigned char reference[16*16*4],batched[16*16*4];glClear(GL_COLOR_BUFFER_BIT);glDisableVertexAttribArray(9);glVertexAttrib4f(9,0,0,0,1);
+ for(int i=0;i<3;i++){glUniform4f(u("tint"),1,1,1,alpha[i*24+3]);glDrawArrays(GL_TRIANGLES,i*6,6);}glReadPixels(0,0,16,16,GL_RGBA,GL_UNSIGNED_BYTE,reference);
+ glClear(GL_COLOR_BUFFER_BIT);glUniform4f(u("tint"),1,1,1,1);glEnableVertexAttribArray(9);glDrawArrays(GL_TRIANGLES,0,18);glReadPixels(0,0,16,16,GL_RGBA,GL_UNSIGNED_BYTE,batched);assert(memcmp(reference,batched,sizeof(reference))==0);assert(glGetError()==GL_NO_ERROR);
+}
+glDisable(GL_BLEND);glDisableVertexAttribArray(9);glVertexAttrib4f(9,0,0,0,1);glDeleteBuffers(1,&ab);
+glDeleteProgram(p);glDeleteBuffers(1,&vbo);glDeleteVertexArrays(1,&vao);glDeleteTextures(1,&tx);}
+puts("PASS correction strength/fog/reflection/alpha + particle alpha batching pixel-identical in normal/reflection; four scene shader variants: cutout discard + opaque alpha, reflection, original opaque/soft alpha retained");}

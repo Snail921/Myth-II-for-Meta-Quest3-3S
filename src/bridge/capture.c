@@ -82,6 +82,9 @@ static unsigned collect_hd_hues(const unsigned char*palettes,unsigned count,unsi
 }
 #include "selection_eligibility.h"
 #include "selection_info.h"
+#include "multiplayer_hud.h"
+#include "map_pen_capture.h"
+#include "chat_capture.h"
 static void collect_selection_eligibility(const unsigned char*actors,unsigned count,unsigned char*out){
  unsigned char cached[1024]={0},valid[1024]={0};uint32_t flags[1024]={0};int16_t kinds[1024]={0};
  uint32_t base=word(MVR_MONSTER_DEFINITIONS);int active=word(0x67ec06)&65535,game_kind=(int16_t)word(0x67ec08);
@@ -104,13 +107,14 @@ static void receive_command(void){
  static unsigned char data[32];static size_t have;ssize_t n=recv(STDOUT_FILENO,data+have,32-have,MSG_DONTWAIT);
  if(n<=0)return;have+=(size_t)n;if(have<32)return;have=0;
  uint32_t op=u32(data+8),flags=u32(data+16);int32_t x,y;memcpy(&x,data+20,4);memcpy(&y,data+24,4);
- if(u32(data)!=0x31444d43||!u32(data+4)||op<1||op>24)return;
- if(op!=10&&op!=23&&((op!=21&&flags>1)||(op!=5&&op!=12&&op!=3&&op!=13&&op!=15&&u32(data+28))))return;
+ if(u32(data)!=0x31444d43||!u32(data+4)||op<1||op>28)return;
+ if(op!=10&&op!=23&&op!=26&&op!=27&&((op!=21&&flags>1)||(op!=5&&op!=12&&op!=3&&op!=13&&op!=15&&u32(data+28))))return;
  if((op==1||op==4)&&(u32(data+12)==0||u32(data+12)>65535))return;
  if((op==3||op==5||op==12||op==13||op==15)&&(x<0||y<0||x>=map_limit(0)||y>=map_limit(1)))return;
  if((op==3||op==13||op==15)&&u32(data+28)&&(!(u32(data+28)&0x10000)||u32(data+28)>0x1ffff))return;
  if(op==5&&((int32_t)u32(data+28)<-32768||(int32_t)u32(data+28)>32767))return;
  if((op==19||op==20)&&(u32(data+12)>9||(op==19&&flags)||x||y||u32(data+28)))return;
+ if(op==25&&(u32(data+12)>4||flags||u32(data+28)||(u32(data+12)==2?(x<1||x>255||y<0||y>255):(x||y))))return;
  if(op==24&&(u32(data+12)>1||flags||x||y||u32(data+28)))return;
  if(op==23&&(u32(data+12)>=32||x||y))return;
  if(op==22&&(u32(data+12)<0x10000||u32(data+12)>0x1ffff||flags||x||y||u32(data+28)))return;
@@ -121,8 +125,10 @@ static void receive_command(void){
  if(op==6&&(u32(data+12)>5||u32(data+12)==3))return;
  if(op==8&&u32(data+12)>9)return;
  if((op==9||op==11)&&u32(data+12)>126)return;
+ if(op==26&&(u32(data+12)>1||flags<1||flags>191||x||y||u32(data+28)))return;
+ if(op==28&&(u32(data+12)||flags||x||y||u32(data+28)))return;
  FILE*f=fopen(temporary,"wb");if(!f)return;int ok=fwrite(data,1,32,f)==32;int closed=fclose(f);if(ok&&!closed)rename(temporary,mailbox);
- fprintf(stderr,"INPUT seq=%u op=%u id=%u x=%d y=%d\n",u32(data+4),op,u32(data+12),x,y);
+ if(op<26)fprintf(stderr,"INPUT seq=%u op=%u id=%u x=%d y=%d\n",u32(data+4),op,u32(data+12),x,y);
 }
 static unsigned connector_edges(int32_t*out,const unsigned char*objects,unsigned oc){
  unsigned char h[64],r[512];unsigned n=0;
@@ -179,6 +185,7 @@ int main(int argc,char **argv){
    read_exact(MVR_SELECTION,selection,256);
    uint32_t meta[5]={word(MVR_PLAYER),word(MVR_TEAM),word(0x553f20)>>16,u16(selection+2),u16(selection)};
    if(meta[4]>126)continue;
+   unsigned char multiplayer[MULTIPLAYER_HUD_BYTES];collect_multiplayer_hud(multiplayer);
    unsigned char info[SELECTION_INFO_BYTES];collect_selection_info(actors,ac,selection,info);
    unsigned char eligibility[400];collect_selection_eligibility(actors,ac,eligibility);
    uint16_t mana_definitions[800];collect_mana_definitions(actors,ac,mana_definitions);
@@ -205,7 +212,7 @@ int main(int argc,char **argv){
    unsigned char formation[4808];uint32_t formation_bytes=0;
    FILE*fp=fopen("files/rootfs/home/xuser-1/.wine/drive_c/mythvr/formation.bin","rb");
    if(fp){if(fread(formation,1,sizeof(formation),fp)==sizeof(formation)&&u32(formation)==0x32565046&&u32(formation+4)==u32(formation+4804)&&u32(formation+8)<=126&&u32(formation+12)<=4)formation_bytes=sizeof(formation);fclose(fp);}
-   uint32_t h[14]={22,tick,endtick,rng,ac,oc,216,80,(uint32_t)elapsed,(uint32_t)(elapsed>>32),u16(ap+48),u16(op+48),ack[1],ack[2]};
+   uint32_t h[14]={25,tick,endtick,rng,ac,oc,216,80,(uint32_t)elapsed,(uint32_t)(elapsed>>32),u16(ap+48),u16(op+48),ack[1],ack[2]};
    char final[512];snprintf(final,sizeof(final),"%s-%04d.bin",argv[2],f);snprintf(path,sizeof(path),"%s-%04d.tmp",argv[2],f);
    int streaming=!strcmp(argv[2],"-")||!strcmp(argv[2],"@mythvr");
    FILE *out=streaming?stdout:fopen(path,"wb");if(!out){perror("output");return 2;}
@@ -235,6 +242,11 @@ int main(int argc,char **argv){
    ok=ok&&fwrite(&roster_count,4,1,out)==1&&fwrite(roster,44,roster_count,out)==roster_count;
    uint32_t game_speed=word(0x67ec0e)&65535;
    ok=ok&&fwrite(&game_speed,4,1,out)==1;
+   ok=ok&&fwrite(multiplayer,1,MULTIPLAYER_HUD_BYTES,out)==MULTIPLAYER_HUD_BYTES;
+   unsigned char map_pen[MAP_PEN_BYTES];collect_map_pen(map_pen);
+   ok=ok&&fwrite(map_pen,1,MAP_PEN_BYTES,out)==MAP_PEN_BYTES;
+   unsigned char chat[CHAT_BYTES];collect_chat(chat);
+   ok=ok&&fwrite(chat,1,CHAT_BYTES,out)==CHAT_BYTES;
    if(!ok || (streaming ? fflush(out) : (fclose(out)||rename(path,final)))){perror("write");return 2;}
    surface_commit(&surface,surface_pending);
    if(surface_count)fprintf(stderr,"SURFACE tick=%u tiles=%u epoch=%llu reset=%d\n",tick,surface_count,(unsigned long long)surface_epoch,surface_pending->reset);

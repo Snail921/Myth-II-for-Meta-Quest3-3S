@@ -9,20 +9,27 @@ struct SpriteViewCache {
  void reset(){ready=uploaded=false;visible.clear();previousVisible.clear();sprites.clear();selectionFrames.clear();friendlyHover.clear();enemyHover.clear();itemHover.clear();healthBars.clear();manaBars.clear();inputs.clear();}
 
 };
+// Ordinary upright billboard geometry is independent of reflected eye height.
+// Keep per-plane clipping and axial projectiles separate from this frame cache.
+struct SharedReflectionSprite {bool ready=false;float top=0,height=0;PreparedSprite sprite;};
+static std::vector<SharedReflectionSprite> sharedReflectionSprites;
+static unsigned reflectionGeometryBuilds=0,reflectionGeometryReuses=0;
 static SpriteViewCache spriteViews[2];
 static std::array<SpriteViewCache,16> reflectionSpriteViews;
 static SpriteViewCache& spriteView(bool reflected){return reflected?reflectionSpriteViews.at(activeReflectionPlane):spriteViews[0];}
 static unsigned normalSpriteTested=0,normalSpriteDrawn=0,stereoUploadReuses=0;
 static double spriteBatchCPU[2]{};static unsigned spriteBatchPasses[2]{};
 static double spritePrepareCPU[2]{};static unsigned spriteBuilds[2]{},spriteReuse[2]{};
-static void beginSpriteFrame(){updateModelAppearances();hd::begin();waterFrameTime=seconds();for(auto&c:spriteViews)c.reset();for(auto&c:reflectionSpriteViews)c.reset();trimColors(coloredSprites);}
+static void beginSpriteFrame(){updateModelAppearances();hd::begin();waterFrameTime=seconds();sharedReflectionSprites.clear();sharedReflectionSprites.resize(objects.size());for(auto&c:spriteViews)c.reset();for(auto&c:reflectionSpriteViews)c.reset();trimColors(coloredSprites);}
 static void prepareSprites(const XrVector3f&center,bool reflected){
  auto&cache=spriteView(reflected);if(cache.ready){spriteReuse[reflected]++;return;}cache.ready=true;double began=seconds();spriteBuilds[reflected]++;
  auto&selectionFrames=cache.selectionFrames;auto&friendlyHover=cache.friendlyHover;auto&enemyHover=cache.enemyHover;auto&itemHover=cache.itemHover;
  for(size_t oi=0;oi<objects.size();oi++){const auto&o=objects[oi];if(!objectVisible(o))continue;
-if(reflected&&!reflectionFull&&(o.objectType==3||o.objectType==4))continue;auto it=quads.find(key(o.col,o.seq,o.frame,0));if(it==quads.end())continue;Quad q=it->second;if(o.unitID)fixedUnitFrame(o,q);float px=mythWorldX(o.x,originX,scale),py=(o.z-originZ)*scale,pz=(o.y-originY)*scale;float dx=center.x-px,dz=center.z-pz,len=sqrtf(dx*dx+dz*dz);if(len<.001f)continue;float rx=dz/len,rz=-dx/len;unsigned objectFlips=(o.rawFlags>>17)&3;unsigned dir=myth_object_sprite_direction(dx,dz,o.yaw,q.views,objectFlips);if(!(q.seqflags&4)){auto jt=quads.find(key(o.col,o.seq,o.frame,dir));if(jt!=quads.end())q=jt->second;}
+if(reflected&&!reflectionFull&&(o.objectType==3||o.objectType==4))continue;
+ if(reflected&&sharedReflectionSprites[oi].ready){auto&shared=sharedReflectionSprites[oi];++reflectionGeometryReuses;if((!reflectionFull&&!o.unitID&&shared.height<.65f)||shared.top<reflectionLevel)continue;cache.sprites.push_back(shared.sprite);continue;}
+ auto it=quads.find(key(o.col,o.seq,o.frame,0));if(it==quads.end())continue;Quad q=it->second;if(o.unitID)fixedUnitFrame(o,q);float px=mythWorldX(o.x,originX,scale),py=(o.z-originZ)*scale,pz=(o.y-originY)*scale;float dx=center.x-px,dz=center.z-pz,len=sqrtf(dx*dx+dz*dz);if(len<.001f)continue;float rx=dz/len,rz=-dx/len;unsigned objectFlips=(o.rawFlags>>17)&3;unsigned dir=myth_object_sprite_direction(dx,dz,o.yaw,q.views,objectFlips);if(!(q.seqflags&4)){auto jt=quads.find(key(o.col,o.seq,o.frame,dir));if(jt!=quads.end())q=jt->second;}
  sprite_atlas::registerTexture(textures[q.texture],unsigned(q.w),unsigned(q.h),q.col);GLuint highTexture=hdSprite(o,q);
- float ps=q.scale*(10.f/512.f)*scale*o.scale;float left=-q.rx*ps,right=(q.w-q.rx)*ps,bottom=(q.ry-q.h)*ps,top=q.ry*ps;if(reflected&&((!reflectionFull&&!o.unitID&&top-bottom<.65f)||py+top<reflectionLevel))continue;unsigned flags=q.flags;if(objectFlips&1){float old=left;left=-right;right=-old;flags^=1;}if(objectFlips&2){float old=bottom;bottom=-top;top=-old;flags^=2;}float u0=(flags&1)?1:0,u1=1-u0,v0=(flags&2)?1:0,v1=1-v0;Vertex a{px+rx*left,py+top,pz+rz*left,u0,v0},b{px+rx*right,py+top,pz+rz*right,u1,v0},c{px+rx*left,py+bottom,pz+rz*left,u0,v1},d{px+rx*right,py+bottom,pz+rz*right,u1,v1};
+ float ps=q.scale*(10.f/512.f)*scale*o.scale;float left=-q.rx*ps,right=(q.w-q.rx)*ps,bottom=(q.ry-q.h)*ps,top=q.ry*ps;float clipTop=py+top,clipHeight=top-bottom;unsigned flags=q.flags;if(objectFlips&1){float old=left;left=-right;right=-old;flags^=1;}if(objectFlips&2){float old=bottom;bottom=-top;top=-old;flags^=2;}float u0=(flags&1)?1:0,u1=1-u0,v0=(flags&2)?1:0,v1=1-v0;Vertex a{px+rx*left,py+top,pz+rz*left,u0,v0},b{px+rx*right,py+top,pz+rz*right,u1,v0},c{px+rx*left,py+bottom,pz+rz*left,u0,v1},d{px+rx*right,py+bottom,pz+rz*right,u1,v1};
  // Flight textures marked by projectile dependency metadata use axial billboards.
  if(!o.unitID&&(q.flags&0x40000000u)&&q.views==1){
   Vec3 pos{px,py,pz},toward{center.x-px,center.y-py,center.z-pz};
@@ -62,7 +69,7 @@ if(reflected&&!reflectionFull&&(o.objectType==3||o.objectType==4))continue;auto 
  // Object FX are also present in the live particle stream. That pass sorts
  // transparent sprites and retains their original alpha instead of clipping at .5.
  if(blendedSprite(q)||(o.transfer==1&&o.transferPhase>0)||(o.transfer==2&&o.transferPhase<65535))continue;
- PreparedSprite prepared;prepared.object=oi;prepared.colored=highTexture;prepared.texture=q.texture;prepared.vertices={a,b,c,b,d,c};for(auto&v:prepared.vertices)prepared.bounds.add(v.x,v.y,v.z);if(enhancedSpritePath)prepared.lightBounds=SpriteLightBoundsStream::calculate(prepared.vertices.data(),6);cache.sprites.push_back(prepared);
+ PreparedSprite prepared;prepared.object=oi;prepared.colored=highTexture;prepared.texture=q.texture;prepared.vertices={a,b,c,b,d,c};for(auto&v:prepared.vertices)prepared.bounds.add(v.x,v.y,v.z);if(enhancedSpritePath)prepared.lightBounds=SpriteLightBoundsStream::calculate(prepared.vertices.data(),6);if(reflected){bool axial=!o.unitID&&(q.flags&0x40000000u)&&q.views==1;if(!axial){sharedReflectionSprites[oi]={true,clipTop,clipHeight,prepared};++reflectionGeometryBuilds;}if((!reflectionFull&&!o.unitID&&clipHeight<.65f)||clipTop<reflectionLevel)continue;}cache.sprites.push_back(prepared);
  }
  spritePrepareCPU[reflected]+=seconds()-began;
 }

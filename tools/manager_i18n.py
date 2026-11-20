@@ -3,6 +3,16 @@ import json,os
 from pathlib import Path
 SETTINGS=Path(os.environ.get('APPDATA',Path.home()))/'MythIIVR/manager.json'
 PAIRS={
+'原作セットアップ（シングル・マルチ）':'Base game setup (single-player & multiplayer)',
+'セットアップデータをQuestに転送':'Transfer setup data to Quest',
+'原作のシングル・マルチ用マップをまとめて変換・配置します。':'Setup converts and deploys the original single-player and multiplayer maps together.',
+'1.8.5 / プラグイン欄が空なら原作マップ。シングル・対戦を変換します。':'1.8.5 / Leave plugin blank for base maps. Converts single-player and multiplayer maps.',
+'種類':'Type','シングル':'Single-player','対戦':'Multiplayer','シングル・対戦':'Single / multiplayer','不明':'Unknown',
+'除外（対応モードなし）':'Excluded (no supported game mode)',
+'原作フォルダ・保存先を指定してください。':'Select the original game folder and output folder.',
+'bundleフォルダを指定してください。':'Select the bundle folder.',
+'原作パックはプラグイン欄を空に、プラグインパックは対応するファイルを指定してください。':'Leave plugin blank for base packs; select the matching file for plugin packs.',
+
 'Questの空き容量が不足しています（転送用の一時領域も必要です）。':'Not enough free space on Quest, including temporary transfer storage.',
 'ノーマルマップフォルダ':'Normal map folder',
 'ノーマルマップをQuestへ転送':'Transfer normal maps to Quest',
@@ -36,8 +46,8 @@ PAIRS.update({
 })
 PAIRS.update({'スカイボックス（任意）':'Skyboxes (optional)','ロゴ画像（任意）':'Logo image (optional)','CD画像（任意）':'CD image (optional)','原作セットアップ':'Base game setup'})
 def load():
- try:return 'en' if json.loads(SETTINGS.read_text(encoding='utf8')).get('language')=='en' else 'ja'
- except (OSError,ValueError):return 'ja'
+ try:return 'ja' if json.loads(SETTINGS.read_text(encoding='utf8')).get('language')=='ja' else 'en'
+ except (OSError,ValueError):return 'en'
 def save(language):
  SETTINGS.parent.mkdir(parents=True,exist_ok=True);temp=SETTINGS.with_suffix('.tmp');temp.write_text(json.dumps({'language':language}),encoding='utf8');temp.replace(SETTINGS)
 def translate(text,language):

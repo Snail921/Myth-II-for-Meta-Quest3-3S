@@ -11,10 +11,11 @@ public class TestPanelKeyboard {
   check(!shift.event("onPointerButtonPress","BUTTON_LEFT"));check(shift.event("onPointerButtonRelease","BUTTON_LEFT"));
   check(!shift.event("onPointerButtonRelease","BUTTON_LEFT"));
   PanelKeyboard.BackPress p=new PanelKeyboard.BackPress();
-  check(p.down(1000));check(!p.down(1100));check(!p.fire(1599));check(p.up(1599,false)==1);
-  check(p.down(2000));check(p.fire(2600));check(!p.fire(2700));check(p.up(2800,false)==2);check(p.up(2801,false)==0);
-  check(p.down(3000));check(p.up(3600,false)==2);check(p.up(3700,false)==0);
-  check(p.down(4000));check(p.up(4100,true)==0);check(!p.fire(4600));
+  check(p.down(1000));check(!p.down(1100));check(!p.fire(1999));check(p.up(1999,false)==1);
+  check(p.down(2000));check(!p.fire(2999));check(p.fire(3000));check(!p.fire(3100));check(p.up(3200,false)==0);check(p.up(3201,false)==0);
+  check(p.down(4000));check(p.up(5000,false)==2);check(!p.fire(5001));
+  check(p.down(6000));check(p.up(6100,true)==0);check(!p.fire(7000));
+  check(p.down(8000));check(p.fire(9000));check(p.up(9100,true)==0);
   check(PanelKeyboard.validateText("Film 01 - Test_ABC!")==null);
   check(PanelKeyboard.validateText("")!=null);
   check(PanelKeyboard.validateText("line\nbreak")!=null);

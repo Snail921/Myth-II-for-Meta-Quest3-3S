@@ -39,5 +39,17 @@ int main(){
  Frustum lf,rf;lf.set(left,full,-INFINITY);rf.set(right,full,-INFINITY);
  Bounds stereoEdge;stereoEdge.add(1.02f,0,0);assert(lf.visible(stereoEdge)&&!rf.visible(stereoEdge));
  Bounds spans;spans.add(-2,0,0);spans.add(2,0,0);assert(lf.visible(spans)&&rf.visible(spans));
- printf("PASS reflection culling: %u cases; crop, edges, clipping, scales, origins, water levels\n",checks);
+ // Normal terrain must retain order and gaps while merging adjacent chunks.
+ std::vector<Range> chunks(5);for(int i=0;i<5;i++){chunks[i].first=i*6;chunks[i].count=6;chunks[i].bounds=in;}chunks[2].bounds=out;
+ std::vector<DrawRange> draws;f.set(m,full,-INFINITY);
+ assert(visibleRanges(chunks,f,draws)==4);assert(draws.size()==2);
+ assert(draws[0].first==0&&draws[0].count==12&&draws[1].first==18&&draws[1].count==12);
+ chunks[0].bounds=stereoEdge;assert(visibleRanges(chunks,lf,draws)==4);assert(draws[0].first==0);
+ assert(visibleRanges(chunks,rf,draws)==3);assert(draws[0].first==6);
+ for(auto&r:chunks)r.bounds=out;assert(visibleRanges(chunks,f,draws)==0&&draws.empty());
+ chunks.clear();assert(visibleRanges(chunks,f,draws)==0&&draws.empty());
+ // Bounds crossing the near/eye plane must survive conservative rejection.
+ Range nearRange;nearRange.count=3;for(auto&v:crossingEye)nearRange.bounds.add(v.x,v.y,v.z);chunks.push_back(nearRange);
+ f.set(perspective,full,-INFINITY);assert(visibleRanges(chunks,f,draws)==1&&draws[0].count==3);
+ printf("PASS terrain range batching and reflection culling: %u cases; crop, edges, clipping, scales, origins, water levels\n",checks);
 }

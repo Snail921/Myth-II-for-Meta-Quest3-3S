@@ -23,7 +23,7 @@ class Editor:
         self.root = root; self.project = Project(); self.index = 0; self.page = 0
         self.busy = False; self.dirty = False; self.events = queue.Queue(); self.photos = []; self.last_point = None; self.refresh_job = None
         root.title('Myth II VR — Sprite Material Editor'); root.geometry('1280x850')
-        self.widgets = []; self.lang = tk.StringVar(value='日本語')
+        self.widgets = []; self.lang = tk.StringVar(value='English')
         top = ttk.Frame(root, padding=6); top.pack(fill='x')
         for ja, en, fn in [('画像フォルダ','Image folder',self.folder), ('ユニット選択','Select unit',self.scene), ('Collectionを開く','Open collection',self.collection), ('コレクションフォルダ','Collection folder',self.browse_collections), ('プロジェクト読込','Load project',self.load), ('保存','Save',self.save), ('全画像を書出し','Export all',self.export), ('Quest用書出し','Export for Quest',self.export_runtime)]:
             b = ttk.Button(top, command=fn); b.pack(side='left', padx=3); self.label(b,ja,en)

@@ -34,7 +34,7 @@ print(f'Original font {font_key}: {count} glyphs, ascent={asc}, descent={desc}')
 # Original status-bar decoration, untouched RGBA decoded from Internal Status Bar.
 from prepare_vr_assets import decode
 images,_,_=decode(raw_tag(tags,'.256','!sba'))
-indices=[1,3,13,15,34,35,36,37,38,39,40,41]
+indices=[1,3,13,15,29,30,31,32,33,34,35,36,37,38,39,40,41]
 pack=bytearray(struct.pack('<I',len(indices)+20))
 for index in indices:
     w,h,pixels=images[index]

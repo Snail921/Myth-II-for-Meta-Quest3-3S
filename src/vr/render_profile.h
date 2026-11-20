@@ -38,10 +38,10 @@ static GPUProfile gpuProfile;
 
 struct StageProfile {
  double waits[5]{},cpu[16]{},started=0;unsigned calls[16]{};int active=-1;
- static const char* name(int i){static const char*n[]={"sky_setup","terrain","water","models","sprites","effects","controls","shadow_map"};return n[i%8];}
- void begin(int i){if(!diagnosticEnabled)return;end();active=i;if(spriteApi.enabled)ATrace_beginSection(i>=8?"MythVR/reflection-stage":"MythVR/normal-stage");started=seconds();gpuProfile.start(i);}
+ static const char* name(int i){static const char*n[]={"sky_setup","terrain","water","models","sprites","effects","controls","shadow_map"};return i==14?"bloom":n[i%8];}
+ void begin(int i){if(!diagnosticEnabled)return;end();active=i;if(spriteApi.enabled)ATrace_beginSection(i==14?"MythVR/bloom":i>=8?"MythVR/reflection-stage":"MythVR/normal-stage");started=seconds();gpuProfile.start(i);}
  void end(){if(active<0)return;gpuProfile.stop();if(spriteApi.enabled)ATrace_endSection();cpu[active]+=seconds()-started;calls[active]++;active=-1;}
- void report(unsigned frames){LOG("Frame wait CPU ms_frame xr_wait=%.3f swap_acquire_wait=%.3f resolve=%.3f flush_release=%.3f xr_end=%.3f",waits[0]*1000/frames,waits[1]*1000/frames,waits[2]*1000/frames,waits[3]*1000/frames,waits[4]*1000/frames);for(auto&w:waits)w=0;long pages=0,resident=0;if(FILE*f=fopen("/proc/self/statm","r")){if(fscanf(f,"%ld %ld",&pages,&resident)==2)LOG("Process memory rss_kib=%ld virtual_kib=%ld",resident*(sysconf(_SC_PAGESIZE)/1024),pages*(sysconf(_SC_PAGESIZE)/1024));fclose(f);}for(int i=0;i<16;i++){if(calls[i])LOG("Stage CPU id=%d name=%s reflection=%d ms_frame=%.3f calls=%u",i,name(i),i>=8,cpu[i]*1000/std::max(1u,frames),calls[i]);cpu[i]=0;calls[i]=0;}}
+ void report(unsigned frames){LOG("Frame wait CPU ms_frame xr_wait=%.3f swap_acquire_wait=%.3f resolve=%.3f flush_release=%.3f xr_end=%.3f",waits[0]*1000/frames,waits[1]*1000/frames,waits[2]*1000/frames,waits[3]*1000/frames,waits[4]*1000/frames);for(auto&w:waits)w=0;long pages=0,resident=0;if(FILE*f=fopen("/proc/self/statm","r")){if(fscanf(f,"%ld %ld",&pages,&resident)==2)LOG("Process memory rss_kib=%ld virtual_kib=%ld",resident*(sysconf(_SC_PAGESIZE)/1024),pages*(sysconf(_SC_PAGESIZE)/1024));fclose(f);}for(int i=0;i<16;i++){if(calls[i])LOG("Stage CPU id=%d name=%s reflection=%d ms_frame=%.3f calls=%u",i,name(i),i>=8&&i!=14,cpu[i]*1000/std::max(1u,frames),calls[i]);cpu[i]=0;calls[i]=0;}}
 };
 static StageProfile stageProfile;
 

@@ -57,3 +57,20 @@ In **Minimap & menus**, these settings are independent and apply on the next VR 
 - **Thick Pointer UI**: **1.0–4.0x**, in 0.1 increments; default **1.0x**. Changes pointer rays, ground pointer/move rings, facing arrows and hovered-target rectangle borders. It does not enlarge hit areas or change selected-unit borders, health bars or box-selection lines. The slider value follows its handle.
 
 Snow faces the camera; rain retains its streak orientation. Weather textures use their own UVs rather than sampling an entire atlas page.
+
+## Color correction and Bloom (default OFF)
+
+Color correction and Bloom are independent and both default to OFF. Each bypasses its processing when disabled. Choose your own balance of image quality and performance.
+
+| Setting | Range and default |
+| --- | --- |
+| Color correction strength | 0–100%, default 100%. At 100%, brightens display-encoded scene color by about 1.28x, excluding sky and UI |
+| Bloom processing resolution | 1/32, 1/16, 1/8, 1/6, 1/4 or 1/2 per dimension; default 1/8 |
+| Bloom blur iterations | 1–4, default 1 |
+| Bloom strength | 0–200%, default 15% |
+
+Bloom extracts and blurs bright highlights, excluding sky and UI as glow sources. It does not identify fire or magic by object type. Increasing strength does not add rendering passes. Resolution and iteration count affect load; low-resolution Bloom still has full-screen capture/composition costs. Lower resolutions may give a coarser, wider glow.
+
+A user confirmed 90 FPS in a light scene with the lowest scene-rendering resolution and 1/8 Bloom. This is not a guarantee across levels or viewpoints. Use the FPS display, especially near waterfalls. Changes apply on next VR entry.
+
+0.5.0 also batches particles while retaining per-particle opacity, shares reflection sprite preparation, culls off-screen terrain and consolidates repeated terrain-detail material samples.

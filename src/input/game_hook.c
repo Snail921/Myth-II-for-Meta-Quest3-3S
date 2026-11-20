@@ -110,9 +110,17 @@ static U tutorial_camera(const struct Command*c,U mesh){
  sniff_camera_input(snapshot);return 1;
 }
 #include "coop_transfer.h"
+#ifdef MYTH_COOP_471
+#include "map_pen.h"
+#include "chat.h"
+#endif
 static U execute(const struct Command*c){
  if(*(US*)0x400000!=0x5a4d||*(U*)0x46bf56!=0x3ca3c085)return 10;
  if(c->op==18){if(c->id<100||c->id>200||c->flags||c->x||c->y||c->reserved)return 16;return set_sound_range(c->id);}
+
+#ifdef MYTH_COOP_471
+ U chatStatus=install_chat_hook();if(chatStatus!=1&&c->op>=26)return chatStatus;
+#endif
  // Reject menus, invalid map dimensions, unloaded pools and invalid commands.
  if(*(US*)0x67ec00!=3)return 20;
  U mesh=*(U*)0x529bd4;
@@ -126,6 +134,10 @@ static U execute(const struct Command*c){
   US opts[4]={0,0,(US)(c->id>>16),(US)c->id};
   routeCount=0;pickup_selected(opts);voice_selected(3);cancel_mode();return 1;
  }
+ #ifdef MYTH_COOP_471
+ if(c->op>=26&&c->op<=28)return chat_command(c);
+ if(c->op==25)return map_pen_command(c);
+#endif
  if(c->op==24){if(c->id>1||c->flags||c->x||c->y||c->reserved)return 16;((void(*)(I,I))0x44c33a)((I)c->id,0);return 1;}
  if(c->op==23)return transfer_selected(c);
  if(c->op==22)return orient_selected(c);

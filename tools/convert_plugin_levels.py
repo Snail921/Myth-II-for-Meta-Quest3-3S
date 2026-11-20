@@ -5,6 +5,7 @@ import argparse,json,os,sys,struct,math,subprocess,hashlib
 from pathlib import Path
 from plugin_sources import ROOT,profile
 from build_progress import progress,tracked
+from level_modes import level_mode
 
 def main():
  os.environ['MYTH_BUILD_PROGRESS']='1'
@@ -23,22 +24,25 @@ def main():
   if archive['path'] in resolved['selected'] or (not resolved['selected'] and archive['kind']==3):
    for entry in archive['entries']:names[entry['id']]=entry
  if not resolved['selected'] and ('mesh','00tm') in tags:names['00tm']=dict(id='00tm',name='Tutorial',order='00')
- levels=[];excluded=[]
+ levels=[];excluded=[];modes={}
  for entry in tracked(sorted(names.values(),key=lambda e:e['order']),'レベル情報の検査'):
   tag=entry['id']
   if len(tag)!=4 or not tag.isascii():raise ValueError('Non-ASCII mesh IDs require additional codec support: '+repr(tag))
   if ('mesh',tag) not in tags:raise ValueError('Missing entrypoint mesh '+repr(tag))
   raw=raw_tag(tags,'mesh',tag);m=parse_mesh(raw,schemas())
-  if not m['header']['flags']&65536 and tag!='00tm':continue
+  mode=level_mode(m['header']['flags'],tag)
+  modes[tag]=mode
+  if mode=='unknown':
+   excluded.append(dict(key=tag.encode('ascii').hex(),name=entry['name'],mode=mode,reason='no supported game mode'));continue
   if not m['header']['flags']&0x100000 and tag!='00tm':
-   excluded.append(dict(key=tag.encode('ascii').hex(),name=entry['name'],reason='mesh IS_COMPLETE flag is clear'));continue
+   excluded.append(dict(key=tag.encode('ascii').hex(),name=entry['name'],mode=mode,reason='mesh IS_COMPLETE flag is clear'));continue
   if m['header']['flags']&(0x40000000|0x80000000):raise ValueError('Mesh requires vTFL or another plugin: '+repr(tag))
   name=entry['name'];key=tag.encode('ascii').hex()
   if not name or len(name.encode('utf8'))>=64 or any(c in name for c in '\t\r\n\0'):raise ValueError('Unsupported level display name')
   levels.append((key,tag,name))
- if not levels:raise ValueError('No single-player mesh entrypoints')
+ if not levels:raise ValueError('No playable single-player or multiplayer mesh entrypoints')
  (dest/'excluded-entrypoints.json').write_text(json.dumps(excluded,ensure_ascii=True,indent=2),encoding='utf8')
- print(json.dumps({'levels':[{'key':k,'name':n} for k,t,n in levels],'override_count':len(resolved['overrides'])},ensure_ascii=True),flush=True)
+ print(json.dumps({'levels':[{'key':k,'name':n,'mode':modes[t]} for k,t,n in levels],'override_count':len(resolved['overrides'])},ensure_ascii=True),flush=True)
  if a.maps:
   unknown=set(a.maps)-{k for k,t,n in levels}
   if unknown:raise ValueError('Unknown map keys '+repr(unknown))
@@ -47,7 +51,7 @@ def main():
  checks={}
  for index,(k,t,n) in enumerate(levels,1):
   progress('レベルの依存素材検査',index-1,len(levels),n)
-  checks[k]=dict(name=n,**inspect(tags,t))
+  checks[k]=dict(name=n,mode=modes[t],**inspect(tags,t))
   progress('レベルの依存素材検査',index,len(levels),n)
  (dest/'preflight.json').write_text(json.dumps(checks,ensure_ascii=True,indent=2),encoding='utf8')
  if a.list:

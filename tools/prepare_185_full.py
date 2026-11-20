@@ -77,3 +77,11 @@ for name,source in [('coop_transfer.h','src/input/coop_transfer.h'),('coop_roste
  shutil.copyfile(source,root/name)
 for name in ['game_hook.c','capture.c']:
  p=root/name;p.write_text('#define MYTH_COOP_471 1\n'+p.read_text(),encoding='utf8')
+
+shutil.copyfile("src/bridge/multiplayer_hud.h",root/"multiplayer_hud.h")
+
+shutil.copyfile("src/input/engine185/map_pen.h",root/"map_pen.h")
+shutil.copyfile("src/bridge/map_pen_capture.h",root/"map_pen_capture.h")
+
+shutil.copyfile("src/input/engine185/chat.h",root/"chat.h")
+shutil.copyfile("src/bridge/chat_capture.h",root/"chat_capture.h")

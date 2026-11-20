@@ -8,6 +8,37 @@ import java.io.*;
 
 /** Development launcher. Initial data provisioning is separate from normal play. */
 public final class StandaloneActivity extends Activity implements SeekBar.OnSeekBarChangeListener {
+    private void addChatKeyboardOptions(android.widget.LinearLayout group,android.content.SharedPreferences prefs){
+        final String[] keys={"chat_keyboard_x","chat_keyboard_y","chat_keyboard_distance"};
+        final String[] names={"チャットキーボード 左右 / Chat keyboard horizontal","チャットキーボード 上下 / Chat keyboard vertical","チャットキーボード 距離 / Chat keyboard distance"};
+        final int[] low={-60,-100,70},high={60,20,280},defaults={0,-40,175},values=new int[3];
+        if(!prefs.getBoolean("chat_keyboard_position_v2",false)){if(prefs.getInt("chat_keyboard_y",-35)==-35)prefs.edit().putInt("chat_keyboard_y",-40).apply();prefs.edit().putBoolean("chat_keyboard_position_v2",true).apply();}
+        final int[] fixed={prefs.getBoolean("chat_keyboard_fixed",true)?1:0},smooth={Math.max(0,Math.min(986,prefs.getInt("chat_keyboard_smoothing",493)))};
+        for(int i=0;i<3;i++)values[i]=Math.max(low[i],Math.min(high[i],prefs.getInt(keys[i],defaults[i])));
+        final Runnable save=()->{try(java.io.FileOutputStream f=new java.io.FileOutputStream(new java.io.File(getFilesDir(),"chat-keyboard.offset"))){f.write((values[0]+" "+values[1]+" "+values[2]+" "+fixed[0]+" "+smooth[0]+" ").getBytes("US-ASCII"));}catch(java.io.IOException e){android.util.Log.e("MythVR","Chat keyboard settings",e);}};
+        save.run();
+        android.util.Log.i("MythKeyboard","Settings x="+values[0]+" y="+values[1]+" distance="+values[2]+" fixed="+fixed[0]+" smoothing="+smooth[0]);
+        Switch fixedMode=new Switch(this);fixedMode.setText("チャットキーボードを空間に固定 / Fixed Chat Keyboard");fixedMode.setChecked(fixed[0]==1);group.addView(fixedMode);
+        fixedMode.setOnCheckedChangeListener((button,on)->{fixed[0]=on?1:0;prefs.edit().putBoolean("chat_keyboard_fixed",on).apply();save.run();});
+        TextView smoothLabel=new TextView(this);group.addView(smoothLabel);smoothLabel.setText("視線追従スムージング / Follow smoothing: "+(smooth[0]-493)+" ms");
+        SeekBar smoothing=new ValueSeekBar();smoothing.setTag("keyboard-smoothing");smoothing.setMax(986);smoothing.setProgress(smooth[0]);group.addView(smoothing);
+        smoothing.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+            public void onProgressChanged(SeekBar b,int v,boolean user){smooth[0]=v;smoothLabel.setText("視線追従スムージング / Follow smoothing: "+(v-493)+" ms");}
+            public void onStartTrackingTouch(SeekBar b){}
+            public void onStopTrackingTouch(SeekBar b){prefs.edit().putInt("chat_keyboard_smoothing",smooth[0]).apply();save.run();}
+        });
+        for(int i=0;i<3;i++){
+            final int index=i;TextView label=new TextView(this);label.setTextSize(18);group.addView(label);
+            label.setText(names[i]+": "+(values[i]-defaults[i])+" cm");
+            SeekBar slider=new ValueSeekBar();slider.setTag("keyboard-offset:"+(low[i]-defaults[i]));slider.setMax(high[i]-low[i]);slider.setProgress(values[i]-low[i]);group.addView(slider);
+            slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+                public void onProgressChanged(SeekBar b,int v,boolean user){values[index]=v+low[index];label.setText(names[index]+": "+(values[index]-defaults[index])+" cm");}
+                public void onStartTrackingTouch(SeekBar b){}
+                public void onStopTrackingTouch(SeekBar b){prefs.edit().putInt(keys[index],values[index]).apply();save.run();}
+            });
+        }
+    }
+
     private String ui(String text){return UiLanguage.text(this,text);}
     private TextView skyLabel,soundLabel,shadowAmountLabel,lightingAmountLabel,lightingLimitLabel,lightingObjectLabel,lightingLodLabel;
     private SeekBar shadowAmount,lightingAmount,lightingLimit,lightingObject,lightingLod,shadowSamples,shadowLod;
@@ -21,6 +52,25 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
     private Switch reuseFollowDistance,aimOnJump,tapGroups,selectionHaptics,buttonGroups;
     private TextView status;
     private volatile boolean importing;
+    private void addBloomSettings(LinearLayout group,android.content.SharedPreferences prefs){
+        Switch toggle=new Switch(this);toggle.setText(ui("Bloomを有効にする / Enable Bloom"));toggle.setTextSize(20);toggle.setChecked(prefs.getBoolean("bloom_enabled",false));group.addView(toggle);
+        String[] keys={"bloom_resolution","bloom_iterations","bloom_strength"};
+        String[] files={"bloom.resolution","bloom.iterations","bloom.strength"};
+        String[] names={"処理解像度 / Processing resolution","ぼかし反復回数 / Blur iterations","発光強度 / Bloom strength"};
+        int[] minimum={0,1,0},maximum={5,4,200},defaults={0,1,15};
+        // Keep persisted resolution IDs stable; only reorder their slider positions.
+        final int[] resolutionIds={5,4,0,1,2,3};
+        SeekBar[] sliders=new SeekBar[3];
+        for(int i=0;i<3;i++){
+            final int index=i;TextView label=new TextView(this);label.setText(ui(names[i]));group.addView(label);
+            SeekBar slider=new ValueSeekBar();slider.setTag(keys[i]);slider.setMax(maximum[i]-minimum[i]);slider.setProgress(Math.max(minimum[i],Math.min(maximum[i],prefs.getInt(keys[i],defaults[i])))-minimum[i]);if(i==0){int saved=slider.getProgress();for(int pos=0;pos<resolutionIds.length;pos++)if(resolutionIds[pos]==saved){slider.setProgress(pos);break;}}slider.setEnabled(toggle.isChecked());group.addView(slider);sliders[i]=slider;
+            saveLighting(files[i],i==0?resolutionIds[slider.getProgress()]:slider.getProgress()+minimum[i]);
+            slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar b,int v,boolean user){b.invalidate();}public void onStartTrackingTouch(SeekBar b){}public void onStopTrackingTouch(SeekBar b){int value=index==0?resolutionIds[b.getProgress()]:b.getProgress()+minimum[index];if(saveLighting(files[index],value))prefs.edit().putInt(keys[index],value).apply();}});
+        }
+        saveLighting("bloom.enabled",toggle.isChecked()?1:0);
+        toggle.setOnCheckedChangeListener((button,on)->{if(saveLighting("bloom.enabled",on?1:0)){prefs.edit().putBoolean("bloom_enabled",on).apply();for(SeekBar slider:sliders)slider.setEnabled(on);}});
+        TextView help=new TextView(this);help.setText(ui("空とUIを発光源から除外。解像度は縦横それぞれの比率。高解像度・多い反復回数ほど負荷が増えます。次回VR起動時に反映。 / Excludes sky and UI as glow sources. Resolution scales each dimension. Higher resolution and more iterations increase GPU load. Applies on next VR entry."));group.addView(help);
+    }
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         try{java.nio.file.Files.write(new File(getExternalFilesDir(null),"external-layout.version").toPath(),new byte[]{'1'});}catch(IOException e){android.util.Log.e("MythStandalone","Layout marker",e);}
@@ -34,17 +84,26 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         // One-time adoption of the requested defaults; later user changes remain saved.
         if(!graphics.getBoolean("group_defaults_v2",false))graphics.edit().putBoolean("tap_groups",true).putBoolean("button_groups",true).putBoolean("group_defaults_v2",true).commit();
         button(layout,ui("Start Myth II / Myth II を起動"),()->startEngine());
-        button(layout,ui("Enter VR / VRに戻る"),()->StandaloneBridge.openVR(this));
         LinearLayout displayGroup=section(layout,"display","解像度・フレームレート","Resolution & frame rate",true);
         DisplaySettings.add(this,displayGroup);
         Switch fpsDisplay=new Switch(this);fpsDisplay.setText(ui("FPSを表示 / Show FPS"));fpsDisplay.setTextSize(20);fpsDisplay.setChecked(graphics.getBoolean("fps_display",false));
         saveLighting("fps-display.enabled",fpsDisplay.isChecked()?1:0);displayGroup.addView(fpsDisplay);
         fpsDisplay.setOnCheckedChangeListener((button,enabled)->{if(saveLighting("fps-display.enabled",enabled?1:0))graphics.edit().putBoolean("fps_display",enabled).apply();});
+        LinearLayout correction=section(layout,"correction","色補正","Color correction",false);
+        Switch correctionOn=new Switch(this);correctionOn.setText(ui("色補正を有効にする / Enable color correction"));correctionOn.setTextSize(20);correctionOn.setChecked(graphics.getBoolean("scene_correction_enabled",false));correction.addView(correctionOn);
+        TextView correctionLabel=new TextView(this);correctionLabel.setText(ui("補正強度 / Correction strength"));correction.addView(correctionLabel);
+        SeekBar correctionStrength=new ValueSeekBar();correctionStrength.setTag("scene-correction");correctionStrength.setMax(100);correctionStrength.setProgress(Math.max(0,Math.min(100,graphics.getInt("scene_correction_strength",100))));correctionStrength.setEnabled(correctionOn.isChecked());correction.addView(correctionStrength);
+        saveLighting("scene-correction.enabled",correctionOn.isChecked()?1:0);saveLighting("scene-correction.strength",correctionStrength.getProgress());
+        correctionOn.setOnCheckedChangeListener((button,enabled)->{if(saveLighting("scene-correction.enabled",enabled?1:0)){graphics.edit().putBoolean("scene_correction_enabled",enabled).apply();correctionStrength.setEnabled(enabled);}});
+        correctionStrength.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar b,int v,boolean user){b.invalidate();}public void onStartTrackingTouch(SeekBar b){}public void onStopTrackingTouch(SeekBar b){if(saveLighting("scene-correction.strength",b.getProgress()))graphics.edit().putInt("scene_correction_strength",b.getProgress()).apply();}});
+        TextView correctionHelp=new TextView(this);correctionHelp.setText(ui("空とUIを除く明るさ補正。次回VR起動時に反映。 / Brightens the scene, excluding sky and UI. Applies on next VR entry."));correction.addView(correctionHelp);
+        addBloomSettings(section(layout,"bloom","ブルーム","Bloom",false),graphics);
         LinearLayout water=section(layout,"water","水面","Water",false);
         LinearLayout texturesGroup=section(layout,"textures","テクスチャ・影","Textures & shadows",false);
         LinearLayout weatherGroup=section(layout,"weather","天候","Weather",false);
         LinearLayout audioGroup=section(layout,"audio","音声","Audio",false);
         LinearLayout cameraGroup=section(layout,"camera","カメラ","Camera",false);
+        LinearLayout keyboardGroup=section(layout,"keyboard","キーボード","Keyboard",false);
         LinearLayout mapGroup=section(layout,"map","ミニマップ・メニュー","Minimap & menus",false);
         TextView pointerLabel=new TextView(this);pointerLabel.setText("Thick Pointer UI (1.0x - 4.0x)");mapGroup.addView(pointerLabel);
         pointerThickness=new ValueSeekBar();pointerThickness.setMax(30);pointerThickness.setProgress(Math.max(10,Math.min(40,graphics.getInt("pointer_thickness",10)))-10);mapGroup.addView(pointerThickness);
@@ -58,6 +117,14 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         accentButton.setOnClickListener(v->pickAccentColor(accentButton));
         TextView contrastHelp=new TextView(this);contrastHelp.setText(ui("明るい地面では黄色の操作表示を設定した強調色に変更。次回VR起動時に反映。 / Uses the selected accent on bright terrain. Applies on next VR entry."));mapGroup.addView(contrastHelp);
         LinearLayout inputGroup=section(layout,"input","操作","Controls",false);
+        String[] swapNames={"swap-triggers","swap-grips","swap-ax","swap-yb","swap-sticks","swap-hands"};
+        String[] swapLabels={"左右のトリガーを入れ替える / Swap triggers","左右のグリップを入れ替える / Swap grip buttons","A/Xを入れ替える / Swap A/X","Y/Bを入れ替える / Swap Y/B","左右のスティックを入れ替える / Swap sticks","左右のコントローラーを入れ替える / Swap controllers"};
+        for(int i=0;i<swapNames.length;i++){
+            final String key=swapNames[i];Switch option=new Switch(this);option.setText(ui(swapLabels[i]));option.setChecked(graphics.getBoolean(key,false));inputGroup.addView(option);saveLighting(key+".enabled",option.isChecked()?1:0);
+            option.setOnCheckedChangeListener((button,on)->{if(saveLighting(key+".enabled",on?1:0))graphics.edit().putBoolean(key,on).apply();});
+        }
+        TextView swapHelp=new TextView(this);swapHelp.setText(ui("キーボード操作は変更しません。次回VR起動時に反映。 / Keyboard controls stay physical. Applies on next VR entry."));inputGroup.addView(swapHelp);
+
         LinearLayout setupGroup=section(layout,"setup","セットアップ・診断","Setup & diagnostics",false);
         Switch reflections=new Switch(this),fullReflections=new Switch(this),highReflections=new Switch(this);
         reflections.setText(ui("鏡面反射 / Water reflections"));fullReflections.setText(ui("フルリフレクション / Full reflections"));highReflections.setText(ui("高精細反射 / Full-resolution reflections"));
@@ -121,6 +188,9 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         Switch details=new Switch(this);details.setText(ui("地形の高精細テクスチャ / Landscape detail textures"));details.setTextSize(20);details.setChecked(graphics.getBoolean("detail_textures",true));texturesGroup.addView(details);
         details.setOnCheckedChangeListener((button,enabled)->graphics.edit().putBoolean("detail_textures",enabled).apply());
         TextView detailHelp=new TextView(this);detailHelp.setText(ui("plugins内の対応アドオンを使用。レベルの読み込み時に反映されます。"));texturesGroup.addView(detailHelp);
+        CheckBox randomSky=new CheckBox(this);randomSky.setText(ui("対戦専用：ランダムスカイボックス / Multiplayer matches: random skybox"));randomSky.setTextSize(20);randomSky.setChecked(graphics.getBoolean("multiplayer_random_skybox",false));weatherGroup.addView(randomSky);
+        randomSky.setOnCheckedChangeListener((button,enabled)->graphics.edit().putBoolean("multiplayer_random_skybox",enabled).apply());
+        TextView randomSkyHelp=new TextView(this);randomSkyHelp.setText(ui("OFF：マップ専用の空。ON：シナリオを含む配置済みの全スカイボックスから対戦ごとに選択。協力プレイ・シナリオには適用しません。次の対戦から反映。 / OFF: map-specific sky. ON: choose from all installed skies, including campaigns, once per match. Does not affect co-op or campaign levels. Applies to the next match."));weatherGroup.addView(randomSkyHelp);
         Switch fog=new Switch(this);fog.setText(ui("3Dフォグ / 3D fog"));fog.setTextSize(20);fog.setChecked(graphics.getBoolean("fog",true));saveFog(fog.isChecked());weatherGroup.addView(fog);
         fog.setOnCheckedChangeListener((button,enabled)->{if(saveFog(enabled))graphics.edit().putBoolean("fog",enabled).apply();});
         Switch vrRain=new Switch(this);vrRain.setText(ui("雨：VR向け / ON: VR rain・OFF: 原作の雨"));vrRain.setTextSize(20);vrRain.setChecked(graphics.getBoolean("vr_rain",true));saveRain(vrRain.isChecked());
@@ -143,6 +213,11 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
             cameraSpeeds[i]=new ValueSeekBar();cameraSpeeds[i].setMax(200);cameraSpeeds[i].setProgress(Math.max(0,Math.min(200,graphics.getInt(CAMERA_KEYS[i],100)-100)));
             cameraLabels[i].setText(cameraSpeedLabel(i,cameraSpeeds[i].getProgress()));cameraSpeeds[i].setOnSeekBarChangeListener(this);cameraGroup.addView(cameraSpeeds[i]);
         }
+        addChatKeyboardOptions(keyboardGroup,graphics);
+        Switch mapRotation=new Switch(this);mapRotation.setText(ui("ミニマップの回転を許可 / Allow Mini Map Rotation"));mapRotation.setTextSize(20);
+        mapRotation.setChecked(graphics.getBoolean("allow_mini_map_rotation",false));mapGroup.addView(mapRotation);
+        saveLighting("minimap-rotation.enabled",mapRotation.isChecked()?1:0);
+        mapRotation.setOnCheckedChangeListener((button,enabled)->{if(saveLighting("minimap-rotation.enabled",enabled?1:0))graphics.edit().putBoolean("allow_mini_map_rotation",enabled).apply();});
         mapSizeLabel=new TextView(this);mapSizeLabel.setTextSize(18);mapGroup.addView(mapSizeLabel);
         mapSize=new ValueSeekBar();mapSize.setMax(150);mapSize.setProgress(Math.max(0,Math.min(150,graphics.getInt("wrist_map_size",100)-50)));
         mapSizeLabel.setText(mapSizeLabel(mapSize.getProgress()));mapSize.setOnSeekBarChangeListener(this);mapGroup.addView(mapSize);
@@ -217,7 +292,9 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
     private void formatSwitches(LinearLayout layout){
         for(int i=0;i<layout.getChildCount();i++){android.view.View child=layout.getChildAt(i);if(child instanceof LinearLayout){formatSwitches((LinearLayout)child);continue;}if(!(child instanceof Switch))continue;Switch toggle=(Switch)child;CharSequence label=toggle.getText();toggle.setText("");layout.removeViewAt(i);LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(android.view.Gravity.CENTER_VERTICAL);row.setLayoutDirection(android.view.View.LAYOUT_DIRECTION_LTR);row.addView(toggle,new LinearLayout.LayoutParams(-2,-2));TextView text=new TextView(this);text.setText(label);text.setTextSize(20);text.setTextColor(toggle.getTextColors());text.setPadding(16,0,0,0);text.setOnClickListener(v->{if(toggle.isEnabled())toggle.toggle();});row.addView(text,new LinearLayout.LayoutParams(0,-2,1));toggle.setContentDescription(label);layout.addView(row,i,new LinearLayout.LayoutParams(-1,-2));}
     }
-    private String sliderValue(SeekBar bar){
+    private String sliderValue(SeekBar bar){if("bloom_resolution".equals(bar.getTag()))return "1/"+new int[]{32,16,8,6,4,2}[bar.getProgress()];if("bloom_iterations".equals(bar.getTag()))return Integer.toString(bar.getProgress()+1);if("bloom_strength".equals(bar.getTag()))return bar.getProgress()+"%";if("scene-correction".equals(bar.getTag()))return bar.getProgress()+"%";if("keyboard-smoothing".equals(bar.getTag()))return (bar.getProgress()-493)+" ms";
+        if(bar.getTag() instanceof String&&((String)bar.getTag()).startsWith("keyboard-offset:"))return (bar.getProgress()+Integer.parseInt(((String)bar.getTag()).substring(16)))+" cm";
+
         if(bar==pointerThickness)return String.format(java.util.Locale.US,"%.1fx",(bar.getProgress()+10)/10f);
         int v=bar.getProgress();if("rgb".equals(bar.getTag()))return Integer.toString(v);if(bar==shadowSamples)return Integer.toString(v+1);
         if(bar==shadowLod)return v==0?"OFF":v+" m";
@@ -239,6 +316,8 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         int initial=prefs.getInt("auto_ui_color",0xF5B642)&0xFFFFFF;
         LinearLayout panel=new LinearLayout(this);panel.setOrientation(1);panel.setPadding(24,16,24,16);
         TextView preview=new TextView(this);preview.setTextSize(22);preview.setPadding(20,20,20,20);panel.addView(preview);
+        // Keep persisted resolution IDs stable; only reorder their slider positions.
+        final int[] resolutionIds={5,4,0,1,2,3};
         SeekBar[] sliders=new SeekBar[3];EditText[] fields=new EditText[3];boolean[] changing={false};
         Runnable refresh=()->{int r=sliders[0].getProgress(),g=sliders[1].getProgress(),b=sliders[2].getProgress();preview.setBackgroundColor(android.graphics.Color.rgb(r,g,b));preview.setTextColor((r*299+g*587+b*114)>145000?0xff000000:0xffffffff);preview.setText(String.format(java.util.Locale.ROOT,"#%02X%02X%02X   RGB %d, %d, %d",r,g,b,r,g,b));};
         String[] names={"R","G","B"};

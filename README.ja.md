@@ -6,7 +6,7 @@ Myth II: SoulblighterをQuest 3 / 3Sで遊ぶ非公式VR版です。戦場を立
 
 **APK・初回ランタイム・Plugin Managerを下のリンクからダウンロードできます。** 原作のISOと1.8.5アップデーターは別途ご用意ください。
 
-[ダウンロード](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.4.0-beta) · [導入手順](docs/INSTALL.ja.md) · [操作方法](docs/CONTROLS.ja.md)
+[ダウンロード](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.5.0-beta) · [導入手順](docs/INSTALL.ja.md) · [操作方法](docs/CONTROLS.ja.md)
 
 <p>
   <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-01.png"><img src="docs/images/screenshot-01.png" height="120" alt=""></a>
@@ -54,7 +54,7 @@ Myth II 1.8.5パッチ、高精細マップテクスチャ・ハイレゾスプ�
 
 ## 更新履歴
 
-**0.4.0-beta** — アトラス化・まとめ描画、水面反射の軽量化、天候修正、UI色・太さ設定、右グリップ＋Bの選択解除。
+**0.5.0-beta** — マルチプレイチャット・両手キーボード・ミニマップへの書き込み、操作の入れ替え、描画最適化、色補正とBloom（初期OFF）。
 
 **0.3.2-beta** — ハッシュ形式のノーマルパック。復元不要で転送でき、ファイル容量とVR読み込み時間を削減。
 
@@ -65,3 +65,5 @@ Myth II 1.8.5パッチ、高精細マップテクスチャ・ハイレゾスプ�
 [描画設定・FPS](docs/GRAPHICS.ja.md) · [スプライト材質エディタ](docs/MATERIALS.ja.md)
 
 [ノーマルマップ集（206コレクション）の導入](docs/NORMAL_LIBRARY.ja.md)
+
+[キーボード・チャット](docs/KEYBOARD.ja.md)

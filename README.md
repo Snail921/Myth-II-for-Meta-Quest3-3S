@@ -6,7 +6,7 @@ An unofficial VR version of Myth II: Soulblighter for Quest 3 / 3S. View the bat
 
 **Download the APK, initial runtime and Plugin Manager below.** Supply your own original ISO and 1.8.5 updater.
 
-[Downloads](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.4.0-beta) · [Installation guide](docs/INSTALL.md) · [Controls](docs/CONTROLS.md)
+[Downloads](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.5.0-beta) · [Installation guide](docs/INSTALL.md) · [Controls](docs/CONTROLS.md)
 
 <p>
   <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-01.png"><img src="docs/images/screenshot-01.png" height="120" alt=""></a>
@@ -54,7 +54,7 @@ For developers: [Build notes](docs/BUILD.md) · [Release preparation](docs/RELEA
 
 ## Updates
 
-**0.4.0-beta** — Sprite atlas batching, hidden-water reflection culling, weather fixes, UI color/width settings and grip+B deselection.
+**0.5.0-beta** — Multiplayer chat, two-hand keyboard, minimap drawing, independent control swaps, rendering optimizations, color correction and Bloom (default OFF).
 
 **0.3.2-beta** — Hash-only normal packs: direct transfer, smaller files and faster VR loading.
 
@@ -65,3 +65,5 @@ For developers: [Build notes](docs/BUILD.md) · [Release preparation](docs/RELEA
 [Graphics settings and FPS](docs/GRAPHICS.md) · [Sprite Material Editor](docs/MATERIALS.md)
 
 [Install the normal-map library (206 collections)](docs/NORMAL_LIBRARY.md)
+
+[Keyboard and chat](docs/KEYBOARD.md)

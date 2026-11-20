@@ -7,6 +7,8 @@ import java.util.*;
 final class UiLanguage {
  static final Map<String,String[]> translations=new HashMap<>();
  static {
+  translations.put("OFF：マップ専用の空。ON：シナリオを含む配置済みの全スカイボックスから対戦ごとに選択。協力プレイ・シナリオには適用しません。次の対戦から反映。 / OFF: map-specific sky. ON: choose from all installed skies, including campaigns, once per match. Does not affect co-op or campaign levels. Applies to the next match.",new String[]{"OFF：マップ専用の空。ON：シナリオを含む配置済みの全スカイボックスから対戦ごとに選択。協力プレイ・シナリオには適用しません。次の対戦から反映。","OFF: map-specific sky. ON: choose from all installed skies, including campaigns, once per match. Does not affect co-op or campaign levels. Applies to the next match."});
+  translations.put("対戦専用：ランダムスカイボックス / Multiplayer matches: random skybox",new String[]{"対戦専用：ランダムスカイボックス","Multiplayer matches: random skybox"});
   translations.put("強調色 / Accent color",new String[]{"強調色","Accent color"});
   translations.put("適用 / Apply",new String[]{"適用","Apply"});
   translations.put("初期値 / Default",new String[]{"初期値","Default"});
@@ -52,7 +54,6 @@ final class UiLanguage {
   translations.put("1.00：従来の速度。各項目1.00～3.00倍。VRへ戻ると反映されます。\n左手メニューボタン：手首ミニマップの表示切り替え。",new String[]{"1.00：従来の速度。各項目1.00～3.00倍。VRへ戻ると反映されます。\n左手メニューボタン：手首ミニマップの表示切り替え。","1.00: original speed. Range: 1.00–3.00x. Applied when returning to VR.\nLeft menu button toggles the wrist minimap."});
   translations.put("Initial setup / 初回データ展開",new String[]{"初回データ展開","Initial setup"});
   translations.put("Start Myth II / Myth II を起動",new String[]{"Myth II を起動","Start Myth II"});
-  translations.put("Enter VR / VRに戻る",new String[]{"VRに戻る","Enter VR"});
   translations.put("Status / 状態を更新",new String[]{"状態を更新","Status"});
   translations.put("詳細ログをADBへ出力します。PCへの保存にはUSB接続と収集ツールが必要です。",new String[]{"詳細ログをADBへ出力します。PCへの保存にはUSB接続と収集ツールが必要です。","Writes detailed logs to ADB. Saving logs on a PC requires USB and a log capture tool."});
   translations.put("診断ログ / Diagnostic logging",new String[]{"診断ログ","Diagnostic logging"});
@@ -81,7 +82,7 @@ final class UiLanguage {
  }
  static {
   translations.put("最大光源数 / Maximum lights",new String[]{"最大光源数","Maximum lights"});translations.put("Myth II Standalone Test\nLoad a campaign level in the original menu. VR opens automatically when the map is ready.\n原作メニューでキャンペーンのレベルをロードするとVRに切り替わります。",new String[]{"原作メニューでレベルを開始すると、自動でVRへ切り替わります。","Load a level in the original menu to enter VR automatically."});}
- static boolean english(Context c){return c.getSharedPreferences("launcher_ui",0).getString("language","ja").equals("en");}
+ static boolean english(Context c){return c.getSharedPreferences("launcher_ui",0).getString("language","en").equals("en");}
  static String text(Context c,String s){String[] v=translations.get(s);return v==null?s:v[english(c)?1:0];}
  static void selector(Activity a,LinearLayout layout,java.util.function.BooleanSupplier busy){
   Spinner spinner=new Spinner(a);spinner.setAdapter(new ArrayAdapter<String>(a,android.R.layout.simple_spinner_dropdown_item,new String[]{"日本語","English"}));

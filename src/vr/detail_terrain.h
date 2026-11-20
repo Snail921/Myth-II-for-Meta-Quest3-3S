@@ -1,5 +1,6 @@
 #pragma once
 #include "terrain_options.h"
+#include "detail_materials.h"
 // Optional external detail map. Original terrain, live stains/shade/light stay in tex unit 0.
 static GLuint detailArray=0,detailBuffer=0;
 static unsigned detailCount=0;
@@ -29,16 +30,18 @@ static void loadDetailTerrain(android_app*a){
 }
 static void buildDetailTerrain(const std::vector<Vertex>&terrain){
  if(!detailCount)return;
- std::vector<float> data;data.reserve(terrain.size()*6);
+ std::vector<float> data;data.reserve(terrain.size()*6);size_t before=0,after=0;
  for(size_t i=0;i<terrain.size();i+=3){
   unsigned xs[3],ys[3];for(unsigned k=0;k<3;k++){xs[k]=unsigned(lroundf(terrain[i+k].u*levelWidth));ys[k]=unsigned(lroundf(terrain[i+k].v*levelHeight));}
   unsigned x=std::min({xs[0],xs[1],xs[2]}),y=std::min({ys[0],ys[1],ys[2]});
   // Original triangle override table swaps order on alternating diagonals.
   // Verified against 0x4299e3, including all four cells of its 2x2 fan.
   unsigned tri=(i/3)%2;unsigned overrideID=detailTriangles[(y*levelWidth+x)*2+(tri^(((x^y)&1)?0:1))];
-  float ids[3];for(unsigned k=0;k<3;k++)ids[k]=float(overrideID?overrideID:detailVertices[ys[k]*levelWidth+xs[k]]);
-  for(unsigned k=0;k<3;k++){data.insert(data.end(),ids,ids+3);for(unsigned c=0;c<3;c++)data.push_back(c==k?1.f:0.f);}
+  std::array<unsigned,3> ids;for(unsigned k=0;k<3;k++){ids[k]=overrideID?overrideID:detailVertices[ys[k]*levelWidth+xs[k]];before+=ids[k]>0;}
+  auto compact=detail_materials::compact(ids);after+=compact.samples;
+  for(unsigned k=0;k<3;k++){data.insert(data.end(),compact.ids.begin(),compact.ids.end());data.insert(data.end(),compact.weights[k].begin(),compact.weights[k].end());}
  }
+ LOG("Terrain detail compact triangles=%zu samples_before=%zu samples_after=%zu",terrain.size()/3,before,after);
  glGenBuffers(1,&detailBuffer);glBindBuffer(GL_ARRAY_BUFFER,detailBuffer);glBufferData(GL_ARRAY_BUFFER,data.size()*sizeof(float),data.data(),GL_STATIC_DRAW);
 }
 static void useDetailTerrain(bool enable){

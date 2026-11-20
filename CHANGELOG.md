@@ -2,6 +2,17 @@
 
 **English** | [日本語](CHANGELOG.ja.md)
 
+## 0.5.0-beta — 2026-11-20
+
+- Multiplayer Yell/Whisper, two-hand keyboard, fixed/follow placement, relative sliders and blinking caret.
+- Stable original-menu/lobby keyboard opening with a one-second B/Y hold. Enter closes; Close sends no key.
+- Minimap pen/eraser, team sharing, continuous simplified strokes and rotation lock while drawing. Map rotation defaults OFF.
+- Independent trigger, grip, A/X, Y/B and stick swaps, plus pointer/UI-hand swap. All default OFF.
+- Tabbed Manager and resizable log, combined base single-player/multiplayer setup. English defaults for app and PC tools.
+- Optimized particle batching, shared reflection preparation, terrain visibility culling and repeated detail-material samples.
+- Color correction and Bloom, both default OFF. Bloom supports 1/32–1/2, 1–4 iterations and 0–200% strength.
+- Updated English/Japanese controls, keyboard, graphics and setup guides.
+
 ## 0.4.0-beta — 2026-11-19
 
 - Added optional sprite atlas batching for all levels, with shared normal maps, stereo upload reuse, 2048-pixel pages and a 768 MiB budget with fallback. Record per-level high-water usage for playthrough diagnosis.

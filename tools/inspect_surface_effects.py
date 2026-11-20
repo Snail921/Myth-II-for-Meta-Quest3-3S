@@ -21,6 +21,9 @@ def inspect(raw):
         p = d + u(raw, r + 64)
         bounded(p, 64)
         views, n = struct.unpack_from('>2h', raw, p + 8)
+        if views == 0 and n == 0 and u(raw, r + 68) == 64:
+            frames.append(dict(sequence=seq, name=raw[r:r+64].split(b'\0')[0].decode('mac_roman'), maps=[]))
+            continue
         if not 0 < views <= 64 or not 0 < n <= 256:
             raise ValueError('sequence dimensions')
         bounded(p + 64, n * (46 + 2 * views))

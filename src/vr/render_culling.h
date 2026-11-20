@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <vector>
 #include <cstddef>
 #include <algorithm>
 #include <cmath>
@@ -53,6 +54,11 @@ template<class Vertex> Rect projectedTriangles(const std::array<float,16>&m,cons
  }return result;
 }
 struct Range {int first=0,count=0;Bounds bounds;};
+// Keep original primitive order, merging only contiguous visible vertex ranges.
+struct DrawRange {int first=0,count=0;};
+template<class View> unsigned visibleRanges(const std::vector<Range>&source,const View&view,std::vector<DrawRange>&out){
+ out.clear();unsigned visible=0;for(const auto&r:source){if(!view.visible(r.bounds))continue;++visible;if(!out.empty()&&out.back().first+out.back().count==r.first)out.back().count+=r.count;else out.push_back({r.first,r.count});}return visible;
+}
 }
 static rendercull::Frustum reflectionCull;
 static rendercull::Rect reflectionScreenRect;

@@ -18,8 +18,6 @@ public final class StandaloneBridge {
     private static Process capture;
     private static File base;
     private static final Handler inputHandler=new Handler(Looper.getMainLooper());
-    private static Runnable holdAction;
-    private static boolean triggerDown;
     private static String lastDiagnostic="";
     private static Context audioContext;
     private static boolean lifecycleRegistered;
@@ -87,32 +85,9 @@ public final class StandaloneBridge {
             return mode==android.app.AppOpsManager.MODE_ALLOWED?"Audio output: allowed / 音声出力は許可されています。":"Audio output is muted by Quest. Unmute this app in the Quest panel. / Quest側でアプリがミュートされています。アプリの音量設定をご確認ください。";
         }catch(Exception e){return "Audio policy check unavailable: "+e;}
     }
-    public static void cancelPanelHold(){if(holdAction!=null)inputHandler.removeCallbacks(holdAction);holdAction=null;triggerDown=false;}
-    private static void panelTrigger(Activity a,boolean down){
-        if(down==triggerDown)return;
-        if(!down){cancelPanelHold();return;}
-        triggerDown=true;
-        holdAction=()->{if(!triggerDown||a.isFinishing())return;try{
-            new Thread(()->{try(java.net.DatagramSocket socket=new java.net.DatagramSocket()){
-                byte[] packet=new byte[256];packet[0]=11;packet[1]=27;
-                java.net.InetAddress local=java.net.InetAddress.getByName("127.0.0.1");
-                socket.send(new java.net.DatagramPacket(packet,packet.length,local,7946));
-                Thread.sleep(80);packet[2]=2;socket.send(new java.net.DatagramPacket(packet,packet.length,local,7946));
-            }catch(Exception e){report("Skip keyboard delivery failed: "+e);}},"MythSkip").start();
-            report("Panel trigger held 1 second: sent original Escape key");
-        }catch(Exception e){report("Panel skip failed: "+e);}};
-        inputHandler.postDelayed(holdAction,1000);
-    }
-    public static void panelMotion(Activity a,android.view.MotionEvent e){
-        PanelKeyboard.traceMotion(e);
-        int action=e.getActionMasked();
-        if(action==android.view.MotionEvent.ACTION_DOWN)panelTrigger(a,true);
-        else if(action==android.view.MotionEvent.ACTION_UP||action==android.view.MotionEvent.ACTION_CANCEL)panelTrigger(a,false);
-        else if(action==android.view.MotionEvent.ACTION_BUTTON_PRESS)panelTrigger(a,(e.getButtonState()&android.view.MotionEvent.BUTTON_PRIMARY)!=0);
-        else if(action==android.view.MotionEvent.ACTION_BUTTON_RELEASE)panelTrigger(a,false);
-        else if((e.getSource()&android.view.InputDevice.SOURCE_JOYSTICK)==android.view.InputDevice.SOURCE_JOYSTICK)panelTrigger(a,e.getAxisValue(android.view.MotionEvent.AXIS_RTRIGGER)>.55f);
-    }
-    public static boolean panelKey(Activity a,android.view.KeyEvent e){PanelKeyboard.traceKey("activity",e);if(PanelKeyboard.menuKey(a,e))return true;if(e.getKeyCode()==android.view.KeyEvent.KEYCODE_BUTTON_R2)panelTrigger(a,e.getAction()==android.view.KeyEvent.ACTION_DOWN);return false;}
+    public static void cancelPanelHold(){} // Retained for overlay callers; long-hold Escape removed.
+    public static void panelMotion(Activity a,android.view.MotionEvent e){PanelKeyboard.traceMotion(e);}
+    public static boolean panelKey(Activity a,android.view.KeyEvent e){PanelKeyboard.traceKey("activity",e);return PanelKeyboard.menuKey(a,e);}
     private static int intAt(RandomAccessFile f,long p)throws IOException{f.seek(p);return Integer.reverseBytes(f.readInt());}
     private static int shortAt(RandomAccessFile f,long p)throws IOException{f.seek(p);return Short.toUnsignedInt(Short.reverseBytes(f.readShort()));}
     private static void diagnose(int pid){try(RandomAccessFile f=new RandomAccessFile("/proc/"+pid+"/mem","r")){
@@ -175,7 +150,7 @@ public final class StandaloneBridge {
         String[] command=new String[args.length+1];command[0]=c.getApplicationInfo().nativeLibraryDir+"/lib"+tool+".so";System.arraycopy(args,0,command,1,args.length);
         return new ProcessBuilder(command).directory(base).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.appendTo(new File(base,"files/standalone-native.log"))).start();
     }
-    private static int findGame(){
+    static int findGame(){
         File[] all=new File("/proc").listFiles();if(all==null)return -1;
         for(File f:all){if(!f.getName().matches("[0-9]+"))continue;
             try{byte[] b=Files.readAllBytes(new File(f,"cmdline").toPath());int n=0;while(n<b.length&&b[n]!=0)n++;String name=new String(b,0,n,StandardCharsets.UTF_8);if(name.equals("Myth II.exe"))return Integer.parseInt(f.getName());}catch(Exception ignored){}
@@ -269,6 +244,10 @@ public final class StandaloneBridge {
             for(int off:new int[]{0,4,8,28}){float value=Float.intBitsToFloat(intAt(f,0x54e43c+off));if(Float.isNaN(value)||Float.isInfinite(value))throw new IOException("invalid original camera");if(off==0)value=Math.max(.5f,Math.min(Integer.parseInt(level[2])-1.5f,value));if(off==4)value=Math.max(.5f,Math.min(Integer.parseInt(level[3])-1.5f,value));b.putFloat(value);}
         }
         android.util.AtomicFile file=new android.util.AtomicFile(new File(c.getFilesDir(),"active-level.bin"));FileOutputStream out=file.startWrite();try{out.write(b.array());file.finishWrite(out);}catch(Exception e){file.failWrite(out);throw e;}
+        try(RandomAccessFile f=new RandomAccessFile("/proc/"+pid+"/mem","r")){
+            if(Integer.toUnsignedLong(intAt(f,EngineProfile.MESH))!=activeMesh)throw new IOException("map changed before sky choice");
+            SkyboxChoice.prepare(c,shortAt(f,EngineProfile.GAME_STATE+8),level[8],Float.parseFloat(level[7]));
+        }
         LevelAssets.publish(c);
         activeLevel=level[0];activeDefinition=level;report("Level prepared: "+level[8]+" "+level[2]+"x"+level[3]+" collections="+matched);
     }
@@ -284,7 +263,11 @@ public final class StandaloneBridge {
     }catch(Exception e){return false;}}
     public static synchronized void onEngine(Activity activity){
         PanelKeyboard.attach(activity);
+        PanelPointer.attach(activity);
         OriginalDialogs.attach(activity);
+        TextInputDiagnostics.attach(activity);
+        RenameKeyboard.attach(activity);
+        IconInputDiagnostics.attach(activity);
         if(monitoring)return;monitoring=true;opened=false;levelCatalog=null;
         Context c=activity.getApplicationContext();
         new Thread(()->{int previousPid=-1,borderlessPid=-1,attempt=0;byte[] lastWindowReport=null;try{

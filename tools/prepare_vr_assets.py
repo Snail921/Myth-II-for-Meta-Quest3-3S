@@ -55,6 +55,10 @@ def decode(b, palette_indices=False):
  for i in range(u(b,128)):
   r=d+u(b,132)+i*128;p=d+u(b,r+64);flags=u(b,p);scale=struct.unpack_from('>i',b,p+4)[0]/65536
   views,frames=struct.unpack_from('>hh',b,p+8)
+  # TFL's keep preview has a named, header-only placeholder sequence.
+  # Preserve its sequence index without inventing a drawable frame.
+  if views==0 and frames==0 and u(b,r+68)==64:
+   seq.append((flags,scale,[]));continue
   if not 0<views<=64 or not 0<frames<=256:raise ValueError('sequence dimensions')
   refs=[list(struct.unpack_from('>'+'h'*views,b,p+64+f*(46+2*views)+46)) for f in range(frames)]
   if any(v<0 or v>=len(instances) for row in refs for v in row):raise ValueError('instance reference')

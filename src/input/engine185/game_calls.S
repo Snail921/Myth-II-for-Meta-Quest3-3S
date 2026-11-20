@@ -86,3 +86,19 @@ _detach_selected185:
  movl 4(%esp),%eax
  movl $0x4ca568,%edx
  jmp *%edx
+
+.globl _map_pen_mode185
+_map_pen_mode185:
+ movl 4(%esp),%ecx
+ movl $0x49eeb1,%eax
+ jmp *%eax
+.globl _map_pen_flush185
+_map_pen_flush185:
+ pushl %esi
+ xorl %esi,%esi
+ pushl 8(%esp)
+ movl $0x49f9e1,%eax
+ call *%eax
+ addl $4,%esp
+ popl %esi
+ ret

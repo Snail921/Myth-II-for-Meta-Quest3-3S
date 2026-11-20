@@ -8,7 +8,7 @@
 - Quest 3 / 3S and a USB data cable
 - A Windows PC
 - Your own Myth II CD ISO and Windows 1.8.5 updater
-- Manager, APK and initial runtime from [Releases](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.3.2-beta)
+- Manager, APK and initial runtime from [Releases](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.5.0-beta)
 
 The Myth II 1.8.5 patch, high-resolution map textures and sprites (Twice Born Edition), and plugins such as The Fallen Levels are available from [Project Magma](https://projectmagma.net/).
 
@@ -34,7 +34,7 @@ Extract the runtime ZIP too. Select **runtime-seed.tar** from it in step 3.
 
 Set **Work/output folder** to a drive with enough free space. Base setup needs at least 8 GiB, plus room for HD addons and conversion/transfer files.
 
-In the lower **Base game setup** section, choose:
+In the **Setup** tab, choose:
 
 | Field | Select |
 | --- | --- |
@@ -55,7 +55,7 @@ Click **Extract original and convert all levels** and wait for completion. **Set
 3. Open the Quest app library, select **Unknown Sources** in the list filter, and click **Myth II for Meta Quest 3 / 3S** once. Allow file access when prompted. Do not start the original game yet.
 4. In Manager, set **ADB** to **adb.exe** from Platform Tools. Refresh the device list and select your Quest.
 5. Set **Setup result** to the output from step 2, and **Runtime data** to the matching **runtime-seed.tar**.
-6. Click **Deploy setup data**. Keep USB connected until completion.
+6. Click **Transfer setup data to Quest**. Keep USB connected until completion.
 
 Fresh setup does not overwrite an existing game installation. Use the plugin steps below to add campaigns.
 
@@ -115,3 +115,21 @@ For an existing conversion, choose its **Converted bundle** folder and deploy di
 To update, install the new APK over the existing app. Do not uninstall or repeat Initial setup.
 
 Optional features: [Graphics and FPS](GRAPHICS.md) · [Normal-map creation and transfer](MATERIALS.md)
+
+## Convert base or additional multiplayer maps
+
+Select the original game folder in Manager. Leave the plugin field blank for base maps, or select the gameplay plugin for additional maps. Use **1 Inspect levels** to check the type (single-player, multiplayer or both) and validation result, then **2 Convert all levels** and **3 Deploy to Quest**. Exit the original game before deployment.
+
+Base-pack updates replace LevelPacks only; they do not replace the game, saves or preferences under Game. Standard data contains 27 single-player and 20 multiplayer maps. Incomplete maps, missing game modes and missing assets remain checked. A supported conversion result does not certify every multiplayer rule in VR. Use matching game/plugin data on all peers.
+
+## Manager layout and upgrading to 0.5.0
+
+Manager has **Setup** and **Plugins & materials** tabs. The shared log can be enlarged by dragging the divider. Manager, Sprite Editor and the Quest launcher default to English; saved Japanese preferences are retained.
+
+New base setup converts single-player and multiplayer maps together. Below **Add optional HD addons** are **Extract original and convert all levels**, **Setup result**, then **Transfer setup data to Quest**. Setup result is the PC conversion output folder, reusable for later transfer.
+
+Update the APK in place; do not repeat runtime Initial setup. The new Manager extracts the original pen/eraser artwork into SharedAssets. If upgrading older setup data without those images, convert your own game into a new PC folder with the new Manager, exit the original game, then transfer only that output's SharedAssets as below. Do not overwrite the existing Game folder or saves.
+
+Replace the PC output path with your actual location. Restart the app after transfer.
+
+    adb push "C:/path/to/new-setup/SharedAssets" /sdcard/Android/data/org.mythvr.standalone/files/

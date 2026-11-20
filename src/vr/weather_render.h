@@ -16,7 +16,7 @@ static void initWeatherSetting(const char*root){weatherVR=snowVR=true;weatherPol
 
 static void initWeather(){
  if(weatherProgram)return;
- std::string vs=spriteShaderSource(mythVertexShader,false,false,false),fs=spriteShaderSource(mythFragmentShader,false,false,false);
+ std::string vs=spriteShaderSource(mythVertexShader,false,false,false),fs=scene_correction::fragment(spriteShaderSource(mythFragmentShader,false,false,false),scene_correction::enabled);
  auto replace=[](std::string&s,const char*a,const char*b){auto p=s.find(a);if(p==std::string::npos)throw std::runtime_error("weather shader template");s.replace(p,strlen(a),b);};
  replace(vs,"out float worldHeight;","out float worldHeight;out vec3 worldPosition;");
  replace(vs,"worldHeight=pos.y;","worldHeight=pos.y;worldPosition=pos;");
@@ -53,7 +53,7 @@ static void drawWeather(const Mat&mvp,bool reflected){
   } // density copies
   double uploadStart=diagnosticEnabled?seconds():0;weatherStream.upload(batches);if(diagnosticEnabled){weatherBuildMs+=(uploadStart-buildStart)*1000;weatherUploadMs+=(seconds()-uploadStart)*1000;weatherBytes+=weatherStream.packed.size()*sizeof(Vertex);++weatherBuilds;}
  }
- if(!weatherDrops)return;double submitStart=diagnosticEnabled?seconds():0;initWeather();glUseProgram(weatherProgram);applyFog(weatherProgram);
+ if(!weatherDrops)return;double submitStart=diagnosticEnabled?seconds():0;initWeather();glUseProgram(weatherProgram);scene_correction::apply(weatherProgram);applyFog(weatherProgram);
  glUniformMatrix4fv(glGetUniformLocation(weatherProgram,"mvp"),1,GL_FALSE,mvp.data());glUniform4f(glGetUniformLocation(weatherProgram,"tint"),1,1,1,weatherOpacity);glUniform1f(glGetUniformLocation(weatherProgram,"alphaCutoff"),.003f);glUniform1i(glGetUniformLocation(weatherProgram,"tex"),0);
  // GLES forbids different sampler types sharing a unit, even with detailEnabled=false.
  glUniform1i(glGetUniformLocation(weatherProgram,"detailTex"),1);glUniform1i(glGetUniformLocation(weatherProgram,"detailEnabled"),0);glUniform1i(glGetUniformLocation(weatherProgram,"softOnly"),0);glActiveTexture(GL_TEXTURE0);

@@ -4,7 +4,7 @@ static void initOriginalDialogs(android_app*);
 static GLuint wristMapTexture=0;
 static float wristMapAspect=1;
 static void loadWristMap(android_app*a){
- wristMapTexture=0;wristMapPoseValid=false;wristMapShown=true;infoPanelShown=true;loadInfoFont(a);initOriginalDialogs(a);
+ mapPenEnabled=mapPenStroke=false;mapPenMesh=0;wristMapTexture=0;wristMapPoseValid=false;wristMapShown=true;infoPanelShown=true;loadInfoFont(a);initOriginalDialogs(a);
  try{
   auto b=asset(a,"minimap.rgba");if(b.size()<8)throw std::runtime_error("map header");
   unsigned w=u32(b.data()),h=u32(b.data()+4);
@@ -34,10 +34,11 @@ static WristMapPlane wristMapPlane(bool tracking=false){
  Vec3 center=add({hand.position.x,hand.position.y,hand.position.z},rotated(hand.orientation,{0,.08f,.10f}));
  Vec3 viewer=tracking?wristMapViewer:add(camera,turn(wristMapViewer,cameraYaw));
  float width=.15f*cameraSpeeds.mapSize;
- return {center,wristMapReadableRight(hand,center,viewer),rotated(hand.orientation,{0,sinf(cameraSpeeds.mapPitch),-cosf(cameraSpeeds.mapPitch)}),turn(wristMapForward,cameraYaw),width,width*wristMapAspect};
+ return {center,wristMapReadableRight(hand,center,viewer),rotated(hand.orientation,{0,sinf(cameraSpeeds.mapPitch),-cosf(cameraSpeeds.mapPitch)}),mapPenEnabled?mapPenForward:(cameraSpeeds.mapRotation?turn(wristMapForward,cameraYaw):Vec3{0,0,-1}),width,width*wristMapAspect};
 }
 #include "selection_panel.h"
 #include "original_dialog.h"
+#include "multiplayer_hud_draw.h"
 static bool hitWristMap(Vec3 origin,Vec3 direction,Vec3&hit,float&u,float&v,bool tracking){
  if(!wristMapShown||!wristMapPoseValid||!wristMapTexture||radial.kind)return false;
  auto m=wristMapPlane(tracking);Vec3 n{m.right.y*m.up.z-m.right.z*m.up.y,m.right.z*m.up.x-m.right.x*m.up.z,m.right.x*m.up.y-m.right.y*m.up.x};
@@ -77,6 +78,21 @@ static void drawWristMap(const XrPosef&eye){
  auto drawMesh=[&](const std::vector<Vertex>&v,GLuint texture,float r,float g,float b){if(v.empty())return;glBindTexture(GL_TEXTURE_2D,texture);glUniform4f(glGetUniformLocation(program,"tint"),r,g,b,1);glBufferData(GL_ARRAY_BUFFER,v.size()*sizeof(Vertex),v.data(),GL_STREAM_DRAW);glDrawArrays(GL_TRIANGLES,0,v.size());};
  std::vector<Vertex> background;quad(background,.5f,.5f,.515f,.5f+.015f/wristMapAspect);drawMesh(background,whiteTexture,.08f,.1f,.12f);
  background.clear();quad(background,.5f,.5f,.5f,.5f);drawMesh(background,wristMapTexture,1,1,1);
+ // Original byte coordinates follow the artwork X axis, opposite mesh X.
+ if(seconds()-mapPen.updated<3&&mapPen.rangeX()>0&&mapPen.rangeY()>0){
+  auto*p=mapPen.data.data();unsigned count=u32(p+4);int team=int(u32(p+8))-1;bool previous=false;float pu=0,pv=0;
+  auto line=[&](float u,float v,float uu,float vv,const unsigned char*color){
+   auto a=local(u,v),b=local(uu,vv);float dx=b.x-a.x,dy=b.y-a.y,len=sqrtf(dx*dx+dy*dy);if(len<.000001f)return;
+   float r=.00045f*cameraSpeeds.mapSize,ox=-dy*r/len,oy=dx*r/len;
+   drawMesh({panelPoint(a.x+ox,a.y+oy),panelPoint(a.x-ox,a.y-oy),panelPoint(b.x+ox,b.y+oy),panelPoint(a.x-ox,a.y-oy),panelPoint(b.x-ox,b.y-oy),panelPoint(b.x+ox,b.y+oy)},whiteTexture,color[0]/255.f,color[1]/255.f,color[2]/255.f);
+  };
+  for(unsigned i=0;i<count;i++){unsigned x=p[160+i*2],y=p[161+i*2];if(!x){previous=false;if(y)team=int(y)-2;continue;}
+   float u=std::clamp(1-x/mapPen.rangeX(),0.f,1.f),v=std::clamp(y/mapPen.rangeY(),0.f,1.f);
+   unsigned char fallback[4]={255,64,64,255};const auto*color=team>=0&&team<32?p+32+team*4:fallback;
+   if(previous)line(pu,pv,u,v,color);pu=u;pv=v;previous=true;
+  }
+  if(mapPenEnabled){const unsigned char red[4]={255,32,32,255};line(0,0,1,0,red);line(1,0,1,1,red);line(1,1,0,1,red);line(0,1,0,0,red);}
+ }
  std::vector<Vertex> markers[4];
  const float dot=.0004f*cameraSpeeds.mapSize;
  for(const auto&o:objects){
@@ -90,8 +106,11 @@ static void drawWristMap(const XrPosef&eye){
  Vec3 headWorld=add(camera,turn(wristMapViewer,cameraYaw));
  float u=std::clamp((originX-headWorld.x/scale)/levelWidth,0.f,1.f),v=std::clamp((originY+headWorld.z/scale)/levelHeight,0.f,1.f);
  auto marker=local(u,v);float size=.006f*cameraSpeeds.mapSize;
- // Camera always points up; hollow triangle is independent of map rotation.
+ // With a fixed map, rotate the camera marker instead of the artwork.
+ Vec3 heading=turn(wristMapForward,cameraYaw);
+ Vec3 direction=wristMapHeadingPoint(-heading.x,heading.z,plane.forward);
  float px[3]={0,-.5f,.5f},py[3]={1,-.5f,-.5f};
+ for(int i=0;i<3;i++){float x=px[i],y=py[i];px[i]=x*direction.y+y*direction.x;py[i]=-x*direction.x+y*direction.y;}
  std::vector<Vertex> arrow;constexpr float inner=.70f;
  for(int i=0;i<3;i++){int j=(i+1)%3;
   auto a=panelPoint(marker.x+px[i]*size,marker.y+py[i]*size),b=panelPoint(marker.x+px[j]*size,marker.y+py[j]*size);
@@ -113,6 +132,13 @@ static void drawWristMap(const XrPosef&eye){
    auto a=panelPoint(pen-4*pixel,top,u,v),b=panelPoint(pen+28*pixel,top,u+1.f/16,v),c=panelPoint(pen-4*pixel,top-32*pixel,u,v+1.f/16),d=panelPoint(pen+28*pixel,top-32*pixel,u+1.f/16,v+1.f/16);
    glyphs.insert(glyphs.end(),{a,b,c,b,d,c});pen+=infoAdvance[ch]*pixel;
   }
+  // Eight neighboring copies form a dark grey outline, then the white face.
+  std::vector<Vertex> outline;outline.reserve(glyphs.size()*8);
+  for(int dy=-1;dy<=1;dy++)for(int dx=-1;dx<=1;dx++)if(dx||dy){
+   auto a=panelPoint(0,0),b=panelPoint(dx*pixel,dy*pixel);Vec3 offset{b.x-a.x,b.y-a.y,b.z-a.z};
+   for(auto v:glyphs){v.x+=offset.x;v.y+=offset.y;v.z+=offset.z;outline.push_back(v);}
+  }
+  drawMesh(outline,infoFont,.10f,.10f,.10f);
   drawMesh(glyphs,infoFont,1,1,1);
  };
  if(infoFont&&!originalDialogMode){
@@ -120,6 +146,6 @@ static void drawWristMap(const XrPosef&eye){
   if(fpsDisplay.enabled)drawMapNotice(fpsDisplay.label(),false);
   if(gameSpeed.value>=0&&seconds()<gameSpeed.until)drawMapNotice(std::string("Game Speed ")+gameSpeed.label(),true);
  }
- drawSelectionPanel();drawOriginalDialog();
+ drawSelectionPanel();drawMultiplayerHud();drawOriginalDialog();
  glDepthMask(GL_TRUE);glEnable(GL_DEPTH_TEST);glDisable(GL_BLEND);glUniform1f(glGetUniformLocation(program,"alphaCutoff"),.5f);glUniform4f(glGetUniformLocation(program,"tint"),1,1,1,1);
 }

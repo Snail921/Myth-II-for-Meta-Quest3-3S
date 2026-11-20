@@ -12,7 +12,7 @@ def body(s,signature,replacement):
 def region(s,start,end,new=''):
  a=s.index(start);b=s.index(end,a);return s[:a]+new+s[b:]
 p=Path('src/engine/profile_434.h').read_text(encoding='utf-8-sig');p=region(p,'#if MYTH_ENGINE_BUILD != 434','#define MVR_MESH');p=p.replace('#define MYTH_ENGINE_BUILD 434','#define MYTH_ENGINE_BUILD 471');(root/'profile.h').write_text(relocate(p))
-for name in ['collection_access.h','selection_eligibility.h','surface_capture.h','light_capture.h','particle_capture.h','shockwave_capture.h','weather_capture.h']:
+for name in ['multiplayer_hud.h','collection_access.h','selection_eligibility.h','surface_capture.h','light_capture.h','particle_capture.h','shockwave_capture.h','weather_capture.h']:
  shutil.copyfile(Path('src/bridge')/name,root/name)
 shutil.copyfile('src/engine/actor_wire.h',root/'actor_wire.h')
 s=Path('src/bridge/capture.c').read_text(encoding='utf-8-sig');s=s.replace('#include "../engine/profile_434.h"','#include "profile.h"\n#include "actor_wire.h"\n#define MVR_COLLECTION_RELATIVE 1')

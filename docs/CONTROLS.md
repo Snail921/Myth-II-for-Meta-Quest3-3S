@@ -2,7 +2,7 @@
 
 **English** | [日本語](CONTROLS.ja.md) · [README](../README.md) · [Setup](INSTALL.md)
 
-These are the default VR controls in **0.4.0-beta**. The right controller aims the pointer; the **left trigger** confirms battlefield selections and orders. A grip is the side button, not the trigger under your index finger.
+These are the default VR controls in **0.5.0-beta**. The right controller aims the pointer; the **left trigger** confirms battlefield selections and orders. A grip is the side button, not the trigger under your index finger.
 
 ## Select and command units
 
@@ -77,3 +77,21 @@ Use the right pointer and right trigger in the launcher and original game menus.
 Launcher settings are grouped into collapsible sections. The display section offers automatic resolution or 1680 × 1760, 1832 × 1920, 1920 × 2048 and 2064 × 2208 per eye; 72 / 80 / 90 / 120 Hz; and MSAA off / 2×. Unsupported refresh rates fall back to a supported runtime setting. A selected refresh rate is a target, not a guaranteed frame rate. Apply changes on the next VR start.
 
 [Enhanced shadows, lighting, LOD and FPS settings](GRAPHICS.md)
+
+## Swap gameplay controls
+
+In **Controls**, independently swap triggers, grips, A/X, Y/B and sticks (including clicks). All default to OFF. The tables above describe unswapped controls.
+
+**Swap left/right controllers** changes only the pointer/UI hands. ON uses the left gameplay pointer and right-hand UI; information-panel buttons, portrait and inventory exchange sides without mirroring text or artwork. Button/stick assignments follow their individual settings. Keyboard and Quest system controls are excluded. Changes apply on next VR entry.
+
+## Draw on the minimap
+
+In multiplayer, click the information-panel pen. A red border indicates pen mode. Aim at the map and hold the selection trigger (left by default) to draw instead of moving the camera. Lines use the team color and are shared with teammates on PC/VR. A held drag is one continuous stroke; redundant intermediate points are reduced. The original history limit still removes old points when exceeded.
+
+The eraser invokes the original erase operation; its scope follows the original game, rather than a separate VR-only personal-stroke history. Switch the pen OFF to restore normal map operation.
+
+**Allow Mini Map Rotation** defaults to OFF. ON follows HMD heading; pen mode locks the current angle and rotation resumes when pen mode ends.
+
+## Keyboard and chat
+
+See [Keyboard and chat](KEYBOARD.md) for original-screen B/Y holds, two-hand typing, Yell/Whisper and fixed/follow placement.

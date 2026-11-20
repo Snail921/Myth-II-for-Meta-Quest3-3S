@@ -15,9 +15,9 @@ int main(){
  unlink("/data/local/tmp/myth-wrist-test/camera.speeds");rmdir(root);
  EGLDisplay display=eglGetDisplay(EGL_DEFAULT_DISPLAY);assert(eglInitialize(display,0,0));EGLint aa[]={EGL_SURFACE_TYPE,EGL_PBUFFER_BIT,EGL_RENDERABLE_TYPE,EGL_OPENGL_ES3_BIT,EGL_RED_SIZE,8,EGL_GREEN_SIZE,8,EGL_BLUE_SIZE,8,EGL_ALPHA_SIZE,8,EGL_DEPTH_SIZE,24,EGL_NONE};EGLConfig cfg;EGLint n;assert(eglChooseConfig(display,aa,&cfg,1,&n)&&n);
  EGLint ca[]={EGL_CONTEXT_CLIENT_VERSION,3,EGL_NONE},pa[]={EGL_WIDTH,512,EGL_HEIGHT,512,EGL_NONE};auto context=eglCreateContext(display,cfg,EGL_NO_CONTEXT,ca);auto surface=eglCreatePbufferSurface(display,cfg,pa);assert(eglMakeCurrent(display,surface,surface,context));glViewport(0,0,512,512);
- program=glCreateProgram();glAttachShader(program,shader(GL_VERTEX_SHADER,mythVertexShader));glAttachShader(program,shader(GL_FRAGMENT_SHADER,mythFragmentShader));glLinkProgram(program);GLint linked;glGetProgramiv(program,GL_LINK_STATUS,&linked);assert(linked);glUseProgram(program);
+ program=glCreateProgram();glAttachShader(program,shader(GL_VERTEX_SHADER,spriteShaderSource(mythVertexShader,false,false,false).c_str()));glAttachShader(program,shader(GL_FRAGMENT_SHADER,spriteShaderSource(mythFragmentShader,false,false,false).c_str()));glLinkProgram(program);GLint linked;glGetProgramiv(program,GL_LINK_STATUS,&linked);assert(linked);glUseProgram(program);glUniform1i(glGetUniformLocation(program,"tex"),0);glUniform1i(glGetUniformLocation(program,"detailTex"),1);
  glGenVertexArrays(1,&vao);glBindVertexArray(vao);glGenBuffers(1,&vbo);glGenTextures(1,&whiteTexture);glBindTexture(GL_TEXTURE_2D,whiteTexture);unsigned char p[]={255,255,255,255};glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,1,1,0,GL_RGBA,GL_UNSIGNED_BYTE,p);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);wristMapTexture=whiteTexture;
- Mat m{5,0,0,0,0,5,0,0,0,0,1,0,0,0,0,1};glUniformMatrix4fv(glGetUniformLocation(program,"mvp"),1,GL_FALSE,m.data());camera={0,0,0};cameraYaw=0;wristMapAspect=1;wristMapShown=wristMapPoseValid=true;wristMapPose.orientation={sqrtf(.5f),0,0,sqrtf(.5f)};wristMapPose.position={0,.1f,-.08f};
+ Mat m{5,0,0,0,0,5,0,0,0,0,1,0,0,0,0,1};glUniformMatrix4fv(glGetUniformLocation(program,"mvp"),1,GL_FALSE,m.data());camera={0,0,0};cameraYaw=0;cameraSpeeds.mapPitch=0;wristMapAspect=1;wristMapShown=wristMapPoseValid=true;wristMapPose.orientation={sqrtf(.5f),0,0,sqrtf(.5f)};wristMapPose.position={0,.1f,-.08f};
  XrPosef upright{};upright.orientation.w=1;
  assert(wristMapReadableRight(upright,{0,0,0},{0,1,0}).x==1);
  assert(wristMapReadableRight(upright,{0,0,0},{0,-1,0}).x==-1);
@@ -49,4 +49,14 @@ int main(){
  puts("PASS asymmetric overhead artwork U flip aligned with original map positions");
  puts("PASS two-sided readable map basis and hollow yellow camera marker");
  puts("PASS camera settings defaults/bounds; wrist map 0.5/1/2 scale, hidden/tracking/menu gates, live markers, GL_NO_ERROR");
+ mapPen.data.fill(0);unsigned npoints=3;memcpy(mapPen.data.data()+4,&npoints,4);float range=128;
+ memcpy(mapPen.data.data()+16,&range,4);memcpy(mapPen.data.data()+20,&range,4);
+ mapPen.data[33]=255;mapPen.data[35]=255;unsigned char stroke[]={0,2,20,30,100,90};memcpy(mapPen.data.data()+160,stroke,6);
+ mapPen.updated=seconds();mapPenEnabled=true;mapPenForward={0,0,-1};render();
+ glReadPixels(0,0,512,512,GL_RGBA,GL_UNSIGNED_BYTE,image.data());unsigned greenLine=0,redBorder=0;
+ for(size_t i=0;i<image.size();i+=4){if(image[i]<10&&image[i+1]>240&&image[i+2]<10)greenLine++;if(image[i]>240&&image[i+1]<50&&image[i+2]<50)redBorder++;}
+ assert(greenLine>100&&redBorder>100&&glGetError()==GL_NO_ERROR);
+ mapPenEnabled=false;mapPen.data.fill(0);
+ puts("PASS team-colour annotation geometry and active red border on Quest GPU");
+
 }

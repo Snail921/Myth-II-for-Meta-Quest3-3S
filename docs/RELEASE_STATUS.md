@@ -12,4 +12,8 @@ The new build scripts use the pinned upstream Winlator APK and project sources. 
 
 Use the runtime linked from the latest release; it is unchanged from 0.1.0-beta. Existing installations retain their game data and saves; do not repeat base setup over an existing Game folder.
 
-See the [changelog](../CHANGELOG.md) and [graphics guide](GRAPHICS.md) for 0.4.0-beta. The initial runtime remains the same as 0.1.0-beta; use the link in the latest release. FPS depends on the scene and settings; enhanced features do not guarantee 90 FPS.
+See the [changelog](../CHANGELOG.md) and [graphics guide](GRAPHICS.md) for 0.5.0-beta. The initial runtime remains the same as 0.1.0-beta; use the link in the latest release. FPS depends on the scene and settings; enhanced features do not guarantee 90 FPS.
+
+## 0.5.0 validation
+
+Color correction and Bloom were user-confirmed on Quest. GPU tests cover every Bloom resolution, MSAA on/off, sky exclusion, state restoration and no residual glow between eyes. Seven Manager conversion/deployment tests pass. The APK retains the previous signing certificate; Java, rendering and capture entries match the headset-tested build. Rebuilt Windows helpers have identical executable sections, with changed timestamps only. The source ZIP includes the same source and bilingual controls/keyboard/graphics/setup guides as the repository.
