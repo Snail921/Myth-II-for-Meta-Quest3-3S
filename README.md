@@ -2,9 +2,9 @@
 
 **English** | [日本語](README.ja.md)
 
-An unofficial VR version of Myth II: Soulblighter for Quest 3 / 3S. View the battlefield in stereo and command your units with the controllers. No PC connection is needed while playing.
+An unofficial VR frontend for playing Myth II: Soulblighter on Quest 3 / 3S. Step into an immersive battlefield and select and command your units with the controllers. Setup requires a PC, but gameplay runs entirely standalone on Meta Quest 3 / 3S.
 
-**Download the APK, initial runtime and Plugin Manager below.** Supply your own original ISO and 1.8.5 updater.
+**Download the APK, initial runtime and Plugin Manager below.** Setup requires your own original game ISO and the 1.8.5 updater.
 
 [Downloads](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.5.0-beta) · [Installation guide](docs/INSTALL.md) · [Controls](docs/CONTROLS.md)
 
@@ -19,12 +19,12 @@ An unofficial VR version of Myth II: Soulblighter for Quest 3 / 3S. View the bat
 
 ## From download to playing
 
-1. **Prepare on PC** — Use Plugin Manager to convert your own Myth II CD ISO and 1.8.5 updater.
-2. **Copy to Quest** — Install the APK, connect USB and transfer the prepared data using Manager.
-3. **Start the game** — Open the Quest app library → **Unknown Sources** → **Myth II for Meta Quest 3 / 3S**. Run **Initial setup** once, then choose **Start Myth II**.
-4. **Play** — Start a level in the original menu; the battlefield switches to VR.
+1. **Prepare on PC** — Prepare an ISO of your own original Myth II CD and the 1.8.5 updater, then use Plugin Manager to convert the data for VR.
+2. **Copy to Quest** — Install the APK, connect USB and use Manager to transfer the VR data converted in step 1.
+3. **Start the game** — Open the Quest app library → **Unknown Sources** → **Myth II for Meta Quest 3 / 3S**. Run **Initial setup** once, wait for extraction to finish, then choose **Start Myth II**.
+4. **Play** — Start a game from the original menu. The display switches to VR when a level starts.
 
-The [installation guide](docs/INSTALL.md) lists the required software and what to select in each screen. You need your own game and any additional plugins.
+The [installation guide](docs/INSTALL.md) lists the required software and what to select in each screen. Obtain any additional plugins separately.
 
 The Myth II 1.8.5 patch, high-resolution map textures and sprites (Twice Born Edition), and plugins such as The Fallen Levels are available from [Project Magma](https://projectmagma.net/).
 
@@ -36,13 +36,13 @@ The Myth II 1.8.5 patch, high-resolution map textures and sprites (Twice Born Ed
 | Chimera | VR startup checked in all 8 levels |
 | The Fallen Levels | Basic gameplay checked; full playthrough testing continues. Keep TFL Gameplay OFF |
 
-Not every plugin is supported. Get the base game working before adding plugins.
+Not every plugin is supported. Plugins with a simple structure and moderate memory requirements are likely to work.
 
 ## Optional additions
 
 - **Campaigns:** Convert and transfer a gameplay plugin with Manager.
 - **HD images:** Select separately obtained HD addons during setup.
-- **Skyboxes:** Extract the supplied skybox ZIP and select its folder in Manager.
+- **Skyboxes:** Extract the supplied skybox ZIP and select its folder in Manager. Custom skyboxes using the same format can also be used.
 
 ---
 
@@ -67,3 +67,7 @@ For developers: [Build notes](docs/BUILD.md) · [Release preparation](docs/RELEA
 [Install the normal-map library (206 collections)](docs/NORMAL_LIBRARY.md)
 
 [Keyboard and chat](docs/KEYBOARD.md)
+
+## Technical information
+
+[How the VR frontend works: architecture and optimization notes](docs/TECHNICAL.md) — Component responsibilities, rendering techniques, validation results, gameplay observations and measurement guidance.

@@ -12,7 +12,7 @@
 
 The Myth II 1.8.5 patch, high-resolution map textures and sprites (Twice Born Edition), and plugins such as The Fallen Levels are available from [Project Magma](https://projectmagma.net/).
 
-Install these on your PC:
+Install the following software on your PC to create and transfer VR data:
 
 | Software | Purpose |
 | --- | --- |
@@ -44,7 +44,7 @@ In the **Setup** tab, choose:
 | Skyboxes (optional) | The `Skyboxes` folder from the extracted skybox ZIP |
 | Logo / CD image (optional) | `Assets/Logo.png` and `Assets/CD_Face.png` from Manager. Choose each file separately |
 
-For HD graphics, use **Add optional HD addons** and select the separately obtained archive files. Extract downloaded ZIPs first. For a multi-part pack, select all required parts together.
+For HD graphics, use **Add optional HD addons** and select the separately obtained archive files. Extract downloaded ZIPs first. For Project Magma’s Twice Born Edition, select both Magma - HD Megapack 1of2 and Magma - HD Megapack 2of2.
 
 Click **Extract original and convert all levels** and wait for completion. **Setup result** will point to the output folder. Keep that folder for later use.
 
@@ -71,7 +71,7 @@ Fresh setup does not overwrite an existing game installation. Use the plugin ste
 
 For later sessions, choose **Unknown Sources** → **Myth II for Meta Quest 3 / 3S** → **Start Myth II**.
 
-Try these controls:
+Try these controls with the default control settings:
 
 | Action | Input |
 | --- | --- |
@@ -85,7 +85,7 @@ Try these controls:
 
 ## 5. Add a plugin
 
-Once the base game works, use the upper section of Manager:
+Once the base game works, switch to the **Plugins & materials** tab at the top of Manager:
 
 1. Set **Original game folder** to **Game** inside your setup output.
 2. Select the extracted gameplay archive as **Plugin file**, such as `Chimera Single-player` or `Magma - The Fallen Levels v2`.
@@ -103,7 +103,6 @@ For an existing conversion, choose its **Converted bundle** folder and deploy di
 | Game is running | Exit the original game before transferring |
 | Unsupported input file | Use the supported 1.8.5 updater and game data; renaming files will not fix compatibility |
 | No VR transition | Original plugin and converted pack must match |
-| Transfer makes no progress for a long time | Report the displayed step and elapsed time. Do not delete installed packs |
 | HD graphics do not change | Enable the corresponding launcher options and reload the level |
 
 [Report a problem](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/issues)
