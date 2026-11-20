@@ -44,7 +44,7 @@ python -m pip install -r requirements-manager.txt
 | スカイボックス（任意） | スカイボックスZIPを展開した中の `Skyboxes` フォルダ |
 | ロゴ画像／CD画像（任意） | Manager付属の `Assets/Logo.png` と `Assets/CD_Face.png`。それぞれ個別に指定 |
 
-高精細画像を使う場合は「任意のHDアドオンを追加」で、別途入手したアーカイブ本体を選びます。Project MagmaのTwice Bone Edithionを利用する場合、Magma - HD Megapack 1of2とMagma - HD Megapack 2of2の二つを指定してください。
+高精細画像を使う場合は「任意のHDアドオンを追加」で、別途入手したアーカイブ本体を選びます。Project MagmaのTwice Born Edithionを利用する場合、ダウンロードしたzipファイルを解凍し、その中にあるMagma - HD Megapack 1of2とMagma - HD Megapack 2of2の二つを指定してください。
 
 **「原作を展開・全レベルを変換」** を押し、完了を待ちます。完了すると「セットアップ結果」に出力先が入ります。このフォルダは消さずに保管してください。
 
