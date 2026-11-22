@@ -1,3 +1,4 @@
+import hashlib
 from build_progress import tracked
 """Export every model shape referenced by this map's original anim tags."""
 import json,struct
@@ -46,9 +47,9 @@ def main():
    tris.append((materials[mat],vertices))
   shapes[key]=tris
  with (OUT/'animated-models.pack').open('wb') as f:
-  f.write(b'MYTHAM01');f.write(struct.pack('<3I',len(textures),len(shapes),len(ranges)))
+  f.write(b'MYTHAM02');f.write(struct.pack('<3I',len(textures),len(shapes),len(ranges)))
   for a,b in ranges:f.write(struct.pack('<2I',a,b))
-  for w,h,p in textures:f.write(struct.pack('<2I',w,h));f.write(tint_rgba(p,lighting))
+  for w,h,p in textures:f.write(struct.pack('<2I',w,h));f.write(hashlib.sha256(struct.pack('<II',w,h)+p).digest());f.write(tint_rgba(p,lighting))
   for key,tris in shapes.items():
    f.write(struct.pack('<2I',key,len(tris)))
    for tx,v in tris:f.write(struct.pack('<I15f',tx,*v))

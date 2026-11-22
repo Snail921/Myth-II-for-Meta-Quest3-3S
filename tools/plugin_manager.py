@@ -69,7 +69,7 @@ class App:
   self.task(lambda:deploy(folder,Device(adb,serial,self.log)))
  def material_editor(self):
   from sprite_material_editor import Editor
-  window=tk.Toplevel(self.root);editor=Editor(window);editor.lang.set("English" if self.language=="en" else "日本語");editor.translate()
+  window=tk.Toplevel(self.root);editor=Editor(window);editor.lang.set("English" if self.language=="en" else "日本語");editor.translate();window.after(100,editor.restore_session)
  def error(self,title,message):messagebox.showerror(self.tr(title),self.tr(message))
  def info(self,title,message):messagebox.showinfo(self.tr(title),self.tr(message))
  def tr(self,text):return i18n.translate(text,self.language)

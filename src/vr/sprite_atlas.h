@@ -60,10 +60,10 @@ static Resolved resolve(GLuint tx,bool high){
  // Source GL names identify normals within this level; clear() resets residency.
  // Independent UV rectangles preserve crop/flip mappings without extra copies.
  auto c=resident(tx,s,false);if(!c.texture)return r;
- Slot n;if(r.material.texture){auto key=r.material.texture;auto it=normals.find(key);if(it==normals.end()){auto d=sprite_material::textureDimensions.find(r.material.texture);if(d==sprite_material::textureDimensions.end())return r;Source normal{d->second.first,d->second.second,s.col};it=normals.emplace(key,normal).first;}n=resident(r.material.texture,it->second,true);if(!n.texture)return r;}
- r.attributes={c.rect,n.rect,{r.material.sx,r.material.sy,r.material.ox,r.material.oy}};r.texture=c.texture;r.material={n.texture,1,1,0,0};r.atlas=true;return r;
+ Slot n;if(r.material.texture){auto key=r.material.texture;auto it=normals.find(key);if(it==normals.end()){auto d=sprite_material::textureDimensions.find(r.material.texture);if(d==sprite_material::textureDimensions.end())return r;Source normal{d->second.first,d->second.second,s.col};normal.group=r.material.packed?1u:0u;it=normals.emplace(key,normal).first;}n=resident(r.material.texture,it->second,true);if(!n.texture)return r;}
+ r.attributes={c.rect,n.rect,{r.material.sx,r.material.sy,r.material.ox,r.material.oy}};r.texture=c.texture;r.material={n.texture,1,1,0,0,r.material.packed,r.material.effects};r.atlas=true;return r;
 }
-static auto key(const Resolved&r){return std::make_tuple(r.atlas,r.texture,r.material.texture,r.high,r.material.sx,r.material.sy,r.material.ox,r.material.oy);}
+static auto key(const Resolved&r){return std::make_tuple(r.atlas,r.texture,r.material.texture,r.high,r.material.packed,r.material.effects,r.material.sx,r.material.sy,r.material.ox,r.material.oy);}
 struct AttributeStream{
  std::vector<Attributes> data;GLuint buffers[3]{};unsigned epoch=0;
  void append(const Resolved&r,size_t n){if(enabled)data.insert(data.end(),n,r.attributes);}

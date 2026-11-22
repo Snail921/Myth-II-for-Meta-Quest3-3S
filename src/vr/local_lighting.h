@@ -26,6 +26,15 @@ struct SpriteLightBindingCache {
  GLint count=-1,position=-1,color=-1,axis=-1;
 };
 static SpriteLightBindingCache spriteLightBinding;
+// Selection is view-dependent, not shader-dependent. Share the ranked lights
+// across mesh, ordinary sprite and PBR sprite programs in the same view.
+struct SpriteLightSelectionCache {
+ SpriteLightBindingCache key;
+ std::array<Mat,2> matrices{};
+ int count=0;
+ float position[512]{},colors[512]{},ends[512]{};
+};
+static SpriteLightSelectionCache spriteLightSelection[2];
 static unsigned spriteLightSelections=0,spriteLightBindingReuses=0;
 static void setSpriteLightView(bool reflected,const Mat&mirror){
  std::array<Mat,2> matrices=lightingEyeMatrices;if(reflected)for(auto&m:matrices)m=mul(m,mirror);
@@ -35,7 +44,7 @@ static void setSpriteLightView(bool reflected,const Mat&mirror){
 static void reportSpriteLights(){if(!diagnosticEnabled)return;LOG("Lighting population raw_masks=%u raw_bolt_segments=%u candidates=%zu peak=%u born=%u gone=%u normal_visible=%u normal_selected=%u reflection_visible=%u reflection_selected=%u global_limit=%d object_limit=%d lod_start=%.1f",lightingRaw,lightingBoltSegments,spriteLights.size(),lightingPeak,lightingBorn,lightingGone,lightingVisible[0],lightingSelected[0],lightingVisible[1],lightingSelected[1],enhancedLightingLimit,enhancedLightingPerObject,enhancedLightingLod);lightingBorn=lightingGone=0;lightingPeak=spriteLights.size();}
 static void loadEnhancedLighting(const char*root){
  lightingViewValid=false;lightingViewDirty=true;lightingBorn=lightingGone=lightingPeak=lightingRaw=lightingBoltSegments=0;lightingVisible[0]=lightingVisible[1]=lightingSelected[0]=lightingSelected[1]=0;
- spriteLightBinding={};spriteLightSelections=spriteLightBindingReuses=0;
+ spriteLightBinding={};for(auto&c:spriteLightSelection)c={};spriteLightSelections=spriteLightBindingReuses=0;
  enhancedLightingEnabled=true;enhancedLightingAmount=1.f;enhancedLightingLimit=8;spriteLightRevision=~uint64_t(0);spriteLights.clear();
  std::ifstream f(std::string(root)+"/enhanced-lighting.enabled");char c;if(f.get(c)&&(c=='0'||c=='1'))enhancedLightingEnabled=c=='1';
  std::ifstream limit(std::string(root)+"/enhanced-lighting-limit");int maximum=8;if(limit>>maximum)enhancedLightingLimit=std::clamp(maximum,4,128);
@@ -104,8 +113,14 @@ static void bindSpriteLighting(){
  auto&cache=spriteLightBinding;
  if(!lightingViewDirty&&cache.valid&&cache.program==program&&cache.revision==snapshotRevision&&(!enhancedLightingEnabled||enhancedLightingAmount<=0||spriteLightRevision==snapshotRevision)&&cache.x==camera.x&&cache.y==camera.y&&cache.z==camera.z&&cache.enabled==enhancedLightingEnabled&&cache.amount==enhancedLightingAmount&&cache.limit==enhancedLightingLimit){spriteLightBindingReuses++;return;}
  if(!cache.valid||cache.program!=program){cache.count=glGetUniformLocation(program,"spriteLightCount");cache.position=glGetUniformLocation(program,"spriteLights");cache.color=glGetUniformLocation(program,"spriteLightColors");cache.axis=glGetUniformLocation(program,"spriteLightAxes");}
- lightingViewDirty=false;cache.valid=true;cache.program=program;cache.revision=snapshotRevision;cache.x=camera.x;cache.y=camera.y;cache.z=camera.z;cache.enabled=enhancedLightingEnabled;cache.amount=enhancedLightingAmount;cache.limit=enhancedLightingLimit;spriteLightSelections++;
- int count=0;float position[512]{},colors[512]{},ends[512]{};
+ lightingViewDirty=false;cache.valid=true;cache.program=program;cache.revision=snapshotRevision;cache.x=camera.x;cache.y=camera.y;cache.z=camera.z;cache.enabled=enhancedLightingEnabled;cache.amount=enhancedLightingAmount;cache.limit=enhancedLightingLimit;
+ auto&selected=spriteLightSelection[lightingReflected];auto&key=selected.key;
+ bool reuse=key.valid&&key.revision==snapshotRevision&&key.x==camera.x&&key.y==camera.y&&key.z==camera.z&&key.enabled==enhancedLightingEnabled&&key.amount==enhancedLightingAmount&&key.limit==enhancedLightingLimit&&selected.matrices==lightingActiveMatrices;
+ auto&position=selected.position;auto&colors=selected.colors;auto&ends=selected.ends;
+ int count=selected.count;
+ if(!reuse){
+ count=0;std::fill(position,position+512,0.f);std::fill(colors,colors+512,0.f);std::fill(ends,ends+512,0.f);
+ spriteLightSelections++;
  if(enhancedLightingEnabled&&enhancedLightingAmount>0){
   prepareSpriteLights();std::vector<std::pair<float,size_t>> ranked;ranked.reserve(spriteLights.size());
   for(size_t i=0;i<spriteLights.size();i++){const auto&l=spriteLights[i];if(!visibleSpriteLight(l.x,l.y,l.z,l.radius,l.ex,l.ey,l.ez,l.segment))continue;float dx=l.x-camera.x,dy=l.y-camera.y,dz=l.z-camera.z;
@@ -115,7 +130,10 @@ static void bindSpriteLighting(){
   for(auto&r:ranked){if(count==enhancedLightingLimit)break;const auto&l=spriteLights[r.second];position[count*4]=l.x;position[count*4+1]=l.y;position[count*4+2]=l.z;position[count*4+3]=1/(l.radius*l.radius);for(int k=0;k<3;k++)colors[count*4+k]=l.color[k];colors[count*4+3]=l.intensity*enhancedLightingAmount;
    if(l.segment){float ax=l.ex-l.x,ay=l.ey-l.y,az=l.ez-l.z;ends[count*4]=ax;ends[count*4+1]=ay;ends[count*4+2]=az;ends[count*4+3]=1/std::max(1e-8f,ax*ax+ay*ay+az*az);}count++;}
  }
+ selected.count=count;selected.key=cache;selected.matrices=lightingActiveMatrices;
+ }else spriteLightBindingReuses++;
  lightingSelected[lightingReflected]=count;
+ sprite_pbr::localLights=count;
  glUniform1i(glGetUniformLocation(program,"spriteObjectLightLimit"),enhancedLightingPerObject);
  glUniform1f(glGetUniformLocation(program,"spriteLightingLodDistance"),enhancedLightingLod);
  glUniform1f(glGetUniformLocation(program,"spriteVertexLodDistance"),shadowDebugEnabled?0.f:20.f);

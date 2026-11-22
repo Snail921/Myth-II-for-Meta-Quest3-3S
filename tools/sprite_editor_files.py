@@ -59,3 +59,18 @@ def thumbnail(path):
     image = Image.frombytes('RGBA', (w, h), bytes(pixels))
     image.thumbnail((120, 110))
     return image
+
+
+def exported_collection_names(folder):
+    """Case-insensitive collection stems with exports; None means unavailable.
+
+    This is an existence indicator, not a material completeness/validity check.
+    Match the default Project.collection -> export_runtime basename exactly.
+    """
+    if not folder:
+        return None
+    try:
+        return {p.stem.casefold() for p in Path(folder).iterdir()
+                if p.is_file() and p.suffix.casefold() == '.mvrnm'}
+    except OSError:
+        return None

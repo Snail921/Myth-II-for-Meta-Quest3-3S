@@ -3,10 +3,10 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 class ModelTests(unittest.TestCase):
  def test_geometry_and_windmill_assembly(self):
-  b=(ROOT/'build/vr/assets/models.pack').read_bytes();self.assertEqual(b[:8],b'MYTHMD01');nt,nc=struct.unpack_from('<II',b,8);p=16
+  b=(ROOT/'build/vr/assets/models.pack').read_bytes();self.assertIn(b[:8],(b'MYTHMD01',b'MYTHMD02',b'MYTHMD03'));nt,nc=struct.unpack_from('<II',b,8);p=16
   for _ in range(nt):
-   w,h=struct.unpack_from('<II',b,p);p+=8+w*h*4
-  self.assertEqual(len(b),p+nc*64)
+   w,h=struct.unpack_from('<II',b,p);p+=8+w*h*4+(32 if b[:8]==b'MYTHMD03' else 0)
+  self.assertGreaterEqual(len(b),p+nc*64)
   records=json.loads((ROOT/'research/reports/vr-models.json').read_text());centers={};offset=0
   for record in records:
    pts=[]

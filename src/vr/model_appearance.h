@@ -1,12 +1,12 @@
 #pragma once
 // Per-instance material images. Geometry and draw batches remain unchanged.
-struct AppearancePixels {unsigned w=0,h=0;std::vector<uint8_t> rgba;};
+struct AppearancePixels {unsigned w=0,h=0;std::vector<uint8_t> rgba;sprite_material::Binding material{};};
 struct ModelAppearance {unsigned geometry;int32_t pos[3];unsigned current=~0u;std::vector<GLuint> targets;std::vector<std::vector<unsigned>> variants;};
 static std::vector<ModelAppearance> modelAppearances;
 static std::map<unsigned,AppearancePixels> appearancePixels;
 static void applyModelAppearance(ModelAppearance& a,unsigned variant){
  if(variant>=a.variants.size()||a.current==variant)return;
- for(size_t i=0;i<a.targets.size();i++){auto&p=appearancePixels.at(a.variants[variant][i]);hd::modelKeys[a.targets[i]]=(uint64_t(1)<<32)|a.variants[variant][i];glBindTexture(GL_TEXTURE_2D,a.targets[i]);glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,p.w,p.h,0,GL_RGBA,GL_UNSIGNED_BYTE,p.rgba.data());}
+ for(size_t i=0;i<a.targets.size();i++){auto&p=appearancePixels.at(a.variants[variant][i]);hd::modelKeys[a.targets[i]]=(uint64_t(1)<<32)|a.variants[variant][i];sprite_material::assign(a.targets[i],p.material);glBindTexture(GL_TEXTURE_2D,a.targets[i]);glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,p.w,p.h,0,GL_RGBA,GL_UNSIGNED_BYTE,p.rgba.data());}
  LOG("Model appearance geometry=%08x pos=%d,%d,%d variant=%u previous=%u",a.geometry,a.pos[0],a.pos[1],a.pos[2],variant,a.current);a.current=variant;
 }
 static void updateModelAppearances(){

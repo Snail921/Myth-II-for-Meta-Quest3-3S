@@ -1,12 +1,15 @@
 # Myth II for Meta Quest 3 / 3S
 
+このプレリリースのAPK、PCツール、PBR材質パックを一緒に使用してください。材質ZIPを展開し、84個の .mvrnm が直接入っているフォルダをPlugin Managerで選択してQuestへ転送します。初回導入ではリリースにリンクした共通ランタイムも必要です。
+
+
 [English](README.md) | **日本語**
 
 Myth II: SoulblighterをQuest 3 / 3Sで遊ぶための非公式VRフロントエンドです。没入空間の戦場に降り立ち、コントローラーで部隊を選択・操作できます。セットアップにはPCが必要ですが、プレイ時にはMeta Quest3/3Sの完全スタンドアローンです。
 
 **APK・初回ランタイム・Plugin Managerは下のリンクからダウンロードして下さい。** セットアップには原作のISOと1.8.5アップデーターが必要です。
 
-[ダウンロード](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.5.0-beta) · [導入手順](docs/INSTALL.ja.md) · [操作方法](docs/CONTROLS.ja.md)
+[ダウンロード](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.5.0-pbr-like.1) · [導入手順](docs/INSTALL.ja.md) · [操作方法](docs/CONTROLS.ja.md)
 
 <p>
   <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-01.png"><img src="docs/images/screenshot-01.png" height="120" alt=""></a>

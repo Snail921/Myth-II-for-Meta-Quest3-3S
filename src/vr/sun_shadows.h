@@ -2,7 +2,7 @@
 // Cached sun-space depth for fixed meshes. Live model/unit shadows reuse surface stamps.
 static bool spriteSkipShadowLookup=false;
 static bool enhancedShadowsEnabled=true;static float enhancedShadowAmount=.45f;
-static int enhancedShadowSamples=9;static float enhancedShadowLodDistance=0;static XrVector3f shadowLodEye{};
+static int enhancedShadowSamples=9;static float enhancedShadowLodDistance=0;
 static void loadEnhancedShadows(const char*root){
  shadowDebugEnabled=false;std::ifstream debug(std::string(root)+"/shadow-debug-overlay.enabled");char debugValue=0;if(debug.get(debugValue))shadowDebugEnabled=debugValue=='1';
  spriteSkipShadowLookup=false;std::ifstream skip(std::string(root)+"/diagnostic-skip-sprite-shadow.enabled");char skipValue=0;if(skip.get(skipValue))spriteSkipShadowLookup=skipValue=='1';
@@ -86,6 +86,7 @@ static unsigned drawSpriteCasters(){
 }
 static void bindSpriteShadows(){
  if(!enhancedSpritePath)return;
+ if(program==billboardPbrProgram&&billboardPbrProgram!=billboardProgram)sprite_pbr::bind(program,waterSun);
  SpriteWaitScope total(spriteWait.kind,1);SpriteWaitScope part(spriteWait.kind,2);bindSpriteLighting();part.next(3);
  glUniform1i(glGetUniformLocation(program,"spriteSkipShadowLookup"),spriteSkipShadowLookup);
  glUniform1i(glGetUniformLocation(program,"spriteShadowSamples"),enhancedShadowSamples);

@@ -52,6 +52,63 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
     private Switch reuseFollowDistance,aimOnJump,tapGroups,selectionHaptics,buttonGroups;
     private TextView status;
     private volatile boolean importing;
+    private void addSpritePbrDiagnostics(LinearLayout group,android.content.SharedPreferences prefs){
+        Switch debug=new Switch(this);debug.setText("DebugSpecularLightingMode");debug.setTextSize(20);
+        debug.setChecked(prefs.getBoolean("sprite-pbr.debug-specular",false));group.addView(debug);
+        saveLighting("sprite-pbr.debug-specular",debug.isChecked()?1:0);
+        Switch debugSss=new Switch(this);debugSss.setText("DebugSSSLightingMode");debugSss.setTextSize(20);
+        debugSss.setChecked(prefs.getBoolean("sprite-pbr.debug-sss",false));group.addView(debugSss);
+        if(debugSss.isChecked()){debug.setChecked(false);saveLighting("sprite-pbr.debug-specular",0);prefs.edit().putBoolean("sprite-pbr.debug-specular",false).apply();}
+        saveLighting("sprite-pbr.debug-sss",debugSss.isChecked()?1:0);
+        debug.setOnCheckedChangeListener((button,on)->{if(saveLighting("sprite-pbr.debug-specular",on?1:0)){prefs.edit().putBoolean("sprite-pbr.debug-specular",on).apply();if(on)debugSss.setChecked(false);}});
+        debugSss.setOnCheckedChangeListener((button,on)->{if(saveLighting("sprite-pbr.debug-sss",on?1:0)){prefs.edit().putBoolean("sprite-pbr.debug-sss",on).apply();if(on)debug.setChecked(false);}});
+    }
+    private void addSpritePbrSettings(LinearLayout group,android.content.SharedPreferences prefs){
+        String[] categoryKeys={"sprite-pbr.units","sprite-pbr.scene-objects"};
+        String[] categoryNames={"ユニットに疑似PBRシェーダーを使用 / Use PBR-like Shader for Units","シーンオブジェクトに疑似PBRシェーダーを使用 / Use PBR-like Shader for Scene objects"};
+        for(int i=0;i<categoryKeys.length;i++){
+            final String key=categoryKeys[i];Switch toggle=new Switch(this);toggle.setText(ui(categoryNames[i]));toggle.setTextSize(20);
+            toggle.setChecked(prefs.getBoolean(key,false));group.addView(toggle);saveLighting(key,toggle.isChecked()?1:0);
+            toggle.setOnCheckedChangeListener((button,on)->{if(saveLighting(key,on?1:0))prefs.edit().putBoolean(key,on).apply();});
+        }
+
+        Switch meshes=new Switch(this);meshes.setText(ui("メッシュに疑似PBRシェーダーを使用 / Use PBR-like Shader for Meshes"));meshes.setTextSize(20);
+        meshes.setChecked(prefs.getBoolean("sprite-pbr.meshes",false));group.addView(meshes);
+        saveLighting("sprite-pbr.meshes",meshes.isChecked()?1:0);
+        meshes.setOnCheckedChangeListener((button,on)->{if(saveLighting("sprite-pbr.meshes",on?1:0))prefs.edit().putBoolean("sprite-pbr.meshes",on).apply();});
+
+        final String excludeKey="sprite-pbr.exclude-mesh-lod";
+        Switch exclude=new Switch(this);
+        exclude.setText(ui("疑似PBRメッシュをLODから除外 / Exclude PBR-like Mesh from LOD"));
+        exclude.setTextSize(20);
+        exclude.setChecked(prefs.getBoolean(excludeKey,false));
+        group.addView(exclude);
+        saveLighting(excludeKey,exclude.isChecked()?1:0);
+        exclude.setOnCheckedChangeListener((button,on)->{if(saveLighting(excludeKey,on?1:0))prefs.edit().putBoolean(excludeKey,on).apply();});
+        addPbrDistance(group,prefs,"sprite-pbr.lod-start","疑似PBR LOD開始距離 / PBR-like LOD start distance",20,1000);
+        addPbrDistance(group,prefs,"sprite-pbr.lod-width","疑似PBR LODスムージング / PBR-like LOD smoothing",4,100);
+        String[] keys={"sprite-pbr.reflection","sprite-pbr.specular","sprite-pbr.sss","sprite-pbr.sss-minimum"};
+        String[] names={"最大映り込みブレンド / Maximum reflection blend","スペキュラ強度 / Specular strength","SSS強度 / SSS strength","SSSの最低量 / Minimum Amount of SSS"};
+        int[] maximum={100,1600,400,100},defaults={50,800,200,35};
+        for(int i=0;i<keys.length;i++){
+            final String key=keys[i];TextView label=new TextView(this);label.setText(ui(names[i]));group.addView(label);
+            SeekBar slider=new ValueSeekBar();slider.setTag(key);slider.setMax(maximum[i]);slider.setProgress(Math.max(0,Math.min(maximum[i],prefs.getInt(key,defaults[i]))));group.addView(slider);
+            saveLighting(key,slider.getProgress());
+            slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar b,int v,boolean user){b.invalidate();}public void onStartTrackingTouch(SeekBar b){}public void onStopTrackingTouch(SeekBar b){if(saveLighting(key,b.getProgress()))prefs.edit().putInt(key,b.getProgress()).apply();}});
+        }
+        TextView help=new TextView(this);help.setText(ui("材質対応パックとスカイボックスが必要。Thicknessが小さいほど光を透過します。次回VR起動時に反映。 / Requires a material pack and skybox. Lower Thickness transmits more light. Applies on next VR entry."));group.addView(help);
+    }
+    private void addPbrDistance(LinearLayout group,android.content.SharedPreferences prefs,String key,String title,int minimum,int maximum){
+        TextView label=new TextView(this);label.setText(ui(title));group.addView(label);
+        SeekBar slider=new ValueSeekBar();slider.setTag(key);slider.setMax(maximum-minimum);
+        slider.setProgress(Math.max(minimum,Math.min(maximum,prefs.getInt(key,minimum)))-minimum);
+        group.addView(slider);saveLighting(key,minimum+slider.getProgress());
+        slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+            public void onProgressChanged(SeekBar bar,int value,boolean user){bar.invalidate();}
+            public void onStartTrackingTouch(SeekBar bar){}
+            public void onStopTrackingTouch(SeekBar bar){int meters=minimum+bar.getProgress();if(saveLighting(key,meters))prefs.edit().putInt(key,meters).apply();}
+        });
+    }
     private void addBloomSettings(LinearLayout group,android.content.SharedPreferences prefs){
         Switch toggle=new Switch(this);toggle.setText(ui("Bloomを有効にする / Enable Bloom"));toggle.setTextSize(20);toggle.setChecked(prefs.getBoolean("bloom_enabled",false));group.addView(toggle);
         String[] keys={"bloom_resolution","bloom_iterations","bloom_strength"};
@@ -71,8 +128,30 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         toggle.setOnCheckedChangeListener((button,on)->{if(saveLighting("bloom.enabled",on?1:0)){prefs.edit().putBoolean("bloom_enabled",on).apply();for(SeekBar slider:sliders)slider.setEnabled(on);}});
         TextView help=new TextView(this);help.setText(ui("空とUIを発光源から除外。解像度は縦横それぞれの比率。高解像度・多い反復回数ほど負荷が増えます。次回VR起動時に反映。 / Excludes sky and UI as glow sources. Resolution scales each dimension. Higher resolution and more iterations increase GPU load. Applies on next VR entry."));group.addView(help);
     }
+    // Bounded, persistent lifecycle evidence survives sleep and process restart.
+    private void recordLauncherLifecycle(String event){
+        try{
+            android.os.PowerManager power=(android.os.PowerManager)getSystemService(POWER_SERVICE);
+            String line=System.currentTimeMillis()+" uptime="+android.os.SystemClock.uptimeMillis()+" pid="+android.os.Process.myPid()+" event="+event+" finishing="+isFinishing()+" changingConfig="+isChangingConfigurations()+" interactive="+(power!=null&&power.isInteractive())+"\n";
+            android.util.Log.i("MythLauncher",line.trim());
+            File dir=getExternalFilesDir(null);if(dir==null)return;
+            File log=new File(dir,"launcher-lifecycle.log");
+            if(log.length()>131072){File old=new File(dir,"launcher-lifecycle.previous.log");if(old.exists()&&!old.delete())return;if(!log.renameTo(old))return;}
+            try(FileOutputStream out=new FileOutputStream(log,true)){out.write(line.getBytes(java.nio.charset.StandardCharsets.UTF_8));}
+        }catch(Exception e){android.util.Log.w("MythLauncher","Could not record lifecycle",e);}
+    }
+    @Override protected void onStart(){super.onStart();recordLauncherLifecycle("start");}
+    @Override protected void onResume(){super.onResume();recordLauncherLifecycle("resume");}
+    @Override protected void onPause(){recordLauncherLifecycle("pause");super.onPause();}
+    @Override protected void onStop(){recordLauncherLifecycle("stop");super.onStop();}
+    @Override protected void onDestroy(){recordLauncherLifecycle("destroy");super.onDestroy();}
+    @Override protected void onSaveInstanceState(Bundle state){recordLauncherLifecycle("save-state");super.onSaveInstanceState(state);}
+    @Override public void onTrimMemory(int level){recordLauncherLifecycle("trim-memory-"+level);super.onTrimMemory(level);}
+    @Override public void onLowMemory(){recordLauncherLifecycle("low-memory");super.onLowMemory();}
+    @Override public void onWindowFocusChanged(boolean focused){super.onWindowFocusChanged(focused);recordLauncherLifecycle("focus-"+focused);}
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        recordLauncherLifecycle(state==null?"create":"recreate");
         try{java.nio.file.Files.write(new File(getExternalFilesDir(null),"external-layout.version").toPath(),new byte[]{'1'});}catch(IOException e){android.util.Log.e("MythStandalone","Layout marker",e);}
         final String purgeHash=getIntent().getStringExtra("purge_level_cache_sha256");
         if(purgeHash!=null)new Thread(()->{try{LevelAssets.purgeMatchingCache(this,purgeHash);}catch(Exception e){android.util.Log.e("MythStandalone","Cache removal failed",e);}},"RemoveLevelCache").start();
@@ -98,6 +177,7 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         correctionStrength.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar b,int v,boolean user){b.invalidate();}public void onStartTrackingTouch(SeekBar b){}public void onStopTrackingTouch(SeekBar b){if(saveLighting("scene-correction.strength",b.getProgress()))graphics.edit().putInt("scene_correction_strength",b.getProgress()).apply();}});
         TextView correctionHelp=new TextView(this);correctionHelp.setText(ui("空とUIを除く明るさ補正。次回VR起動時に反映。 / Brightens the scene, excluding sky and UI. Applies on next VR entry."));correction.addView(correctionHelp);
         addBloomSettings(section(layout,"bloom","ブルーム","Bloom",false),graphics);
+        addSpritePbrSettings(section(layout,"sprite-pbr","スプライト材質","Sprite materials",false),graphics);
         LinearLayout water=section(layout,"water","水面","Water",false);
         LinearLayout texturesGroup=section(layout,"textures","テクスチャ・影","Textures & shadows",false);
         LinearLayout weatherGroup=section(layout,"weather","天候","Weather",false);
@@ -251,6 +331,7 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         selectionHaptics.setOnCheckedChangeListener((button,enabled)->{if(saveCameraSpeeds())graphics.edit().putBoolean("selection_haptics",enabled).apply();});
         saveCameraSpeeds();
         TextView cameraHelp=new TextView(this);cameraHelp.setText(ui("1.00：従来の速度。各項目1.00～3.00倍。VRへ戻ると反映されます。\n左手メニューボタン：手首ミニマップの表示切り替え。"));cameraGroup.addView(cameraHelp);
+        addSpritePbrDiagnostics(setupGroup,graphics);
         button(setupGroup,ui("Initial setup / 初回データ展開"),()->importSeed());
         button(setupGroup,ui("Status / 状態を更新"),()->show(StandaloneBridge.status()));
         TextView debugHelp=new TextView(this);debugHelp.setText(ui("詳細ログをADBへ出力します。PCへの保存にはUSB接続と収集ツールが必要です。"));setupGroup.addView(debugHelp);
@@ -292,7 +373,7 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
     private void formatSwitches(LinearLayout layout){
         for(int i=0;i<layout.getChildCount();i++){android.view.View child=layout.getChildAt(i);if(child instanceof LinearLayout){formatSwitches((LinearLayout)child);continue;}if(!(child instanceof Switch))continue;Switch toggle=(Switch)child;CharSequence label=toggle.getText();toggle.setText("");layout.removeViewAt(i);LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(android.view.Gravity.CENTER_VERTICAL);row.setLayoutDirection(android.view.View.LAYOUT_DIRECTION_LTR);row.addView(toggle,new LinearLayout.LayoutParams(-2,-2));TextView text=new TextView(this);text.setText(label);text.setTextSize(20);text.setTextColor(toggle.getTextColors());text.setPadding(16,0,0,0);text.setOnClickListener(v->{if(toggle.isEnabled())toggle.toggle();});row.addView(text,new LinearLayout.LayoutParams(0,-2,1));toggle.setContentDescription(label);layout.addView(row,i,new LinearLayout.LayoutParams(-1,-2));}
     }
-    private String sliderValue(SeekBar bar){if("bloom_resolution".equals(bar.getTag()))return "1/"+new int[]{32,16,8,6,4,2}[bar.getProgress()];if("bloom_iterations".equals(bar.getTag()))return Integer.toString(bar.getProgress()+1);if("bloom_strength".equals(bar.getTag()))return bar.getProgress()+"%";if("scene-correction".equals(bar.getTag()))return bar.getProgress()+"%";if("keyboard-smoothing".equals(bar.getTag()))return (bar.getProgress()-493)+" ms";
+    private String sliderValue(SeekBar bar){if("sprite-pbr.lod-start".equals(bar.getTag()))return (20+bar.getProgress())+" m";if("sprite-pbr.lod-width".equals(bar.getTag()))return (4+bar.getProgress())+" m";if(bar.getTag() instanceof String&&((String)bar.getTag()).startsWith("sprite-pbr."))return String.format(java.util.Locale.US,"%.2f",bar.getProgress()/100f);if("bloom_resolution".equals(bar.getTag()))return "1/"+new int[]{32,16,8,6,4,2}[bar.getProgress()];if("bloom_iterations".equals(bar.getTag()))return Integer.toString(bar.getProgress()+1);if("bloom_strength".equals(bar.getTag()))return bar.getProgress()+"%";if("scene-correction".equals(bar.getTag()))return bar.getProgress()+"%";if("keyboard-smoothing".equals(bar.getTag()))return (bar.getProgress()-493)+" ms";
         if(bar.getTag() instanceof String&&((String)bar.getTag()).startsWith("keyboard-offset:"))return (bar.getProgress()+Integer.parseInt(((String)bar.getTag()).substring(16)))+" cm";
 
         if(bar==pointerThickness)return String.format(java.util.Locale.US,"%.1fx",(bar.getProgress()+10)/10f);

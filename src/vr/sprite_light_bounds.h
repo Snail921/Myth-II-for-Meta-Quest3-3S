@@ -15,6 +15,20 @@ struct SpriteLightBoundsStream {
   for(size_t i=1;i<count;i++){float p[3]={v[i].x,v[i].y,v[i].z};for(int j=0;j<3;j++){lo[j]=std::min(lo[j],p[j]);hi[j]=std::max(hi[j],p[j]);}}
   float dx=hi[0]-lo[0],dy=hi[1]-lo[1],dz=hi[2]-lo[2];std::array<float,4>b{(lo[0]+hi[0])*.5f,(lo[1]+hi[1])*.5f,(lo[2]+hi[2])*.5f,sqrtf(dx*dx+dy*dy+dz*dz)*.5f+.001f};return b;
  }
+ // Mirrors the far endpoint of the PBR fade in color_pipeline.h.
+ static bool farPbrSphere(float x,float y,float z,float radius){
+  float dx=x-shadowLodEye.x,dy=y-shadowLodEye.y,dz=z-shadowLodEye.z;
+  float cutoff=sprite_pbr::lodStart+sprite_pbr::lodWidth;
+  return radius>0.f && dx*dx+dy*dy+dz*dz>=cutoff*cutoff;
+ }
+ bool needsPbrRange(size_t first,size_t count) const{
+  if(first+count>bounds.size())return true;
+  for(size_t i=first;i<first+count;i+=6){
+   const auto& b=bounds[i];
+   if(!farPbrSphere(b[0],b[1],b[2],b[3]))return true;
+  }
+  return false;
+ }
  void append(const Vertex*v,size_t count){if(enhancedSpritePath&&count)bounds.insert(bounds.end(),count,calculate(v,count));}
  // One eye pass per source/view per reporting interval, no GPU readback.
  void count(vertexlod::Counts&c,size_t first,size_t count,bool receiver){

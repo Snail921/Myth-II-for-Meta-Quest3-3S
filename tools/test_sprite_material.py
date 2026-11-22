@@ -31,14 +31,18 @@ class MaterialTests(unittest.TestCase):
     def test_runtime_pack_preserves_matching_source(self):
         import struct
         f=Frame('unit',Image.new('RGBA',(4,3),(80,120,160,255)))
+        f.pbr_enabled=True
         p=Project([f])
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'unit.mvrnm';p.export_runtime(path);data=path.read_bytes()
-            self.assertEqual(data[:8],b'MVRNORM2')
+            self.assertEqual(data[:8],b'MVRMAT04')
             self.assertEqual(struct.unpack_from('<III',data,8),(1,4,3))
             import hashlib
-            self.assertEqual(data[20:52],hashlib.sha256(struct.pack('<II',4,3)+f.image.tobytes()).digest())
-            self.assertEqual(data[52:],p.normal(f).tobytes())
+            self.assertEqual(data[24:56],hashlib.sha256(struct.pack('<II',4,3)+f.image.tobytes()).digest())
+            packed=np.frombuffer(data[56:],dtype=np.uint8).reshape(3,4,4)
+            self.assertTrue(np.array_equal(packed[:,:,:2],np.asarray(p.normal(f))[:,:,:2]))
+            self.assertTrue(np.all(packed[:,:,2]==255))
+            self.assertTrue(np.all(packed[:,:,3]==0))
 
     def test_flat_and_transparent_boundary(self):
         a=np.zeros((7,7,4),dtype=np.uint8);a[1:6,1:6]=(100,100,100,255)
@@ -69,7 +73,37 @@ class MaterialTests(unittest.TestCase):
             with zipfile.ZipFile(export) as z:
                 m=json.loads(z.read('manifest.json'));self.assertFalse(m['runtime_ready'])
                 self.assertEqual(m['frames'][0]['identity'],f.identity)
-                self.assertEqual(len(z.namelist()),4)
+                self.assertEqual(set(z.namelist()), {'manifest.json', 'height/00000.png', 'normal/00000.png', 'mask/00000.png', 'metallic_smoothness/00000.png', 'thickness/00000.png'})
+
+    def test_material_layers_and_recovery(self):
+        f=Frame('unit',Image.new('RGBA',(4,4),(30,40,50,255)))
+        p=Project([f]);normal=p.normal(f).tobytes()
+        self.assertEqual(f.metallic_smoothness.getextrema(),(0,0))
+        self.assertEqual(f.thickness.getextrema(),(255,255))
+        f.metallic_smoothness.putpixel((1,1),191);f.thickness.putpixel((2,2),77)
+        f.thickness.putpixel((0,0),0)
+        p.material_hints[0]['name']='armor'
+        state=dict(index=0,view='thickness',dirty=True)
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'session.smproj';p.save(path,recovery=state);q=Project.load(path)
+            self.assertEqual(q.frames[0].metallic_smoothness.getpixel((1,1)),191)
+            self.assertEqual(q.frames[0].thickness.getpixel((2,2)),77)
+            self.assertEqual(q.frames[0].thickness.getpixel((0,0)),0)
+            self.assertEqual(q.normal(q.frames[0]).tobytes(),normal)
+            self.assertEqual(q.material_hints[0]['name'],'armor')
+            with zipfile.ZipFile(path) as z:self.assertEqual(json.loads(z.read('editor-session.json')),state)
+            # Simulate an old project without the new layers.
+            old=Path(d)/'old.smproj'
+            with zipfile.ZipFile(path) as src,zipfile.ZipFile(old,'w') as dst:
+                for name in src.namelist():
+                    if name.startswith(('metallic_smoothness/','thickness/')):continue
+                    data=src.read(name)
+                    if name=='project.json':
+                        meta=json.loads(data);meta['version']=2;meta['settings'].pop('material_hints');data=json.dumps(meta).encode()
+                    dst.writestr(name,data)
+            legacy=Project.load(old)
+            self.assertEqual(legacy.frames[0].metallic_smoothness.getextrema(),(0,0))
+            self.assertEqual(legacy.frames[0].thickness.getextrema(),(255,255))
 
     def test_failed_save_preserves_previous(self):
         p=Project([Frame('test',Image.new('RGBA',(2,2)))])

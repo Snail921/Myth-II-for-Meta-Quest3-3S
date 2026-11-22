@@ -20,16 +20,20 @@ def frames(path):
             yield w,h,source,normal
         if f.read(1):raise ValueError('Trailing bytes')
 
-def hashed_frames(path):
+def material_frames(path):
     from sprite_material_deploy import validate
     path=Path(path);validate(path)
     with path.open('rb') as f:
         magic=f.read(8);count,=struct.unpack('<I',f.read(4))
         for _ in range(count):
             w,h=struct.unpack('<II',f.read(8));size=w*h*4
-            key=f.read(32).hex() if magic==b'MVRNORM2' else identity(w,h,f.read(size))
-            yield w,h,key,f.read(size)
+            flags=struct.unpack('<I',f.read(4))[0] if magic==b'MVRMAT04' else int(magic==b'MVRMAT03')
+            key=f.read(32).hex() if magic!=b'MVRNORM1' else identity(w,h,f.read(size))
+            yield w,h,key,f.read(size),flags
 
+
+def hashed_frames(path):
+    for w,h,key,normal,flags in material_frames(path):yield w,h,key,normal
 
 def convert_packs(folder,output):
     """Convert existing packs without regenerating or changing any normals."""
@@ -38,11 +42,13 @@ def convert_packs(folder,output):
     paths=sorted(folder.glob('*.mvrnm'))
     if not paths:raise ValueError('No .mvrnm files')
     for p in paths:
-        rows=list(hashed_frames(p));fd,temp=tempfile.mkstemp(dir=output,suffix='.tmp');os.close(fd)
+        rows=list(material_frames(p));fd,temp=tempfile.mkstemp(dir=output,suffix='.tmp');os.close(fd)
         try:
             with open(temp,'wb') as f:
-                f.write(b'MVRNORM2'+struct.pack('<I',len(rows)))
-                for w,h,key,normal in rows:f.write(struct.pack('<II',w,h)+bytes.fromhex(key)+normal)
+                magic=p.read_bytes()[:8]
+                if magic==b'MVRNORM1':magic=b'MVRNORM2'
+                f.write(magic+struct.pack('<I',len(rows)))
+                for w,h,key,normal,flags in rows:f.write(struct.pack('<II',w,h)+(struct.pack('<I',flags) if magic==b'MVRMAT04' else b'')+bytes.fromhex(key)+normal)
             from sprite_material_deploy import validate
             validate(Path(temp));os.replace(temp,output/p.name)
         finally:
@@ -55,13 +61,13 @@ def export_library(folder,output):
     with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
         for i,p in enumerate(paths):
             rows=[]
-            for w,h,source,normal in hashed_frames(p):
+            for w,h,source,normal,flags in material_frames(p):
                 key=hashlib.sha256(normal).hexdigest()
                 if key not in seen:z.writestr('normals/'+key+'.rgba',normal);seen.add(key)
-                rows.append(dict(w=w,h=h,source=source,normal=key))
-            packs.append(dict(name=p.name,frames=rows))
+                rows.append(dict(w=w,h=h,source=source,normal=key,pbr_enabled=bool(flags)))
+            packs.append(dict(name=p.name,frames=rows,format=p.read_bytes()[:8].decode().replace('MVRNORM1','MVRNORM2')))
             print(f'Export {i+1}/{len(paths)}: {p.name}',flush=True)
-        z.writestr('library.json',json.dumps(dict(version=1,packs=packs),ensure_ascii=False))
+        z.writestr('library.json',json.dumps(dict(version=3 if any(p.get('format')=='MVRMAT04' for p in packs) else 2 if any(p.get('format')=='MVRMAT03' for p in packs) else 1,packs=packs),ensure_ascii=False))
     return len(packs)
 
 class FolderLibrary:
@@ -78,10 +84,11 @@ def restore_library(library,collections,output):
     with (FolderLibrary(library) if Path(library).is_dir() else zipfile.ZipFile(library)) as z, tempfile.TemporaryDirectory(prefix='myth-normal-') as scratch:
         if z.getinfo('library.json').file_size>32*1024*1024:raise ValueError('Manifest too large')
         data=json.loads(z.read('library.json'))
-        if data['version']!=1:raise ValueError('Unsupported library version')
+        if data['version'] not in (1,2,3):raise ValueError('Unsupported library version')
         needed={};names=set()
         for pack in data['packs']:
             name=pack['name']
+            if pack.get('format','MVRNORM2') not in ('MVRNORM2','MVRMAT03','MVRMAT04'):raise ValueError('Unsupported material format')
             if Path(name).name!=name or '/' in name or '\\' in name or ':' in name or not name.endswith('.mvrnm') or name.casefold() in names:raise ValueError('Invalid pack name')
             names.add(name.casefold())
             if not 0<len(pack['frames'])<=10000:raise ValueError('Frame count')
@@ -114,20 +121,27 @@ def restore_library(library,collections,output):
             print(f'Scan {i+1}/{len(files)}, matched {len(found)}/{len(needed)}: {p.name}',flush=True)
         written=0;matched=0;total=0
         for pack in data['packs']:
+            flagged=pack.get('format')=='MVRMAT04'
+            packed=flagged or pack.get('format')=='MVRMAT03'
+            hashed=collections is None or packed
             rows=[row for row in pack['frames'] if row['source'] in found];total+=len(pack['frames'])
             if not rows:continue
-            size=12+sum(8+(32+row['w']*row['h']*4 if collections is None else row['w']*row['h']*8) for row in rows)
+            size=12+sum((12 if flagged else 8)+(32+row['w']*row['h']*4 if hashed else row['w']*row['h']*8) for row in rows)
             if size>LIMIT:raise ValueError('Pack exceeds 64 MiB: '+pack['name'])
             target=output/pack['name'];temp=target.with_suffix('.tmp')
             try:
                 with temp.open('wb') as f:
-                    f.write((b'MVRNORM2' if collections is None else b'MVRNORM1')+struct.pack('<I',len(rows)))
+                    f.write((b'MVRMAT04' if flagged else b'MVRMAT03' if packed else b'MVRNORM2' if hashed else b'MVRNORM1')+struct.pack('<I',len(rows)))
                     for row in rows:
                         size=row['w']*row['h']*4;member='normals/'+row['normal']+'.rgba'
                         if z.getinfo(member).file_size!=size:raise ValueError('Normal size mismatch')
                         normal=z.read(member)
                         if hashlib.sha256(normal).hexdigest()!=row['normal']:raise ValueError('Normal hash mismatch')
-                        f.write(struct.pack('<II',row['w'],row['h']));f.write(bytes.fromhex(row['source']) if collections is None else Path(scratch,row['source']).read_bytes());f.write(normal)
+                        f.write(struct.pack('<II',row['w'],row['h']))
+                        if flagged:
+                            if type(row.get('pbr_enabled')) is not bool:raise ValueError('Invalid PBR flag')
+                            f.write(struct.pack('<I',int(row['pbr_enabled'])))
+                        f.write(bytes.fromhex(row['source']) if hashed else Path(scratch,row['source']).read_bytes());f.write(normal)
                 temp.replace(target)
             finally:
                 if temp.exists():temp.unlink()

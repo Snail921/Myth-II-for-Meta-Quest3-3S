@@ -1,3 +1,4 @@
+import hashlib
 from build_progress import tracked
 """Export original static model geometry; animated markers use first source pose only.
 Pack v1 preserves source (vertical, horizontal) texture coordinates.
@@ -77,8 +78,8 @@ def main():
  (OUT/'connectors.pack').write_bytes(struct.pack('<I',len(connector_report.get('ranges',[])))+b''.join(struct.pack('<8i',*r) for r in connector_report.get('ranges',[])))
  out=OUT/'models.pack'
  with out.open('wb') as f:
-  f.write(b'MYTHMD02');f.write(struct.pack('<II',len(textures),len(triangles)))
-  for w,h,p in textures:f.write(struct.pack('<II',w,h));f.write(tint_rgba(p,lighting))
+  f.write(b'MYTHMD03');f.write(struct.pack('<II',len(textures),len(triangles)))
+  for w,h,p in textures:f.write(struct.pack('<II',w,h));f.write(hashlib.sha256(struct.pack('<II',w,h)+p).digest());f.write(tint_rgba(p,lighting))
   for tex,tri in triangles:f.write(struct.pack('<I15f',tex,*tri))
   f.write(struct.pack('<I',len(appearances)))
   for geo,x,y,z,first,n,np,nm,variants,mats in appearances:

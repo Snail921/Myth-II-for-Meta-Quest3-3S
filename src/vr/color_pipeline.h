@@ -21,9 +21,20 @@ uniform bool spriteLightCull;uniform int spriteLightCount;
 uniform int spriteObjectLightLimit;uniform float spriteLightingLodDistance;uniform vec3 spriteLightingEye;
 uniform int spriteShadowSamples;uniform float spriteShadowLodDistance;uniform vec3 spriteShadowLodEye;
 flat out float shadowSampleBudget;
+#ifdef PBR_DETAIL_LOD
+uniform vec2 pbrLodRange;
+flat out float pbrDetail;
+#endif
 uniform vec4 spriteLights[128];uniform vec4 spriteLightAxes[128];
 void main(){
  vertexAlpha=particleAlpha.w;atlasColor=atlasColorRect;atlasNormal=atlasNormalRect;atlasMapping=atlasNormalMapping;spriteOwner=shadowOwner;gl_Position=mvp*vec4(pos,1);tc=uv;materialIds=detailIds;materialWeights=detailWeights;worldHeight=pos.y;fogPosition=pos;
+#ifdef PBR_DETAIL_LOD
+ pbrDetail=1.0;
+ if(pbrLodRange.y>0.0 && lightBounds.w>0.0 && shadowOwner>0.0){
+  float d=distance(lightBounds.xyz,spriteShadowLodEye);
+  pbrDetail=1.0-smoothstep(pbrLodRange.x,pbrLodRange.x+pbrLodRange.y,d);
+ }
+#endif
  shadowSampleBudget=float(spriteShadowSamples>0?spriteShadowSamples:9);
  if(spriteLightCull&&spriteShadowLodDistance>0.0){
   float d=distance(lightBounds.xyz,spriteShadowLodEye),start=spriteShadowLodDistance;
@@ -52,6 +63,11 @@ precision highp float;
 precision highp int;
 flat in highp uvec4 spriteLightMask;
 flat in float shadowSampleBudget;
+#ifdef PBR_DETAIL_LOD
+flat in float pbrDetail;
+#else
+const float pbrDetail=1.0;
+#endif
 in vec2 tc;flat in float vertexAlpha;
 flat in vec4 atlasColor;flat in vec4 atlasNormal;flat in vec4 atlasMapping;uniform bool spriteAtlas;
 in float worldHeight;
@@ -76,6 +92,19 @@ flat in float spriteOwner;
 uniform bool spriteShadows;
 uniform bool spriteSkipShadowLookup;
 uniform bool spriteNormalEnabled;
+uniform bool spritePackedMaterial;
+uniform bool spritePbrEnabled;
+uniform bool spriteSpecularDebug;
+uniform bool spriteSssDebug;
+vec3 spriteSssOnly=vec3(0);
+vec3 spriteSpecularOnly=vec3(0);
+uniform bool spriteSkyAvailable;
+uniform sampler2D spriteSkyMap;
+uniform vec2 spriteSkyInfo;
+uniform vec3 spritePbrStrength, spriteSunRadiance;
+uniform float spriteSssMinimum;
+bool surfaceMaterialValid=false;
+vec2 surfaceMaterial=vec2(0,1); // M&S, thickness; legacy defaults disable PBR.
 uniform sampler2D spriteNormalMap;
 uniform vec4 spriteNormalUV;
 uniform mat4 spriteSunMatrix;
@@ -116,7 +145,8 @@ float spriteVisibility(){
         float owner=bytes.r+bytes.g*256.0+bytes.b*65536.0;
         if(owner>0.0&&abs(owner-spriteOwner)>.5&&p.z-spriteShadowBias>texture(spriteLiveDepth,uv).r)blocked+=weight;
     }
-    return 1.0-spriteShadowAmount*blocked/budget;
+    // Physical sunlight visibility; artwork darkness is applied separately.
+    return 1.0-blocked/budget;
 }
 // Treat the sprite as a rounded upright body. Derive the increasing-U axis
 // from geometry so mirrored artwork does not mirror the world light direction.
@@ -143,8 +173,9 @@ vec3 spriteMappedNormal(vec3 fallback){
  t=normalize(t);b=normalize(b-t*dot(t,b));vec3 face=normalize(cross(t,b));
  if(dot(face,fogEye-fogPosition)<0.0)face=-face;
  vec4 packed=texture(spriteNormalMap,spriteAtlas?clamp(uv,0.0,1.0)*atlasNormal.xy+atlasNormal.zw:uv);
- if(packed.a<.01||any(lessThan(uv,vec2(0)))||any(greaterThan(uv,vec2(1))))return fallback;
+ if((!spritePackedMaterial&&packed.a<.01)||any(lessThan(uv,vec2(0)))||any(greaterThan(uv,vec2(1))))return fallback;
  vec3 n=packed.rgb*2.0-1.0;n.xy=(packed.rg*255.0-128.0)/127.0;
+ if(spritePackedMaterial){surfaceMaterialValid=true;surfaceMaterial=vec2(packed.a,packed.b);n.z=sqrt(max(0.0,1.0-dot(n.xy,n.xy)));}
  return normalize(t*n.x-b*n.y+face*max(.001,n.z));
 }
 float spriteSelfVisibility(vec3 n){
@@ -157,10 +188,72 @@ vec3 displayToLinear(vec3 c) {
     return mix(pow((c + 0.055) / 1.055, vec3(2.4)), c / 12.92,
                lessThanEqual(c, vec3(0.04045)));
 }
+vec3 spritePbr(vec3 base,vec3 albedoEncoded,vec3 n,float received){
+ if(!spritePbrEnabled||!surfaceMaterialValid||!spritePackedMaterial||!spriteNormalEnabled||spriteOwner<=0.0||dot(n,n)<1e-8)return base;
+ vec3 albedo=displayToLinear(albedoEncoded);
+ // Artwork contains baked shadows: lift transmission tint without changing hue.
+ // Cap amplification at 4x and preserve black rather than inventing light.
+ vec3 transmissionTint=albedo/max(.25,max(albedo.r,max(albedo.g,albedo.b)));
+ vec3 v=normalize(fogEye-fogPosition),l=normalize(spriteSunDirection);
+ float m=surfaceMaterial.x,thickness=surfaceMaterial.y;
+ float nl=max(0.0,dot(n,l));
+ vec3 h=v+l;float spec=0.0;
+ if(m>0.0&&spritePbrStrength.y>0.0&&received>0.0&&nl>0.0&&dot(h,h)>1e-8)spec=pow(max(0.0,dot(n,normalize(h))),mix(8.0,256.0,m*m))*nl;
+ vec3 f0=mix(vec3(.04),albedo,m)*m;
+ vec3 specularContribution=spriteSunRadiance*f0*spec*spritePbrStrength.y*received;
+ vec3 result=base;
+ // Thin, nonmetal regions transmit the backlight; received shadows suppress it.
+ float back=max(0.0,dot(-n,l));
+ // Retain an adjustable off-axis floor; the directional lobe fades at 30 degrees.
+ float transmission=back*mix(spriteSssMinimum,1.0,smoothstep(.8660254,1.0,dot(v,-l)));
+ vec3 sssContribution=transmissionTint*spriteSunRadiance*transmission*(1.0-thickness)*(1.0-m)*spritePbrStrength.z*received;
+ result+=sssContribution;
+ if(spriteSssDebug)spriteSssOnly=sssContribution*(1.0-(spriteSkyAvailable?m*spritePbrStrength.x:0.0));
+ if(spriteSkyAvailable&&m>0.0&&spritePbrStrength.x>0.0){
+  vec3 r=reflect(-v,n);
+  vec2 uv=vec2(fract(.5+(atan(r.x,-r.z)-spriteSkyInfo.x)/6.28318530718),.5-asin(clamp(r.y,-1.0,1.0))/3.14159265359);
+  vec3 environment=textureLod(spriteSkyMap,uv,(1.0-m)*spriteSkyInfo.y).rgb;
+  result=mix(result,environment*albedo,m*spritePbrStrength.x);
+ }
+ // Direct sunlight is independent of the environment blend.
+ result+=specularContribution;
+ // Reuse the existing per-sprite light mask, range and distance falloff.
+ // Local light is added after the sky blend so metallic surfaces retain highlights.
+ // Sun shadow visibility must not occlude unrelated point/segment lights.
+ float localSssWeight=(1.0-thickness)*(1.0-m)*spritePbrStrength.z;
+ if((spritePbrStrength.y>0.0&&m>0.0)||localSssWeight>0.0)for(int block=0;block<4;block++){
+  uint mask=spriteLightMask[block];
+  for(int bit=0;bit<32;bit++,mask>>=1u){
+   if(mask==0u)break;if((mask&1u)==0u)continue;int i=block*32+bit;
+   vec3 d=fogPosition-spriteLights[i].xyz;vec4 axis=spriteLightAxes[i];
+   d-=axis.xyz*clamp(dot(d,axis.xyz)*axis.w,0.0,1.0);
+   float distance2=dot(d,d),range=distance2*spriteLights[i].w;
+   if(range>=1.0)continue;
+   vec3 localL=-d*inversesqrt(max(distance2,1e-8));
+   float reach=1.0-range;
+   vec3 radiance=spriteLightColors[i].rgb*(reach*reach*spriteLightColors[i].a);
+   float signedNL=dot(n,localL);
+   if(localSssWeight>0.0&&signedNL<0.0){
+    float forward=mix(spriteSssMinimum,1.0,smoothstep(.8660254,1.0,dot(v,-localL)));
+    vec3 localSss=transmissionTint*radiance*(-signedNL*forward*localSssWeight);
+    result+=localSss;
+    if(spriteSssDebug)spriteSssOnly+=localSss;
+   }
+   float localNL=max(0.0,signedNL);if(localNL<=0.0||spritePbrStrength.y<=0.0||m<=0.0)continue;
+   vec3 localH=v+localL;float h2=dot(localH,localH);if(h2<1e-8)continue;
+   float highlight=pow(max(0.0,dot(n,localH*inversesqrt(h2))),mix(8.0,256.0,m*m))*localNL;
+   vec3 localSpecular=radiance*f0*(highlight*spritePbrStrength.y);
+   result+=localSpecular;
+   if(spriteSpecularDebug)specularContribution+=localSpecular;
+  }
+ }
+ if(spriteSpecularDebug)spriteSpecularOnly=specularContribution;
+ return result;
+}
 void main() {
     // Derivatives must be evaluated before alpha discard, once for all lights.
     vec3 bodyNormal=vec3(0);
-    if(spriteOwner>0.0&&(any(notEqual(spriteLightMask,uvec4(0)))||(spriteShadows&&spriteShadowAmount>0.0))){bodyNormal=spriteBodyNormal();if(spriteNormalEnabled)bodyNormal=spriteMappedNormal(bodyNormal);}
+    if(spriteOwner>0.0&&(any(notEqual(spriteLightMask,uvec4(0)))||(spriteShadows&&spriteShadowAmount>0.0)||(spritePbrEnabled&&pbrDetail>0.0&&spriteNormalEnabled&&spritePackedMaterial))){bodyNormal=spriteBodyNormal();if(spriteNormalEnabled)bodyNormal=spriteMappedNormal(bodyNormal);}
     float selfVisibility=1.0;
     if(spriteShadows && spriteOwner>0.0 && spriteShadowAmount>0.0)selfVisibility=spriteSelfVisibility(bodyNormal);
     if(reflectionClip>0.5 && worldHeight<reflectionHeight) discard;
@@ -184,8 +277,10 @@ void main() {
             encoded.rgb*=mix(vec3(1.0),factor,weight);
         }
     }
+    float receivedVisibility=1.0;
+    if(spriteShadows && spriteOwner>0.0)receivedVisibility=spriteVisibility();
     float visibility=1.0;
-    if(spriteShadows && spriteOwner>0.0 && spriteShadowAmount>0.0)visibility=min(spriteVisibility(),selfVisibility);
+    if(spriteShadows && spriteOwner>0.0 && spriteShadowAmount>0.0)visibility=min(mix(1.0,receivedVisibility,spriteShadowAmount),selfVisibility);
     vec4 local=vec4(0);if(spriteOwner>0.0&&any(notEqual(spriteLightMask,uvec4(0))))local=spriteLocalLight(bodyNormal);
     visibility=mix(visibility,1.0,local.a);encoded.rgb*=visibility;
     if(fogColorDensity.a>0.0){
@@ -199,6 +294,9 @@ void main() {
     // Apply fog transmission to new light as well as the original artwork.
     float localFog=1.0;if(fogColorDensity.a>0.0){float f=1.0-exp(-fogColorDensity.a*distance(fogPosition,fogEye));localFog=1.0-f*f;}
     linearColor+= (vec3(1)-linearColor)*local.rgb*.35*localFog;
+    if(pbrDetail>0.0)linearColor=mix(linearColor,spritePbr(linearColor,(sampleColor*tint).rgb,bodyNormal,receivedVisibility),localFog*pbrDetail);
+    if(spriteSpecularDebug&&pbrDetail>0.0&&surfaceMaterialValid&&spritePackedMaterial&&spriteOwner>0.0)linearColor=spriteSpecularOnly*localFog*pbrDetail;
+    if(spriteSssDebug&&pbrDetail>0.0&&surfaceMaterialValid&&spritePackedMaterial&&spriteOwner>0.0)linearColor=spriteSssOnly*localFog*pbrDetail;
     color = vec4(linearColor * (reflectionClip>0.5 ? encoded.a : 1.0), encoded.a);
 }
 )GLSL";
@@ -246,14 +344,15 @@ out vec4 vertexLocalLight;
   vec3 tangent=cross(vec3(0,1,0),face);
   float side=clamp(dot(pos-lightBounds.xyz,tangent)/max(lightBounds.w,.001),-.8,.8);
   vec3 n=normalize(face*sqrt(1.0-side*side)+tangent*side+vec3(0,.25,0));
-  if(spriteShadows&&spriteShadowAmount>0.0)vertexVisibility=min(spriteVisibility(),spriteSelfVisibility(n));
+  if(spriteShadows&&spriteShadowAmount>0.0)vertexVisibility=min(mix(1.0,spriteVisibility(),spriteShadowAmount),spriteSelfVisibility(n));
   if(any(notEqual(spriteLightMask,uvec4(0))))vertexLocalLight=spriteLocalLight(n);
  }
 )GLSL");
  }else{
   replace("in vec2 tc;flat in float vertexAlpha;","in vec2 tc;flat in float vertexAlpha;\nflat in float vertexShadeWeight;\nin float vertexVisibility;\nin vec4 vertexLocalLight;");
-  replace("if(spriteOwner>0.0&&(any", "if(vertexShadeWeight<1.0&&spriteOwner>0.0&&(any");
+  replace("if(spriteOwner>0.0&&(any", "if((vertexShadeWeight<1.0||(spritePbrEnabled&&pbrDetail>0.0&&spriteNormalEnabled&&spritePackedMaterial))&&spriteOwner>0.0&&(any");
   replace("if(spriteShadows && spriteOwner>0.0 && spriteShadowAmount>0.0)selfVisibility", "if(vertexShadeWeight<1.0&&spriteShadows && spriteOwner>0.0 && spriteShadowAmount>0.0)selfVisibility");
+  replace("if(spriteShadows && spriteOwner>0.0)receivedVisibility", "if((vertexShadeWeight<1.0||(spritePbrEnabled&&pbrDetail>0.0&&spritePackedMaterial&&spriteNormalEnabled))&&spriteShadows && spriteOwner>0.0)receivedVisibility");
   replace("if(spriteShadows && spriteOwner>0.0 && spriteShadowAmount>0.0)visibility", "if(vertexShadeWeight<1.0&&spriteShadows && spriteOwner>0.0 && spriteShadowAmount>0.0)visibility");
   replace("if(spriteOwner>0.0&&any(notEqual(spriteLightMask,uvec4(0))))local", "if(vertexShadeWeight<1.0&&spriteOwner>0.0&&any(notEqual(spriteLightMask,uvec4(0))))local");
   replace("visibility=mix(visibility,1.0,local.a);", "visibility=mix(visibility,vertexVisibility,vertexShadeWeight);local=mix(local,vertexLocalLight,vertexShadeWeight);\n    visibility=mix(visibility,1.0,local.a);");
@@ -263,13 +362,56 @@ out vec4 vertexLocalLight;
 
 // Compile the OFF path with literal constants so lighting/shadow branches and
 // their attributes/samplers can be eliminated by the driver, not merely skipped.
-static std::string spriteShaderSource(const char*source,bool shadows,bool lighting,bool atlas=true){
+static std::string spriteShaderSource(const char*source,bool shadows,bool lighting,bool atlas=true,bool pbr=false){
  std::string s=(shadows||lighting)?spriteVertexLodSource(source):std::string(source);
  auto replace=[&](const char*a,const char*b){auto at=s.find(a);if(at!=std::string::npos)s.replace(at,strlen(a),b);};
+ if(pbr)s.insert(s.find('\n')+1,"#define PBR_DETAIL_LOD\n");
+ if(!pbr){
+  replace("uniform bool spritePbrEnabled;","const bool spritePbrEnabled=false;");
+  // Remove the PBR function, call and uniforms from the source, not merely a
+  // runtime branch. Some mobile drivers retain unused helper uniforms.
+  auto first=s.find("vec3 spritePbr(");if(first!=std::string::npos){auto last=s.find("void main()",first);s.erase(first,last-first);}
+  replace("    if(pbrDetail>0.0)linearColor=mix(linearColor,spritePbr(linearColor,(sampleColor*tint).rgb,bodyNormal,receivedVisibility),localFog*pbrDetail);","");
+  replace("    if(spriteSpecularDebug&&pbrDetail>0.0&&surfaceMaterialValid&&spritePackedMaterial&&spriteOwner>0.0)linearColor=spriteSpecularOnly*localFog*pbrDetail;","");
+  replace("    if(spriteSssDebug&&pbrDetail>0.0&&surfaceMaterialValid&&spritePackedMaterial&&spriteOwner>0.0)linearColor=spriteSssOnly*localFog*pbrDetail;","");
+  replace("uniform bool spriteSssDebug;","");replace("vec3 spriteSssOnly=vec3(0);","");
+  replace("uniform bool spriteSpecularDebug;","");replace("vec3 spriteSpecularOnly=vec3(0);","");
+  for(const char*declaration:{"uniform float spriteSssMinimum;","uniform bool spriteSkyAvailable;","uniform sampler2D spriteSkyMap;","uniform vec2 spriteSkyInfo;","uniform vec3 spritePbrStrength, spriteSunRadiance;"})replace(declaration,"");
+ }
  if(!atlas)replace("uniform bool spriteAtlas;","const bool spriteAtlas=false;");
  if(!lighting){replace("uniform int spriteLightCount;","const int spriteLightCount=0;");replace("flat in highp uvec4 spriteLightMask;","const uvec4 spriteLightMask=uvec4(0);");}
  if(!shadows){replace("uniform bool spriteShadows;","const bool spriteShadows=false;");replace("uniform float spriteShadowLodDistance;","const float spriteShadowLodDistance=0.0;");}
- if(!shadows&&!lighting)replace("uniform bool spriteNormalEnabled;","const bool spriteNormalEnabled=false;");
+ if(!shadows&&!lighting&&!pbr)replace("uniform bool spriteNormalEnabled;","const bool spriteNormalEnabled=false;");
  return s;
 }
 static std::string spriteShaderSource(const char*source,bool enhanced){return spriteShaderSource(source,enhanced,enhanced);}
+
+// The far mesh path uses only the visible face normal and the sun direction.
+static std::string modelShadowLod(std::string s,bool far){
+ auto at=s.find("vec3 displayToLinear(");
+ if(at==std::string::npos)return s;
+ s.insert(at,R"(
+float meshFaceVisibility(){
+ vec3 n=cross(dFdx(fogPosition),dFdy(fogPosition));
+ if(dot(n,fogEye-fogPosition)<0.0)n=-n;
+ return spriteSelfVisibility(n*inversesqrt(max(dot(n,n),1e-16)));
+}
+)");
+ const std::string marker="encoded.rgb*=visibility;";
+ s.replace(s.find(marker),marker.size(),far?
+  "visibility=meshFaceVisibility();encoded.rgb*=visibility;":
+  "if(spriteShadows)visibility=mix(meshFaceVisibility(),visibility,pbrDetail);encoded.rgb*=visibility;");
+ return s;
+}
+static std::string modelShaderSource(const char*source,bool shadows,bool lighting){
+ std::string s=spriteShaderSource(source,false,false,false,true);
+ auto replace=[&](const char*a,const char*b){auto at=s.find(a);if(at!=std::string::npos)s.replace(at,strlen(a),b);};
+ if(shadows){replace("const bool spriteShadows=false;","uniform bool spriteShadows;");replace("const float spriteShadowLodDistance=0.0;","uniform float spriteShadowLodDistance;");}
+ if(lighting){replace("const int spriteLightCount=0;","uniform int spriteLightCount;");replace("const uvec4 spriteLightMask=uvec4(0);","flat in highp uvec4 spriteLightMask;");}
+ auto a=s.find("vec3 spriteBodyNormal(){");auto b=s.find("// Authoring Y",a);
+ if(a!=std::string::npos&&b!=std::string::npos)s.replace(a,b-a,"vec3 spriteBodyNormal(){vec3 n=cross(dFdx(fogPosition),dFdy(fogPosition));if(dot(n,n)<1e-12)return vec3(0,0,1);n=normalize(n);return dot(n,fogEye-fogPosition)<0.0?-n:n;}\n");
+ replace("vec4 packed=texture(spriteNormalMap,spriteAtlas?clamp(uv,0.0,1.0)*atlasNormal.xy+atlasNormal.zw:uv);","vec4 packed=texture(spriteNormalMap,fract(uv));");
+ replace("owner>0.0&&abs(owner-spriteOwner)>.5", "owner>0.0");
+ replace("||any(lessThan(uv,vec2(0)))||any(greaterThan(uv,vec2(1)))","");
+ return shadows?modelShadowLod(s,false):s;
+}

@@ -35,6 +35,31 @@ class NormalLibraryTest(unittest.TestCase):
                 (r/'bad.mvrnm').write_bytes(data)
                 with self.assertRaises(ValueError):validate(r/'bad.mvrnm')
 
+    def test_packed_material_library_preserves_channels_and_format(self):
+        from sprite_material import Frame,Project
+        from sprite_material_deploy import validate
+        from normal_library import convert_packs
+        with tempfile.TemporaryDirectory() as d:
+            r=Path(d);src=r/'packs';src.mkdir();owned=r/'owned';owned.mkdir()
+            frame=Frame('unit',Image.new('RGBA',(3,2),(90,30,60,255)))
+            frame.pbr_enabled=True
+            frame.metallic_smoothness=Image.new('L',(3,2),153)
+            frame.thickness=Image.new('L',(3,2),77)
+            frame.image.save(owned/'unit.png')
+            Project([frame]).export_runtime(src/'unit.mvrnm')
+            data=(src/'unit.mvrnm').read_bytes();validate(src/'unit.mvrnm')
+            self.assertEqual(data[56:],bytes([128,128,77,153])*6)
+            with contextlib.redirect_stdout(io.StringIO()):
+                convert_packs(src,r/'converted')
+                export_library(src,r/'library.zip')
+                restore_library(r/'library.zip',None,r/'out')
+                restore_library(r/'library.zip',owned,r/'verified')
+            for folder in ('converted','out','verified'):
+                self.assertEqual((r/folder/'unit.mvrnm').read_bytes(),data)
+            for corrupt in (data[:-1],data+b'x'):
+                (r/'bad.mvrnm').write_bytes(corrupt)
+                with self.assertRaises(ValueError):validate(r/'bad.mvrnm')
+
     def test_reject_path(self):
         with tempfile.TemporaryDirectory() as d:
             r=Path(d)

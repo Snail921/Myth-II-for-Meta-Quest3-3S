@@ -1,12 +1,15 @@
 # Myth II for Meta Quest 3 / 3S
 
+Use the APK, PC tools and PBR material pack from this prerelease together. Extract the material ZIP and select the folder directly containing the 84 .mvrnm files in Plugin Manager to transfer them to Quest. A first installation also needs the shared runtime linked in the release.
+
+
 **English** | [日本語](README.ja.md)
 
 An unofficial VR frontend for playing Myth II: Soulblighter on Quest 3 / 3S. Step into an immersive battlefield and select and command your units with the controllers. Setup requires a PC, but gameplay runs entirely standalone on Meta Quest 3 / 3S.
 
 **Download the APK, initial runtime and Plugin Manager below.** Setup requires your own original game ISO and the 1.8.5 updater.
 
-[Downloads](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.5.0-beta) · [Installation guide](docs/INSTALL.md) · [Controls](docs/CONTROLS.md)
+[Downloads](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.5.0-pbr-like.1) · [Installation guide](docs/INSTALL.md) · [Controls](docs/CONTROLS.md)
 
 <p>
   <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-01.png"><img src="docs/images/screenshot-01.png" height="120" alt=""></a>

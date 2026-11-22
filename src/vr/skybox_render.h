@@ -13,12 +13,12 @@ static void pollSkyReflectionBlend(){
  skyReflectionBlend=percent/100.f;
 }
 static void initSkyReflectionBlend(const char*root){skyReflectionBlend=.25f;skyBlendPoll=-1;snprintf(skyBlendPath,sizeof(skyBlendPath),"%s/sky-reflection.blend",root);pollSkyReflectionBlend();}
-static void clearSkybox(){if(skyMap)glDeleteTextures(1,&skyMap);skyMap=0;}
+static void clearSkybox(){sprite_pbr::clearSky();if(skyMap)glDeleteTextures(1,&skyMap);skyMap=0;}
 static void uploadSkybox(unsigned w,unsigned h,const unsigned char*rgba){
  clearSkybox();glGenTextures(1,&skyMap);glBindTexture(GL_TEXTURE_2D,skyMap);
  glTexImage2D(GL_TEXTURE_2D,0,GL_SRGB8_ALPHA8,w,h,0,GL_RGBA,GL_UNSIGNED_BYTE,rgba);
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
- glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);glGenerateMipmap(GL_TEXTURE_2D);
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);glGenerateMipmap(GL_TEXTURE_2D);sprite_pbr::setSky(skyMap,w,h,rgba,skyYaw);sprite_pbr::sampleSun(waterSun);
 }
 static void initSkybox(){
  // Called once for each newly created EGL context; old GL names are not valid here.

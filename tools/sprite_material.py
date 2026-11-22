@@ -24,11 +24,19 @@ class Frame:
     mask: Image.Image = None
     correction: Image.Image = None
     correction_mask: Image.Image = None
+    metallic_smoothness: Image.Image = None
+    thickness: Image.Image = None
+    pbr_enabled: bool = False
 
     def __post_init__(self):
         self.image = self.image.convert('RGBA')
         if self.mask is None:
             self.mask = Image.new('L', self.image.size)
+        for kind in ('metallic_smoothness', 'thickness'):
+            layer = getattr(self, kind)
+            if layer is None: layer = Image.new('L', self.image.size, 255 if kind == 'thickness' else 0)
+            if layer.size != self.image.size: raise ValueError('Material layer dimensions differ')
+            setattr(self, kind, layer.convert('L'))
         self.identity = dict(self.identity, image_sha256=digest(self.image))
 
 
@@ -37,6 +45,8 @@ class Project:
         self.frames = list(frames)
         self.name = name
         self.colors = []
+        self.history = []
+        self.material_hints = [{"name": "", "colors": [None, None, None]} for _ in range(5)]
         self.tolerance = 30
         self.height_value = 128
         self.strength = 2.0
@@ -122,9 +132,9 @@ class Project:
         return Image.fromarray(np.dstack((rgb, np.asarray(frame.image.getchannel('A')))), 'RGBA')
 
     def settings(self):
-        return {k: getattr(self, k) for k in ('colors', 'tolerance', 'height_value', 'strength', 'blur', 'correction_enabled')}
+        return {k: getattr(self, k) for k in ('colors', 'tolerance', 'height_value', 'strength', 'blur', 'correction_enabled', 'material_hints')}
 
-    def save(self, path, progress=lambda *args: None):
+    def save(self, path, progress=lambda *args: None, recovery=None):
         path = Path(path)
         fd, temp = tempfile.mkstemp(dir=path.parent, suffix='.tmp')
         os.close(fd)
@@ -132,14 +142,16 @@ class Project:
             with zipfile.ZipFile(temp, 'w', zipfile.ZIP_DEFLATED) as z:
                 rows = []
                 for i, f in enumerate(self.frames):
-                    rows.append(dict(name=f.name, identity=f.identity, correction=f.correction is not None))
-                    layers=[('source', f.image), ('mask', f.mask)]
+                    rows.append(dict(name=f.name, identity=f.identity, correction=f.correction is not None, pbr_enabled=f.pbr_enabled))
+                    layers=[('source', f.image), ('mask', f.mask), ('metallic_smoothness', f.metallic_smoothness), ('thickness', f.thickness)]
                     if f.correction is not None:
                         layers.extend([('correction',f.correction),('correction_mask',f.correction_mask)])
                     for kind, im in layers:
                         out = io.BytesIO(); im.save(out, format='PNG'); z.writestr(f'{kind}/{i}.png', out.getvalue())
                     progress(i+1, len(self.frames))
-                z.writestr('project.json', json.dumps(dict(version=2, name=self.name, settings=self.settings(), frames=rows), ensure_ascii=False))
+                z.writestr('project.json', json.dumps(dict(version=4, name=self.name, settings=self.settings(), frames=rows), ensure_ascii=False))
+                z.writestr('edit-history.json', json.dumps(self.history, ensure_ascii=False))
+                if recovery is not None: z.writestr('editor-session.json', json.dumps(recovery))
             os.replace(temp, path)
         finally:
             if os.path.exists(temp): os.unlink(temp)
@@ -150,13 +162,22 @@ class Project:
             if sum(i.file_size for i in z.infolist()) > 2*1024**3:
                 raise ValueError('Project exceeds 2 GiB uncompressed')
             data = json.loads(z.read('project.json'))
-            if data['version'] not in (1,2): raise ValueError('Unsupported project version')
+            history = json.loads(z.read('edit-history.json')) if 'edit-history.json' in z.namelist() else []
+            if data['version'] not in (1,2,3,4): raise ValueError('Unsupported project version')
             frames = []
             for i, row in enumerate(data['frames']):
                 with Image.open(io.BytesIO(z.read(f'source/{i}.png'))) as im, Image.open(io.BytesIO(z.read(f'mask/{i}.png'))) as mask:
                     if im.size != mask.size: raise ValueError('Mask dimensions differ')
                     if digest(im.convert('RGBA')) != row['identity']['image_sha256']: raise ValueError('Source image hash mismatch')
                     frames.append(Frame(row['name'], im.copy(), row['identity'], mask.convert('L')))
+                enabled=row.get('pbr_enabled', False)
+                if type(enabled) is not bool: raise ValueError('Invalid PBR flag')
+                frames[-1].pbr_enabled=enabled
+                if data['version'] >= 3:
+                    for kind in ('metallic_smoothness', 'thickness'):
+                        with Image.open(io.BytesIO(z.read(f'{kind}/{i}.png'))) as layer:
+                            if layer.size != frames[-1].image.size: raise ValueError('Material layer dimensions differ')
+                            setattr(frames[-1], kind, layer.convert('L'))
                 if row.get('correction',False):
                     for kind in ('correction','correction_mask'):
                         with Image.open(io.BytesIO(z.read(f'{kind}/{i}.png'))) as layer:
@@ -164,24 +185,31 @@ class Project:
                             setattr(frames[-1],kind,layer.convert('L'))
                 progress(i+1, len(data['frames']))
         result = cls(frames, data['name'])
+        result.history = history
         for k in result.settings():
             if k in data['settings']:setattr(result, k, data['settings'][k])
         if not (0 <= result.height_value <= 255 and 0 <= result.tolerance <= 255 and 0 <= result.strength <= 100 and 0 <= result.blur <= 20):
             raise ValueError('Invalid settings')
+        from sprite_material_hints import validate_hints
+        result.material_hints = validate_hints(result.material_hints)
         return result
 
     def export_runtime(self, path, progress=lambda *args: None):
-        """Exact-source-bound normal pack. Loaded from Quest files/SpriteMaterials."""
+        """V4: per-image flags, then packed PBR or ordinary normal RGBA8."""
         import struct
         path = Path(path)
         fd, temp = tempfile.mkstemp(dir=path.parent, suffix='.tmp'); os.close(fd)
         try:
             with open(temp, 'wb') as out:
-                out.write(b'MVRNORM2'); out.write(struct.pack('<I', len(self.frames)))
+                if not 1 <= len(self.frames) <= 10000: raise ValueError('Invalid material frame count')
+                out.write(b'MVRMAT04'); out.write(struct.pack('<I', len(self.frames)))
                 for i, frame in enumerate(self.frames):
                     if max(frame.image.size)>2048:raise ValueError('Runtime material exceeds 2048 pixels')
-                    out.write(struct.pack('<II', *frame.image.size))
-                    out.write(hashlib.sha256(struct.pack('<II', *frame.image.size)+frame.image.tobytes()).digest());out.write(self.normal(frame).tobytes())
+                    out.write(struct.pack('<III', *frame.image.size, int(frame.pbr_enabled)))
+                    out.write(hashlib.sha256(struct.pack('<II', *frame.image.size)+frame.image.tobytes()).digest())
+                    normal = self.normal(frame)
+                    packed = Image.merge('RGBA', (normal.getchannel('R'), normal.getchannel('G'), frame.thickness, frame.metallic_smoothness))
+                    out.write((packed if frame.pbr_enabled else normal).tobytes())
                     progress(i+1,len(self.frames))
                 if out.tell()>64*1024*1024:raise ValueError('Runtime material exceeds 64 MiB')
             os.replace(temp,path)
@@ -198,11 +226,11 @@ class Project:
                 for i, f in enumerate(self.frames):
                     height = self.height(f)
                     rgba = Image.merge('RGBA', (height, height, height, f.image.getchannel('A')))
-                    for kind, im in [('height', rgba), ('normal', self.normal(f, height)), ('mask', f.mask)]:
+                    for kind, im in [('height', rgba), ('normal', self.normal(f, height)), ('mask', f.mask), ('metallic_smoothness', f.metallic_smoothness), ('thickness', f.thickness)]:
                         out = io.BytesIO(); im.save(out, format='PNG'); z.writestr(f'{kind}/{i:05d}.png', out.getvalue())
-                    rows.append(dict(index=i, name=f.name, identity=f.identity))
+                    rows.append(dict(index=i, name=f.name, identity=f.identity, pbr_enabled=f.pbr_enabled))
                     progress(i+1, len(self.frames))
-                z.writestr('manifest.json', json.dumps(dict(version=1, name=self.name, normal_convention='tangent-x-right-y-up-z-viewer', runtime_ready=False, settings=self.settings(), frames=rows), ensure_ascii=False))
+                z.writestr('manifest.json', json.dumps(dict(version=3, material_channels={'metallic_smoothness': '0..255 = 0..1; shared metallic/smoothness value', 'thickness': '0..255 = 0..1; thickness, not transparency'}, name=self.name, normal_convention='tangent-x-right-y-up-z-viewer', runtime_ready=False, settings=self.settings(), frames=rows), ensure_ascii=False))
             os.replace(temp, path)
         finally:
             if os.path.exists(temp): os.unlink(temp)
