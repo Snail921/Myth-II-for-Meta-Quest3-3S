@@ -2,6 +2,8 @@
 
 Use the APK, PC tools and PBR material pack from this prerelease together. Extract the material ZIP and select the folder directly containing the 84 .mvrnm files in Plugin Manager to transfer them to Quest. A first installation also needs the shared runtime linked in the release.
 
+[Case study: creating sprite materials solo](docs/MATERIAL_WORKFLOW.md)
+
 
 **English** | [日本語](README.ja.md)
 

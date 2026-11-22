@@ -2,6 +2,8 @@
 
 このプレリリースのAPK、PCツール、PBR材質パックを一緒に使用してください。材質ZIPを展開し、84個の .mvrnm が直接入っているフォルダをPlugin Managerで選択してQuestへ転送します。初回導入ではリリースにリンクした共通ランタイムも必要です。
 
+[一人で大量の材質を作る：制作事例](docs/MATERIAL_WORKFLOW.ja.md)
+
 
 [English](README.md) | **日本語**
 

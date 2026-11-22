@@ -2,6 +2,8 @@
 
 **English** | [日本語](MATERIALS.ja.md) · [Home](../README.md)
 
+[Case study: creating sprite materials solo](MATERIAL_WORKFLOW.md)
+
 Normal maps are optional. Use your own converted game/HD data; game sprites are not included in the download.
 
 The collection browser can track two export folders: **Normal export folder** and **PBR export folder**. Each thumbnail shows separate Normal/PBR marks: ✓ means a same-basename `.mvrnm` exists directly in that folder, — means missing, and ? means the folder is unset or unavailable. Folder choices persist. Reopening the browser or clicking **Refresh** updates the marks. These indicate file existence, not editing completeness or freshness; renamed exports will not match.
