@@ -14,7 +14,7 @@
 |---|---|
 | [Quest用APK](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.5.0-pbr-like.1/MythIIVR-PBR-like.1.apk) | Quest 3 / 3Sにインストール |
 | [Plugin Manager・Sprite Material Editor・ソース・日英ガイド（PC用ZIP）](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.5.0-pbr-like.1/MythIIVR-PBR-Source-PluginManager.1-docs.zip) | 展開して Plugin Manager.cmd で転送、Sprite Material Editor.cmd で編集 |
-| [通常版206ノーママップパック (206コレクション)] | (https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.3.2-beta/MythIIVR-NormalMaps-0.3.2-beta.zip) | 展開し、.mvrnm が直接入ったフォルダをPluginManagerのノーマルマップフォルダで指定、"ノーマルマップをQuestへ転送"で転送してください。|
+| [通常版206ノーママップパック (206コレクション)] (https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.3.2-beta/MythIIVR-NormalMaps-0.3.2-beta.zip) | 展開し、.mvrnm が直接入ったフォルダをPluginManagerのノーマルマップフォルダで指定、"ノーマルマップをQuestへ転送"で転送してください。|
 | [PBR対応ノーマルマップパック（84コレクション）](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.5.0-pbr-like.1/MythIIVR-PBR-Materials.1.zip) | 展開し、.mvrnm が直接入ったフォルダをPlugin Managerで選択して転送。先に通常版を転送しておいてください。 |
 | [共通の初回ランタイム](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.1.0-beta.2026.11.17/MythIIVR-Runtime-2026.11.16.zip) | 新規セットアップ時に使用。原作ISOと1.8.5アップデーターは各自で用意 |
 
