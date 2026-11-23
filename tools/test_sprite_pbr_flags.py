@@ -11,6 +11,7 @@ class Flags(unittest.TestCase):
   fs=[Frame(str(i),Image.new('RGBA',(2,2),(10+i,20,30,255))) for i in range(2)]
   for f in fs:f.metallic_smoothness.paste(153,(0,0,2,2));f.thickness.paste(77,(0,0,2,2))
   fs[1].pbr_enabled=True
+  fs[1].metallic.paste(255,(0,0,2,2))
   return Project(fs)
  def test_roundtrip_export_and_library(self):
   p=self.project()
@@ -19,7 +20,7 @@ class Flags(unittest.TestCase):
    self.assertEqual([f.pbr_enabled for f in q.frames],[False,True])
    for f in q.frames:self.assertEqual(f.metallic_smoothness.getpixel((0,0)),153)
    q.export_runtime(r/'packs/a.mvrnm');validate(r/'packs/a.mvrnm');rows=list(material_frames(r/'packs/a.mvrnm'))
-   self.assertEqual([x[4] for x in rows],[0,1]);self.assertEqual(rows[0][3],q.normal(q.frames[0]).tobytes());self.assertEqual(rows[1][3],bytes([128,128,77,153])*4)
+   self.assertEqual([x[4] for x in rows],[0,1]);self.assertEqual(rows[0][3],q.normal(q.frames[0]).tobytes());self.assertEqual(rows[1][3],bytes([128,128,77,204])*4)
    convert_packs(r/'packs',r/'converted');export_library(r/'packs',r/'lib.zip');restore_library(r/'lib.zip',None,r/'restored')
    for folder in ['converted','restored']:self.assertEqual((r/folder/'a.mvrnm').read_bytes(),(r/'packs/a.mvrnm').read_bytes())
    data=bytearray((r/'packs/a.mvrnm').read_bytes());data[20]=2;(r/'bad.mvrnm').write_bytes(data)

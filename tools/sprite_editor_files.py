@@ -29,9 +29,12 @@ class DialogPaths:
         folder = Path(selected).resolve()
         if not directory:
             folder = folder.parent
+        self.store(operation,str(folder))
+
+    def store(self,operation,value):
         # Merge other editor windows' operations instead of overwriting them.
         latest = DialogPaths(self.settings).paths
-        latest[operation] = str(folder)
+        latest[operation] = value
         self.settings.parent.mkdir(parents=True, exist_ok=True)
         temp = self.settings.with_suffix('.tmp')
         temp.write_text(json.dumps(latest, ensure_ascii=False, indent=2), encoding='utf8')
@@ -40,11 +43,16 @@ class DialogPaths:
 
 
 def collections(folder):
-    return sorted((p for p in Path(folder).iterdir() if p.is_file() and p.suffix.lower() in ('.collection', '.256', '.bin')), key=lambda p: p.name.casefold())
+    return sorted((p for p in Path(folder).iterdir() if p.is_file() and p.suffix.lower() in ('.collection', '.256', '.bin', '.d256')), key=lambda p: p.name.casefold())
 
 
 def thumbnail(path):
     from prepare_vr_assets import decode, resolved_instance
+    if Path(path).suffix.lower() == '.d256':
+        from sprite_hd_collection import first_image
+        image = first_image(path)
+        image.thumbnail((120, 110))
+        return image
     images, instances, sequences = decode(Path(path).read_bytes())
     first = None
     for flags, scale, rows in sequences:

@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 from sprite_material import digest
 
-CHANNELS = ('metallic_smoothness', 'thickness')
+CHANNELS = ('metallic_smoothness', 'metallic', 'thickness')
 
 
 def record(project, operation, channel, before, **details):
@@ -38,7 +38,7 @@ def transform(project, indices, channel, operation, contrast=1, brightness=0, va
         elif operation == 'invert': new = 255-old
         elif operation == 'brightness': new = np.rint(np.clip(old.astype(float)+brightness*255,0,255)).astype('uint8')
         else: new = np.rint(np.clip((old.astype(float)/255-.5)*contrast+.5, 0, 1)*255).astype('uint8')
-        visible = np.asarray(f.image.getchannel('A')) > 0
+        visible = np.asarray(f.edit_mask()) > 0
         old[visible] = new[visible]
         setattr(f, channel, Image.fromarray(old))
     return before
@@ -76,7 +76,7 @@ class Stroke:
             values[a>=self.coverage[y0:y1,x0:x1]]=value
             self.coverage[y0:y1,x0:x1]=np.maximum(self.coverage[y0:y1,x0:x1],a)
         base=np.asarray(self.before,dtype=float)/255
-        a=self.coverage*(np.asarray(self.frame.image.getchannel('A'))>0)
+        a=self.coverage*(np.asarray(self.frame.edit_mask())>0)
         if self.blend=='Replace': result=base+(self.painted_value-base)*a
         elif self.blend=='Add': result=base+self.painted_value*a
         elif self.blend=='Sub': result=base-self.painted_value*a

@@ -5,10 +5,10 @@ from PIL import Image
 import numpy as np
 
 
-def levels(layer,source,low,high):
+def levels(layer,source,low,high,mask=None):
     if not 0<=low<high<=255:raise ValueError('Black point must be below white point')
     table=[max(0,min(255,round((i-low)*255/(high-low)))) for i in range(256)]
-    return Image.composite(layer.point(table),layer,source.getchannel('A').point(lambda a:255 if a else 0))
+    return Image.composite(layer.point(table),layer,mask if mask is not None else source.getchannel('A').point(lambda a:255 if a else 0))
 
 
 def histogram(layer, source):
@@ -50,16 +50,16 @@ class MaterialHistogram:
         if not self.window or not self.window.winfo_exists():return
         e=self.e;c=self.canvas;c.delete('all');self.detail.configure(text='')
         mode=e.view.get();self.counts=np.zeros(256,dtype=int)
-        if not e.project.frames or mode not in ('metallic_smoothness','thickness','height','mask'):
+        if not e.project.frames or mode not in ('metallic_smoothness','metallic','thickness','height','mask'):
             self.title.configure(text=e.tr('Thickness / M&S / Height / Mask を選択してください。','Select Thickness / M&S / Height / Mask.'))
             self.summary.configure(text='');self.bounds=None;return
         f=e.project.frames[e.index]
-        if mode in ('metallic_smoothness','thickness'):layer=e.material_paint.preview_layer(f,mode)
+        if mode in ('metallic_smoothness','metallic','thickness'):layer=e.material_paint.preview_layer(f,mode)
         elif mode=='height':layer=e.project.height(f)
         else:layer=f.mask
         self.counts=histogram(layer,f.image)
         preview=e.material_paint.brightness_edit or e.material_paint.contrast_edit
-        label={'metallic_smoothness':'Metallic & Smoothness','thickness':'Thickness','height':'Height','mask':'Mask'}[mode]
+        label={'metallic_smoothness':'Smoothness','metallic':'Metallic','thickness':'Thickness','height':'Height','mask':'Mask'}[mode]
         live=bool(self.edit) or bool(preview and preview['session']==e.project_session and preview['channel']==mode and e.index in preview['indices'])
         self.title.configure(text=f'{e.index}: {f.name} — {label}'+(' (preview)' if live else ''))
         total=int(self.counts.sum());peak=int(self.counts.max())
@@ -78,7 +78,7 @@ class MaterialHistogram:
         for fraction in (0,.25,.5,.75,1):
             c.create_text(left+(right-left)*fraction,bottom+15,text=f'{fraction:g}',fill='white')
 
-        if mode in ('metallic_smoothness','thickness'):
+        if mode in ('metallic_smoothness','metallic','thickness'):
             for value,color in [(self.low,'#202020'),(self.high,'#ffffff')]:
                 x=left+(right-left)*value/255;y=bottom+32
                 c.create_polygon(x,y,x-7,y+13,x+7,y+13,fill=color,outline='#dddddd',tags='level-handle')
@@ -89,20 +89,19 @@ class MaterialHistogram:
         if not edit or edit['session']!=e.project_session or edit['channel']!=channel:return layer
         for i,base in edit['before'].items():
             if i<len(e.project.frames) and frame is e.project.frames[i]:
-                return levels(base,frame.image,self.low,self.high)
+                return levels(base,frame.image,self.low,self.high,frame.edit_mask())
         return layer
 
     def press(self,event):
         e=self.e
-        if not getattr(self,'bounds',None) or e.view.get() not in ('metallic_smoothness','thickness') or e.busy:return
+        if not getattr(self,'bounds',None) or e.view.get() not in ('metallic_smoothness','metallic','thickness') or e.busy:return
         left,top,right,bottom=self.bounds
         if not bottom+24<=event.y<=bottom+52:return
         self.cancel()
         e.material_paint.finish_brightness();e.material_paint.finish_contrast();e.material_paint.finish()
         try:
-            from sprite_editor_commands import parse_frame_indices,revision
-            scope=e.material_paint.scope.get().strip().lower()
-            indices=[e.index] if scope=='current' else parse_frame_indices(scope,len(e.project.frames))
+            from sprite_editor_commands import revision
+            indices=e.edit_indices()
             channel=e.view.get()
             self.edit=dict(session=e.project_session,revision=revision(e.project),channel=channel,
                            before={i:getattr(e.project.frames[i],channel).copy() for i in indices})
@@ -127,7 +126,7 @@ class MaterialHistogram:
         if e.busy or edit['session']!=e.project_session or edit['revision']!=revision(e.project):
             e.preview();return
         for i,base in edit['before'].items():
-            f=e.project.frames[i];setattr(f,edit['channel'],levels(base,f.image,low,high))
+            f=e.project.frames[i];setattr(f,edit['channel'],levels(base,f.image,low,high,f.edit_mask()))
         e.material_paint.commit('levels',edit['channel'],edit['before'],black_point=low/255,white_point=high/255)
 
     def cancel(self,event=None):

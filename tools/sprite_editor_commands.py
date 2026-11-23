@@ -15,7 +15,7 @@ def revision(project):
     for f in project.frames:
         h.update(json.dumps(f.identity, sort_keys=True).encode())
         h.update(b'PBR1' if f.pbr_enabled else b'PBR0')
-        for key in ('image', 'mask', 'correction', 'correction_mask', 'metallic_smoothness', 'thickness'):
+        for key in ('image', 'mask', 'correction', 'correction_mask', 'height_ink', 'normal_ink', 'metallic_smoothness', 'metallic', 'thickness'):
             layer = getattr(f, key)
             h.update(b'none' if layer is None else layer.tobytes())
     return h.hexdigest()
@@ -86,7 +86,7 @@ def execute(bridge, route, body):
             return response(200,frames=len(old),enabled=enabled,dry_run=body.get('dry_run') is True,revision=revision(p))
         if route != '/material-edit':raise ValueError('Unknown command')
         channel = body.get('channel')
-        if channel not in ('metallic_smoothness', 'thickness'):
+        if channel not in ('metallic_smoothness', 'metallic', 'thickness'):
             raise ValueError('Unknown material channel')
         value = body.get('value')
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 1:

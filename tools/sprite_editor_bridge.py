@@ -52,7 +52,7 @@ class EditorBridge:
 
     def connection(self):
         return dict(version=1, url='http://127.0.0.1:'+str(self.server.server_port), token=self.token,
-                    capabilities=['state', 'source_png', 'collections', 'open_collection', 'material_edit', 'material_undo', 'save_project', 'load_project', 'layer_png', 'pbr_set', 'history'], read_only=False)
+                    capabilities=['state', 'source_png', 'collections', 'open_collection', 'material_edit', 'material_undo', 'save_project', 'load_project', 'layer_png', 'pbr_set', 'history', 'color_selection'], read_only=False)
 
     def poll(self):
         for _ in range(8):
@@ -88,11 +88,12 @@ class EditorBridge:
                 data = dict(version=2, revision=revision(p), project_path=getattr(e,'project_path',None), last_operation=getattr(self,'last_operation',None), project=p.name, project_session=e.project_session,
                     history_count=len(p.history), selected_index=e.index, dirty=e.dirty, busy=e.busy, material_hints=p.material_hints,
                     frames=[dict(index=i, name=f.name, size=f.image.size, identity=f.identity, pbr_enabled=f.pbr_enabled) for i,f in enumerate(p.frames)])
+                if getattr(e,'selection',None):data['color_selection']=e.selection.api_state()
                 result = (200, 'application/json', json.dumps(data, ensure_ascii=False).encode('utf-8'))
             else:
                 # Session in URL prevents reading a different collection after a switch.
                 parts = path.split('/')
-                if len(parts)==5 and parts[1] in ('source','metallic_smoothness','thickness') and parts[2]==e.project_session and parts[3].isdigit() and parts[4]=='image.png' and int(parts[3])<len(p.frames):
+                if len(parts)==5 and parts[1] in ('source','metallic_smoothness','metallic','thickness') and parts[2]==e.project_session and parts[3].isdigit() and parts[4]=='image.png' and int(parts[3])<len(p.frames):
                     out=io.BytesIO();f=p.frames[int(parts[3])];getattr(f,'image' if parts[1]=='source' else parts[1]).save(out,format='PNG')
                     result=(200,'image/png',out.getvalue())
                 else: result=(404,'text/plain',b'Not found or stale project session')

@@ -168,6 +168,6 @@ Launcher sleep diagnostics: `launcher-lifecycle.log` in the app’s external fil
 
 ## PBR-like rendering and LOD
 
-MVRMAT04 carries a PBR flag for each image. Flagged RGBA data stores normal X, normal Y, Thickness and Metallic & Smoothness. The shader reconstructs positive normal Z. Color alpha retains the sprite silhouette. The atlas preserves material format and per-image UV bounds.
+MVRMAT05 carries a PBR flag for each image. Flagged RGBA data stores normal X, normal Y, Thickness and packed M1S7. The shader reconstructs positive normal Z. Color alpha retains the sprite silhouette. The atlas preserves material format and per-image UV bounds.
 
 Both regular and reflected draws use the stereo midpoint for distance LOD. At the defaults, SSS, specular and sky reflection fade together between 20 and 24 m in one draw. Entirely distant sprite batches select a non-PBR program. Mixed batches skip the distant PBR contribution per object. With enhanced shadows enabled, eligible distant meshes use face normals and the sun direction for simplified self-shadowing, reducing the brightness jump during transition. Meshes can be excluded from distance LOD independently. Scene-specific FPS gains have not been measured.

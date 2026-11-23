@@ -10,7 +10,7 @@ The collection browser can track two export folders: **Normal export folder** an
 
 1. Extract the latest Manager/source ZIP and install Python and dependencies as described in the installation guide.
 2. Open **Sprite Material Editor.cmd**, or the Sprite Material Editor button in Plugin Manager.
-3. Choose **Collection folder**, select a folder containing converted collections, and open a thumbnail. Alternatively, use **Select unit** with the converter's `scene/scene.json`.
+3. Choose **Collection folder**, select a folder containing converted collections, and open a thumbnail.
 4. Review the frames and optionally correct heights with color masks or manual mask painting. Image brightness includes painted colors and baked lighting, so direct conversion can produce unwanted relief.
 5. Adjust normal strength and inspect the normal preview. You can enter a value directly.
 6. **Save** writes an editable `.smproj` project. **Export all** writes a ZIP containing heights, normals, masks and mapping data.
@@ -60,7 +60,7 @@ Live material edits work on the open project, including unsaved work, and refres
 
 ## Packed materials (development build, 2026-11-21)
 
-Use the updated APK, Editor and Manager together. **Export for Quest** now writes `MVRMAT04` inside `.mvrnm`, with a PBR flag per image. ON stores R/G = normal X/Y, B = Thickness, A = shared Metallic & Smoothness; OFF stores ordinary normal RGBA. The original color texture still supplies transparency. Normal Z is reconstructed on the positive hemisphere. This keeps one material texture lookup and four bytes per pixel. `.smproj` keeps the editable layers unchanged; old runtime packs remain readable as normal-only materials. Published 0.5.0-beta and earlier cannot read the new material formats.
+Use the updated APK, Editor and Manager together. **Export for Quest** now writes `MVRMAT05` inside `.mvrnm`, with a PBR flag per image. ON stores R/G = normal X/Y, B = Thickness, A = Metallic (bit 7) and Smoothness (bits 0–6); OFF stores ordinary normal RGBA. The original color texture still supplies transparency. Normal Z is reconstructed on the positive hemisphere. This keeps one material texture lookup and four bytes per pixel. `.smproj` keeps the editable layers unchanged; old runtime packs remain readable as normal-only materials. Published 0.5.0-beta and earlier cannot read the new material formats.
 
 On Quest, **Sprite materials** contains maximum reflection blend (0–1, default 0.5), specular strength (0–16, default 8), and SSS strength (0–4, default 2). Values apply on the next VR entry. Set all three to zero to bypass the PBR shader path. Enhanced lighting/shadows remain independently selectable. A matching material pack is required. Sunlight and sky reflections require a skybox; local-light specular and SSS do not.
 
@@ -76,7 +76,7 @@ Enhanced lighting point and lightning-segment lights also produce specular highl
 
 In **Source** view, the small checkbox at the top-right of each gallery image toggles PBR for that image. **Batch PBR** accepts zero-based indices/ranges such as `0-20,25`, or `all`; Yes enables and No disables. Gallery captions mark `[PBR]` and the control row shows the enabled count. New images and old projects without flags default to OFF. Layer edits do not implicitly enable PBR. OFF retains editable M&S and Thickness, but Quest uses the ordinary normal-only shader path, preserving normal lighting and shadows. Project v4 and Export all manifests retain the flag. Restart an already-running Editor after saving work; re-export and transfer materials with the updated Editor/Manager and APK. This update does not modify existing user projects or deployed material packs.
 
-MVRMAT04 layout: 8-byte magic, uint32 frame count; each frame has uint32 width, height, flags (bit 0=PBR, other bits rejected), 32-byte original RGBA hash, then width×height×4 payload bytes. OFF payload is normal XYZ plus coverage alpha; ON payload is packed XY/Thickness/M&S. Flags survive library export, conversion and restore. No additional shader lookup is needed.
+MVRMAT05 layout: 8-byte magic, uint32 frame count; each frame has uint32 width, height, flags (bit 0=PBR, other bits rejected), 32-byte original RGBA hash, then width×height×4 payload bytes. OFF payload is normal XYZ plus coverage alpha; ON payload is packed XY/Thickness/M&S. Flags survive library export, conversion and restore. No additional shader lookup is needed.
 
 `DebugSpecularLightingMode` defaults to OFF and applies on next VR entry. ON displays only the colored specular contribution at its actual intensity on PBR sprites, with zero contribution shown as black. Sunlight, local lights, strength, shadow visibility, fog attenuation and sky-independent sunlight specular are preserved. Base color, diffuse light, environment reflection and SSS are excluded from this diagnostic view. Non-PBR sprites retain their normal appearance; alpha and reflection compositing remain intact. Debug mode deliberately uses the PBR shader even for zero-valued material so it can display black.
 
@@ -123,4 +123,14 @@ In the right preview, **Shift + click** connects the last painted point to the c
 
 ### Distance LOD and compatibility
 
-Enable pseudo-PBR separately for units, scene objects and meshes. LOD start ranges from 20 to 1000 m and smoothing from 4 to 100 m, defaulting to 20 and 4 m. Mesh exclusion defaults off. Distant eligible meshes retain simplified self-shadowing with enhanced shadows enabled. Export for Quest writes MVRMAT04 even with every PBR checkbox cleared. The main 0.5.0-beta APK cannot read this format. The PBR APK also reads legacy normals.
+Enable pseudo-PBR separately for units, scene objects and meshes. LOD start ranges from 20 to 250 m and smoothing from 4 to 250 m, defaulting to 20 and 4 m. Mesh exclusion defaults off. Distant eligible meshes retain simplified self-shadowing with enhanced shadows enabled. Export for Quest writes MVRMAT05 even with every PBR checkbox cleared. The main 0.5.0-beta APK cannot read this format. The PBR APK also reads legacy normals.
+
+## Extract collections from a plugin
+
+Run this from the extracted PC tools folder with the path to your own archive.
+
+```powershell
+python tools/extract_sprite_collections.py "path/to/plugin" UserData
+```
+
+SD .256 tags are saved to `UserData/UniqueCollections/*.bin` and HD d256 tags to `UserData/HD Collections/*.d256`. Open the appropriate directory with **Collection folder**. Add `--id alri` to extract only Alric. Run once per Twice Born Edition megapack. **Load project** also opens existing .mvrnm files. Select the matching original collection if prompted.

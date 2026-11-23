@@ -27,7 +27,7 @@ def material_frames(path):
         magic=f.read(8);count,=struct.unpack('<I',f.read(4))
         for _ in range(count):
             w,h=struct.unpack('<II',f.read(8));size=w*h*4
-            flags=struct.unpack('<I',f.read(4))[0] if magic==b'MVRMAT04' else int(magic==b'MVRMAT03')
+            flags=struct.unpack('<I',f.read(4))[0] if magic in (b'MVRMAT04',b'MVRMAT05') else int(magic==b'MVRMAT03')
             key=f.read(32).hex() if magic!=b'MVRNORM1' else identity(w,h,f.read(size))
             yield w,h,key,f.read(size),flags
 
@@ -48,7 +48,7 @@ def convert_packs(folder,output):
                 magic=p.read_bytes()[:8]
                 if magic==b'MVRNORM1':magic=b'MVRNORM2'
                 f.write(magic+struct.pack('<I',len(rows)))
-                for w,h,key,normal,flags in rows:f.write(struct.pack('<II',w,h)+(struct.pack('<I',flags) if magic==b'MVRMAT04' else b'')+bytes.fromhex(key)+normal)
+                for w,h,key,normal,flags in rows:f.write(struct.pack('<II',w,h)+(struct.pack('<I',flags) if magic in (b'MVRMAT04',b'MVRMAT05') else b'')+bytes.fromhex(key)+normal)
             from sprite_material_deploy import validate
             validate(Path(temp));os.replace(temp,output/p.name)
         finally:
@@ -67,7 +67,7 @@ def export_library(folder,output):
                 rows.append(dict(w=w,h=h,source=source,normal=key,pbr_enabled=bool(flags)))
             packs.append(dict(name=p.name,frames=rows,format=p.read_bytes()[:8].decode().replace('MVRNORM1','MVRNORM2')))
             print(f'Export {i+1}/{len(paths)}: {p.name}',flush=True)
-        z.writestr('library.json',json.dumps(dict(version=3 if any(p.get('format')=='MVRMAT04' for p in packs) else 2 if any(p.get('format')=='MVRMAT03' for p in packs) else 1,packs=packs),ensure_ascii=False))
+        z.writestr('library.json',json.dumps(dict(version=3 if any(p.get('format') in ('MVRMAT04','MVRMAT05') for p in packs) else 2 if any(p.get('format')=='MVRMAT03' for p in packs) else 1,packs=packs),ensure_ascii=False))
     return len(packs)
 
 class FolderLibrary:
@@ -88,7 +88,7 @@ def restore_library(library,collections,output):
         needed={};names=set()
         for pack in data['packs']:
             name=pack['name']
-            if pack.get('format','MVRNORM2') not in ('MVRNORM2','MVRMAT03','MVRMAT04'):raise ValueError('Unsupported material format')
+            if pack.get('format','MVRNORM2') not in ('MVRNORM2','MVRMAT03','MVRMAT04','MVRMAT05'):raise ValueError('Unsupported material format')
             if Path(name).name!=name or '/' in name or '\\' in name or ':' in name or not name.endswith('.mvrnm') or name.casefold() in names:raise ValueError('Invalid pack name')
             names.add(name.casefold())
             if not 0<len(pack['frames'])<=10000:raise ValueError('Frame count')
@@ -121,7 +121,7 @@ def restore_library(library,collections,output):
             print(f'Scan {i+1}/{len(files)}, matched {len(found)}/{len(needed)}: {p.name}',flush=True)
         written=0;matched=0;total=0
         for pack in data['packs']:
-            flagged=pack.get('format')=='MVRMAT04'
+            flagged=pack.get('format') in ('MVRMAT04','MVRMAT05')
             packed=flagged or pack.get('format')=='MVRMAT03'
             hashed=collections is None or packed
             rows=[row for row in pack['frames'] if row['source'] in found];total+=len(pack['frames'])
@@ -131,7 +131,7 @@ def restore_library(library,collections,output):
             target=output/pack['name'];temp=target.with_suffix('.tmp')
             try:
                 with temp.open('wb') as f:
-                    f.write((b'MVRMAT04' if flagged else b'MVRMAT03' if packed else b'MVRNORM2' if hashed else b'MVRNORM1')+struct.pack('<I',len(rows)))
+                    f.write((pack['format'].encode('ascii') if flagged else b'MVRMAT03' if packed else b'MVRNORM2' if hashed else b'MVRNORM1')+struct.pack('<I',len(rows)))
                     for row in rows:
                         size=row['w']*row['h']*4;member='normals/'+row['normal']+'.rgba'
                         if z.getinfo(member).file_size!=size:raise ValueError('Normal size mismatch')

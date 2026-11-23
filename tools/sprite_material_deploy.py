@@ -17,7 +17,7 @@ def validate(path):
         raise ValueError('Invalid material pack size: ' + path.name)
     with path.open('rb') as f:
         magic = f.read(8)
-        if magic not in (b'MVRNORM1', b'MVRNORM2', b'MVRMAT03', b'MVRMAT04'):
+        if magic not in (b'MVRNORM1', b'MVRNORM2', b'MVRMAT03', b'MVRMAT04', b'MVRMAT05'):
             raise ValueError('Invalid material pack format: ' + path.name)
         count, = struct.unpack('<I', f.read(4))
         if not 1 <= count <= 10000:
@@ -27,7 +27,7 @@ def validate(path):
             if len(header) != 8:
                 raise ValueError('Truncated material pack: ' + path.name)
             w, h = struct.unpack('<II', header)
-            if magic==b'MVRMAT04':
+            if magic in (b'MVRMAT04',b'MVRMAT05'):
                 flags=f.read(4)
                 if len(flags)!=4 or struct.unpack('<I',flags)[0] not in (0,1):raise ValueError('Invalid PBR flags')
             if not (1 <= w <= 2048 and 1 <= h <= 2048) or f.tell() + (32+w*h*4 if magic!=b'MVRNORM1' else w*h*8) > size:

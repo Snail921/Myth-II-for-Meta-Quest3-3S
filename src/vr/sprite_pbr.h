@@ -17,7 +17,7 @@ static bool enabled(){return debugSpecular||debugSss||reflection>0||specular>0||
 static void load(const char*root){
  auto read=[&](const char*name,int fallback,int maximum){std::ifstream in(std::string(root)+"/"+name);int v=fallback;if(!(in>>v)||v<0||v>maximum)v=fallback;return v/100.f;};
  auto meters=[&](const char*key,int minimum,int maximum){std::ifstream in(std::string(root)+"/"+key);int value;return (in>>value)?std::clamp(value,minimum,maximum):minimum;};
- lodStart=meters("sprite-pbr.lod-start",20,1000);lodWidth=meters("sprite-pbr.lod-width",4,100);
+ lodStart=meters("sprite-pbr.lod-start",20,250);lodWidth=meters("sprite-pbr.lod-width",4,250);
  excludeMeshLod=read("sprite-pbr.exclude-mesh-lod",0,1)>0;
  units=read("sprite-pbr.units",0,1)>0;sceneObjects=read("sprite-pbr.scene-objects",0,1)>0;
  meshes=read("sprite-pbr.meshes",0,1)>0;

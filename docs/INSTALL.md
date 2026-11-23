@@ -1,6 +1,6 @@
 # Installation guide
 
-Use the APK, PC tools and PBR material pack from this prerelease together. Extract the material ZIP and select the folder directly containing the 84 .mvrnm files in Plugin Manager to transfer them to Quest. A first installation also needs the shared runtime linked in the release.
+Use the APK, PC tools and PBR material pack from this prerelease together. Extract the material ZIP and select the folder directly containing the 89 .mvrnm files in Plugin Manager to transfer them to Quest. A first installation also needs the shared runtime linked in the release.
 
 
 **English** | [日本語](INSTALL.ja.md) · [Home](../README.md)
@@ -11,7 +11,7 @@ Use the APK, PC tools and PBR material pack from this prerelease together. Extra
 - Quest 3 / 3S and a USB data cable
 - A Windows PC
 - Your own Myth II CD ISO and Windows 1.8.5 updater
-- Manager, APK and initial runtime from [Releases](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.5.0-pbr-like.1)
+- Manager, APK and initial runtime from [Releases](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.5.0-pbr-like.2)
 
 The Myth II 1.8.5 patch, high-resolution map textures and sprites (Twice Born Edition), and plugins such as The Fallen Levels are available from [Project Magma](https://projectmagma.net/).
 

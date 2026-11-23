@@ -35,7 +35,7 @@ class MaterialTests(unittest.TestCase):
         p=Project([f])
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'unit.mvrnm';p.export_runtime(path);data=path.read_bytes()
-            self.assertEqual(data[:8],b'MVRMAT04')
+            self.assertEqual(data[:8],b'MVRMAT05')
             self.assertEqual(struct.unpack_from('<III',data,8),(1,4,3))
             import hashlib
             self.assertEqual(data[24:56],hashlib.sha256(struct.pack('<II',4,3)+f.image.tobytes()).digest())
@@ -73,7 +73,7 @@ class MaterialTests(unittest.TestCase):
             with zipfile.ZipFile(export) as z:
                 m=json.loads(z.read('manifest.json'));self.assertFalse(m['runtime_ready'])
                 self.assertEqual(m['frames'][0]['identity'],f.identity)
-                self.assertEqual(set(z.namelist()), {'manifest.json', 'height/00000.png', 'normal/00000.png', 'mask/00000.png', 'metallic_smoothness/00000.png', 'thickness/00000.png'})
+                self.assertEqual(set(z.namelist()), {'manifest.json', 'height/00000.png', 'normal/00000.png', 'mask/00000.png', 'metallic_smoothness/00000.png', 'metallic/00000.png', 'thickness/00000.png'})
 
     def test_material_layers_and_recovery(self):
         f=Frame('unit',Image.new('RGBA',(4,4),(30,40,50,255)))

@@ -92,7 +92,7 @@ flat in float spriteOwner;
 uniform bool spriteShadows;
 uniform bool spriteSkipShadowLookup;
 uniform bool spriteNormalEnabled;
-uniform bool spritePackedMaterial;
+uniform bool spritePackedMaterial;uniform bool spriteSplitMaterial;
 uniform bool spritePbrEnabled;
 uniform bool spriteSpecularDebug;
 uniform bool spriteSssDebug;
@@ -195,11 +195,16 @@ vec3 spritePbr(vec3 base,vec3 albedoEncoded,vec3 n,float received){
  // Cap amplification at 4x and preserve black rather than inventing light.
  vec3 transmissionTint=albedo/max(.25,max(albedo.r,max(albedo.g,albedo.b)));
  vec3 v=normalize(fogEye-fogPosition),l=normalize(spriteSunDirection);
- float m=surfaceMaterial.x,thickness=surfaceMaterial.y;
+ float m=surfaceMaterial.x,s=m,thickness=surfaceMaterial.y;
+ if(spriteSplitMaterial){
+  int a=int(floor(m*255.0+0.5));
+  m=float(a>>7);s=float(a&127)/127.0;
+ }
+ float gloss=spriteSplitMaterial?max(m,s):m;
  float nl=max(0.0,dot(n,l));
  vec3 h=v+l;float spec=0.0;
- if(m>0.0&&spritePbrStrength.y>0.0&&received>0.0&&nl>0.0&&dot(h,h)>1e-8)spec=pow(max(0.0,dot(n,normalize(h))),mix(8.0,256.0,m*m))*nl;
- vec3 f0=mix(vec3(.04),albedo,m)*m;
+ if(gloss>0.0&&spritePbrStrength.y>0.0&&received>0.0&&nl>0.0&&dot(h,h)>1e-8)spec=pow(max(0.0,dot(n,normalize(h))),mix(8.0,256.0,s*s))*nl;
+ vec3 f0=mix(vec3(.04),albedo,m)*gloss;
  vec3 specularContribution=spriteSunRadiance*f0*spec*spritePbrStrength.y*received;
  vec3 result=base;
  // Thin, nonmetal regions transmit the backlight; received shadows suppress it.
@@ -212,7 +217,7 @@ vec3 spritePbr(vec3 base,vec3 albedoEncoded,vec3 n,float received){
  if(spriteSkyAvailable&&m>0.0&&spritePbrStrength.x>0.0){
   vec3 r=reflect(-v,n);
   vec2 uv=vec2(fract(.5+(atan(r.x,-r.z)-spriteSkyInfo.x)/6.28318530718),.5-asin(clamp(r.y,-1.0,1.0))/3.14159265359);
-  vec3 environment=textureLod(spriteSkyMap,uv,(1.0-m)*spriteSkyInfo.y).rgb;
+  vec3 environment=textureLod(spriteSkyMap,uv,(1.0-s)*spriteSkyInfo.y).rgb;
   result=mix(result,environment*albedo,m*spritePbrStrength.x);
  }
  // Direct sunlight is independent of the environment blend.
@@ -221,7 +226,7 @@ vec3 spritePbr(vec3 base,vec3 albedoEncoded,vec3 n,float received){
  // Local light is added after the sky blend so metallic surfaces retain highlights.
  // Sun shadow visibility must not occlude unrelated point/segment lights.
  float localSssWeight=(1.0-thickness)*(1.0-m)*spritePbrStrength.z;
- if((spritePbrStrength.y>0.0&&m>0.0)||localSssWeight>0.0)for(int block=0;block<4;block++){
+ if((spritePbrStrength.y>0.0&&gloss>0.0)||localSssWeight>0.0)for(int block=0;block<4;block++){
   uint mask=spriteLightMask[block];
   for(int bit=0;bit<32;bit++,mask>>=1u){
    if(mask==0u)break;if((mask&1u)==0u)continue;int i=block*32+bit;
@@ -239,9 +244,9 @@ vec3 spritePbr(vec3 base,vec3 albedoEncoded,vec3 n,float received){
     result+=localSss;
     if(spriteSssDebug)spriteSssOnly+=localSss;
    }
-   float localNL=max(0.0,signedNL);if(localNL<=0.0||spritePbrStrength.y<=0.0||m<=0.0)continue;
+   float localNL=max(0.0,signedNL);if(localNL<=0.0||spritePbrStrength.y<=0.0||gloss<=0.0)continue;
    vec3 localH=v+localL;float h2=dot(localH,localH);if(h2<1e-8)continue;
-   float highlight=pow(max(0.0,dot(n,localH*inversesqrt(h2))),mix(8.0,256.0,m*m))*localNL;
+   float highlight=pow(max(0.0,dot(n,localH*inversesqrt(h2))),mix(8.0,256.0,s*s))*localNL;
    vec3 localSpecular=radiance*f0*(highlight*spritePbrStrength.y);
    result+=localSpecular;
    if(spriteSpecularDebug)specularContribution+=localSpecular;

@@ -48,7 +48,7 @@ class NormalLibraryTest(unittest.TestCase):
             frame.image.save(owned/'unit.png')
             Project([frame]).export_runtime(src/'unit.mvrnm')
             data=(src/'unit.mvrnm').read_bytes();validate(src/'unit.mvrnm')
-            self.assertEqual(data[56:],bytes([128,128,77,153])*6)
+            self.assertEqual(data[56:],bytes([128,128,77,76])*6)
             with contextlib.redirect_stdout(io.StringIO()):
                 convert_packs(src,r/'converted')
                 export_library(src,r/'library.zip')

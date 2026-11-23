@@ -64,8 +64,8 @@ def build(args):
     import re
     metadata=decoded/'apktool.yml'
     y=metadata.read_text(encoding='utf8')
-    y=re.sub(r'(?m)^  versionCode:.*$', '  versionCode: 39', y)
-    y=re.sub(r'(?m)^  versionName:.*$', '  versionName: 0.5.0-beta', y)
+    y=re.sub(r'(?m)^  versionCode:.*$', '  versionCode: 40', y)
+    y=re.sub(r'(?m)^  versionName:.*$', '  versionName: 0.5.0-pbr-like.2', y)
     metadata.write_text(y,encoding='utf8')
     app=m.find('application');app.set(ns+'debuggable','true' if args.package_id!='org.mythvr.standalone' else 'false');app.set(ns+'label','Myth II for Meta Quest 3 / 3S' if args.package_id=='org.mythvr.standalone' else 'Myth II VR Runtime Test')
     for node in app.iter():

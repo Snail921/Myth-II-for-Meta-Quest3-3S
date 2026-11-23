@@ -8,9 +8,12 @@ class MaterialHintsTests(unittest.TestCase):
   p=Project([Frame('sample',Image.new('RGBA',(3,3),(100,80,60,255)))])
   with tempfile.TemporaryDirectory() as d:
    d=Path(d);p.export_runtime(d/'before.mvrnm')
+   p.material_hints=[{'name':'','colors':[None]*3} for _ in range(5)]
    p.material_hints[0]={'name':'鎧','colors':[[255,128,0],None,[1,2,3]]}
    p.save(d/'test.smproj');q=Project.load(d/'test.smproj')
-   self.assertEqual(p.material_hints,q.material_hints)
+   self.assertEqual(q.material_hints,validate_hints(p.material_hints))
+   self.assertEqual(q.material_hints[0]['samples'][:3],[[[255,128,0]],[],[[1,2,3]]])
+   self.assertEqual(len(q.material_hints),10)
    q.export_runtime(d/'after.mvrnm');self.assertEqual((d/'before.mvrnm').read_bytes(),(d/'after.mvrnm').read_bytes())
  def test_validation(self):
   p=Project();p.material_hints[0]['colors'][0]=[256,0,0]

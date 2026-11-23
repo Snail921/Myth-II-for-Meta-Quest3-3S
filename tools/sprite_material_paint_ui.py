@@ -9,7 +9,7 @@ class MaterialPaintUI:
         self.e=editor; self.window=None; self.stroke=None; self.undo_state=None
         self.value=tk.DoubleVar(value=.5); self.radius=tk.IntVar(value=8)
         self.softness=tk.DoubleVar(value=.7); self.blend=tk.StringVar(value='Replace')
-        self.tool=tk.StringVar(value='paint'); self.scope=tk.StringVar(value='current')
+        self.tool=tk.StringVar(value='paint')
         self.contrast=tk.DoubleVar(value=1); self.brightness=tk.DoubleVar(value=0)
         self.brightness_edit=None; self.brightness_reset=False
         self.brightness.trace_add('write',self.preview_brightness)
@@ -55,11 +55,8 @@ class MaterialPaintUI:
             c=round(i*25.5); color=f'#{c:02x}{c:02x}{c:02x}'
             tk.Button(row,text=f'{i/10:g}',width=3,bg=color,fg='white' if i<5 else 'black',command=lambda v=i/10:self.value.set(v)).pack(side='left')
         ttk.Separator(w).pack(fill='x',pady=6)
-        row=ttk.Frame(w);row.pack(fill='x',padx=8)
-        ttk.Label(row,text=e.tr('対象: current / all / 0-20,25','Scope: current / all / 0-20,25')).pack(side='left')
-        ttk.Entry(row,textvariable=self.scope,width=18).pack(side='right')
         row=ttk.Frame(w);row.pack(fill='x',padx=8,pady=6)
-        for label,op in [(e.tr('Heightをコピー','Copy Height'),'copy_height'),(e.tr('明度反転','Invert'),'invert'),(e.tr('塗りつぶし','Fill'),'fill')]:
+        for label,op in [(e.tr('高さをコピー','Copy Height'),'copy_height'),(e.tr('明度反転','Invert'),'invert'),(e.tr('塗りつぶし','Fill'),'fill')]:
             ttk.Button(row,text=label,command=lambda op=op:self.apply(op)).pack(side='left')
         row=ttk.Frame(w);row.pack(fill='x',padx=8,pady=6)
         ttk.Label(row,text=e.tr('コントラスト (1=無変更)','Contrast (1=unchanged)')).pack(side='left')
@@ -102,8 +99,8 @@ class MaterialPaintUI:
             if self.brightness_edit is None:
                 self.finish_contrast()
                 if e.busy or not e.project.frames or e.view.get() not in CHANNELS:return
-                from sprite_editor_commands import parse_frame_indices, revision
-                indices=[e.index] if self.scope.get().strip().lower()=='current' else parse_frame_indices(self.scope.get(),len(e.project.frames))
+                from sprite_editor_commands import revision
+                indices=e.edit_indices()
                 self.brightness_edit=dict(session=e.project_session,revision=revision(e.project),
                     indices=indices,channel=e.view.get(),value=value)
             self.brightness_edit['value']=value
@@ -120,7 +117,7 @@ class MaterialPaintUI:
         from PIL import Image
         layer=getattr(frame,channel)
         shifted=layer.point([max(0,min(255,round(i+edit['value']*255))) for i in range(256)])
-        return Image.composite(shifted,layer,frame.image.getchannel('A').point(lambda a:255 if a else 0))
+        return Image.composite(shifted,layer,frame.edit_mask())
 
     def finish_brightness(self,event=None):
         edit=self.brightness_edit
@@ -149,8 +146,8 @@ class MaterialPaintUI:
             if self.contrast_edit is None:
                 self.finish_brightness()
                 if e.busy or not e.project.frames or e.view.get() not in CHANNELS:return
-                from sprite_editor_commands import parse_frame_indices, revision
-                indices=[e.index] if self.scope.get().strip().lower()=='current' else parse_frame_indices(self.scope.get(),len(e.project.frames))
+                from sprite_editor_commands import revision
+                indices=e.edit_indices()
                 self.contrast_edit=dict(session=e.project_session,revision=revision(e.project),
                     indices=indices,channel=e.view.get(),value=value)
             self.contrast_edit['value']=value
@@ -164,7 +161,7 @@ class MaterialPaintUI:
         from PIL import Image
         layer=getattr(frame,channel)
         shifted=layer.point([max(0,min(255,round(((i/255-.5)*edit['value']+.5)*255))) for i in range(256)])
-        return Image.composite(shifted,layer,frame.image.getchannel('A').point(lambda a:255 if a else 0))
+        return Image.composite(shifted,layer,frame.edit_mask())
 
     def finish_contrast(self,event=None):
         edit=self.contrast_edit
@@ -250,8 +247,7 @@ class MaterialPaintUI:
         if not e.guard() or not e.project.frames:return
         self.finish_brightness();self.finish_contrast();self.finish()
         try:
-            from sprite_editor_commands import parse_frame_indices
-            indices=[e.index] if self.scope.get().strip().lower()=='current' else parse_frame_indices(self.scope.get(),len(e.project.frames))
+            indices=e.edit_indices()
             channel=e.view.get(); contrast=self.contrast.get()
             brightness=self.brightness.get()
             value=self.value.get() if op=='fill' else 0

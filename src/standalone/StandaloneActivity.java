@@ -85,8 +85,8 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         group.addView(exclude);
         saveLighting(excludeKey,exclude.isChecked()?1:0);
         exclude.setOnCheckedChangeListener((button,on)->{if(saveLighting(excludeKey,on?1:0))prefs.edit().putBoolean(excludeKey,on).apply();});
-        addPbrDistance(group,prefs,"sprite-pbr.lod-start","疑似PBR LOD開始距離 / PBR-like LOD start distance",20,1000);
-        addPbrDistance(group,prefs,"sprite-pbr.lod-width","疑似PBR LODスムージング / PBR-like LOD smoothing",4,100);
+        addPbrDistance(group,prefs,"sprite-pbr.lod-start","疑似PBR LOD開始距離 / PBR-like LOD start distance",20,250);
+        addPbrDistance(group,prefs,"sprite-pbr.lod-width","疑似PBR LODスムージング / PBR-like LOD smoothing",4,250);
         String[] keys={"sprite-pbr.reflection","sprite-pbr.specular","sprite-pbr.sss","sprite-pbr.sss-minimum"};
         String[] names={"最大映り込みブレンド / Maximum reflection blend","スペキュラ強度 / Specular strength","SSS強度 / SSS strength","SSSの最低量 / Minimum Amount of SSS"};
         int[] maximum={100,1600,400,100},defaults={50,800,200,35};

@@ -2,7 +2,7 @@
 
 [日本語](MATERIAL_WORKFLOW.ja.md) · [Material Editor guide](MATERIALS.md)
 
-One artist directed the material work and used an assistant connected to the open editor to apply decisions across poses and viewing directions. The artist decided whether a piece of armor was visible from behind, or where a tree should stay dark when viewed against the sun. The distributed pack contains 84 collections and 23,221 image records, of which 20,939 have the PBR flag. These figures count exported records. They do not measure hand-painted frames or hours saved.
+One artist directed the material work and used an assistant connected to the open editor to apply decisions across poses and viewing directions. The artist decided whether a piece of armor was visible from behind, or where a tree should stay dark when viewed against the sun. The first preview pack contained 84 collections and 23,221 image records, of which 20,939 have the PBR flag. These figures count exported records. They do not measure hand-painted frames or hours saved.
 
 ## Establish the recipe on one character
 
