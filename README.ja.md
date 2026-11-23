@@ -1,11 +1,24 @@
 # Myth II for Meta Quest 3 / 3S
 
-このプレリリースのAPK、PCツール、PBR材質パックを一緒に使用してください。材質ZIPを展開し、84個の .mvrnm が直接入っているフォルダをPlugin Managerで選択してQuestへ転送します。初回導入ではリリースにリンクした共通ランタイムも必要です。
-
-[一人で大量の材質を作る：制作事例](docs/MATERIAL_WORKFLOW.ja.md)
-
-
 [English](README.md) | **日本語**
+
+## 疑似PBR版を導入する
+
+| 主な違い | main（0.5.0-beta） | pbr-like（Preview 1） |
+|---|---|---|
+| 材質 | ノーマルマップ | 画像ごとに指定する疑似PBR。MSで光沢・映り込み、Thicknessで透過光を調整 |
+| 対象 | 通常描画と強化影・ライティング | ユニット・シーンオブジェクト・メッシュごとに疑似PBRを選択。初期値はすべてOff |
+| ファイル互換性 | MVRNORM1/2を読み込み | 旧形式も読み込み。対応Editorの新規出力は全画像のPBR指定を外してもMVRMAT04で、main版APKでは利用不可 |
+
+| ダウンロード | 使い方 |
+|---|---|
+| [Quest用APK](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.5.0-pbr-like.1/MythIIVR-PBR-like.1.apk) | Quest 3 / 3Sにインストール |
+| [Plugin Manager・Sprite Material Editor・ソース・日英ガイド（PC用ZIP）](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.5.0-pbr-like.1/MythIIVR-PBR-Source-PluginManager.1-docs.zip) | 展開して Plugin Manager.cmd で転送、Sprite Material Editor.cmd で編集 |
+| [PBR対応ノーマルマップパック（84コレクション）](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.5.0-pbr-like.1/MythIIVR-PBR-Materials.1.zip) | 展開し、.mvrnm が直接入ったフォルダをPlugin Managerで選択して転送 |
+| [共通の初回ランタイム](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.1.0-beta.2026.11.17/MythIIVR-Runtime-2026.11.16.zip) | 新規セットアップ時に使用。原作ISOと1.8.5アップデーターは各自で用意 |
+
+転送後、起動画面の「スプライト材質」で対象カテゴリを有効にし、VRに入ってください。[PBR版の技術情報](docs/TECHNICAL.ja.md#pbr-preview) · [材質の作成と設定](docs/MATERIALS.ja.md) · [一人で84コレクションを制作した事例](docs/MATERIAL_WORKFLOW.ja.md)
+
 
 Myth II: SoulblighterをQuest 3 / 3Sで遊ぶための非公式VRフロントエンドです。没入空間の戦場に降り立ち、コントローラーで部隊を選択・操作できます。セットアップにはPCが必要ですが、プレイ時にはMeta Quest3/3Sの完全スタンドアローンです。
 

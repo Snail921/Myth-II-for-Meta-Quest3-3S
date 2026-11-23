@@ -4,6 +4,8 @@
 
 Implementation baseline: 0.5.0-beta. Notes consolidated on 2026-11-21. These are design and validation records, not performance guarantees for every scene.
 
+[PBR-like rendering and LOD](#pbr-preview)
+
 ## How the VR frontend works
 
 The original Myth II 1.8.5 runs on Quest, while a custom VR renderer draws its game state. This is not simply the original video displayed on a flat screen: terrain, models and sprites are rendered from each eye's viewpoint. The original game remains responsible for simulation, unit behavior, rules, progression and its multiplayer processing.
@@ -161,3 +163,11 @@ Sources: `src/vr/sprite_pbr.h`, `sprite_material.h`, `sprite_atlas.h`, `color_pi
 The bypass implementation selects separate production shaders per draw batch, with no PBR helper/call/uniforms in the ordinary variant. Material channels are summarized once on texture upload, preserved in atlas bindings and included in batch keys. Common uniforms are prepared lazily once per shader per eye/reflection pass. Particle order is preserved. Tests in `tools/test_sprite_pbr_routing_gpu.cpp` execute the production SpriteStream/ParticleStream and program-switching code on Quest, including mixed formats, atlas on/off, zero strengths, missing sky and alpha blending/reflections.
 
 Launcher sleep diagnostics: `launcher-lifecycle.log` in the app’s external files directory records create/recreate, start/resume, pause/stop, destroy, saved state, window focus and memory warnings with process ID, wall time, uptime and screen-interactive state. It remains available with detailed VR logging OFF and rotates at 128 KiB into one previous file. Compare it with Android process exit history to distinguish process death from a window-resume problem. This is instrumentation, not a confirmed fix for intermittent disappearance after prolonged sleep.
+
+<a id="pbr-preview"></a>
+
+## PBR-like rendering and LOD
+
+MVRMAT04 carries a PBR flag for each image. Flagged RGBA data stores normal X, normal Y, Thickness and Metallic & Smoothness. The shader reconstructs positive normal Z. Color alpha retains the sprite silhouette. The atlas preserves material format and per-image UV bounds.
+
+Both regular and reflected draws use the stereo midpoint for distance LOD. At the defaults, SSS, specular and sky reflection fade together between 20 and 24 m in one draw. Entirely distant sprite batches select a non-PBR program. Mixed batches skip the distant PBR contribution per object. With enhanced shadows enabled, eligible distant meshes use face normals and the sun direction for simplified self-shadowing, reducing the brightness jump during transition. Meshes can be excluded from distance LOD independently. Scene-specific FPS gains have not been measured.

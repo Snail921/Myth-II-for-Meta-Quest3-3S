@@ -1,11 +1,24 @@
 # Myth II for Meta Quest 3 / 3S
 
-Use the APK, PC tools and PBR material pack from this prerelease together. Extract the material ZIP and select the folder directly containing the 84 .mvrnm files in Plugin Manager to transfer them to Quest. A first installation also needs the shared runtime linked in the release.
-
-[Case study: creating sprite materials solo](docs/MATERIAL_WORKFLOW.md)
-
-
 **English** | [日本語](README.ja.md)
+
+## Install the PBR-like preview
+
+| Feature | main (0.5.0-beta) | pbr-like (Preview 1) |
+|---|---|---|
+| Materials | Normal maps | Per-image pseudo-PBR. MS controls gloss and reflection, Thickness controls transmitted light |
+| Scope | Standard rendering and enhanced shadow/lighting options | Independent PBR switches for units, scene objects and meshes, all off by default |
+| Pack compatibility | Reads MVRNORM1/2 | Also reads legacy normals. New Editor exports use MVRMAT04 even with all PBR flags cleared, and require the preview APK |
+
+| Download | Use |
+|---|---|
+| [Quest APK](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.5.0-pbr-like.1/MythIIVR-PBR-like.1.apk) | Install on Quest 3 / 3S |
+| [Plugin Manager, Sprite Material Editor, source and bilingual guides (PC ZIP)](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.5.0-pbr-like.1/MythIIVR-PBR-Source-PluginManager.1-docs.zip) | Extract and run Plugin Manager.cmd for transfers or Sprite Material Editor.cmd for authoring |
+| [PBR normal-map pack (84 collections)](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.5.0-pbr-like.1/MythIIVR-PBR-Materials.1.zip) | Extract and select the folder directly containing the .mvrnm files in Plugin Manager |
+| [Shared initial runtime](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.1.0-beta.2026.11.17/MythIIVR-Runtime-2026.11.16.zip) | Required for first-time setup alongside your own original ISO and 1.8.5 updater |
+
+After transferring the pack, enable the desired categories under Sprite materials and enter VR. [PBR technical notes](docs/TECHNICAL.md#pbr-preview) · [Material authoring and settings](docs/MATERIALS.md) · [Solo production case study](docs/MATERIAL_WORKFLOW.md)
+
 
 An unofficial VR frontend for playing Myth II: Soulblighter on Quest 3 / 3S. Step into an immersive battlefield and select and command your units with the controllers. Setup requires a PC, but gameplay runs entirely standalone on Meta Quest 3 / 3S.
 
