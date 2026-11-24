@@ -1,7 +1,7 @@
 #include "../src/vr/main.cpp"
 #include <cassert>
 int main(){
- objects.clear();quads.clear();selectionPreview.clear();pointerValid=false;reflectionFull=true;
+ textures.resize(16);sprite_atlas::enabled=false;objects.clear();quads.clear();selectionPreview.clear();pointerValid=false;reflectionFull=true;reflectionPlanes.resize(2);activeReflectionPlane=0;reflectionLevel=0;reflectionPlanes[1].level=.2f;
  Quad q{};q.col=71;q.views=8;q.scale=512;q.w=8;q.h=12;q.rx=4;q.ry=12;
  for(unsigned d=0;d<8;d++){q.dir=d;q.texture=d;quads[key(71,0,0,d)]=q;}
  Object o{};o.col=71;o.scale=1;o.x=originX-2;o.y=originY+3;o.z=originZ+5;o.objectType=1;objects.push_back(o);
@@ -15,7 +15,11 @@ int main(){
  q.col=87;q.seq=9;q.views=1;q.flags=0x40000010;q.dir=0;quads[key(87,9,0,0)]=q;
  beginSpriteFrame();prepareSprites(center,false);auto normalArrow=spriteViews[0].sprites[0].vertices;
  prepareSprites({center.x,2*reflectionLevel-center.y,center.z},true);
+ assert(spriteViews[1].sprites.size()==2);assert(spriteViews[1].sprites[0].plane==0&&spriteViews[1].sprites[1].plane==1);
  assert(memcmp(normalArrow.data(),spriteViews[1].sprites[0].vertices.data(),sizeof(normalArrow)));
+ assert(memcmp(spriteViews[1].sprites[0].vertices.data(),spriteViews[1].sprites[1].vertices.data(),sizeof(normalArrow)));
+ // Plane selection must not reuse the normal-visible set or the first plane only.
+ for(int pi=0;pi<2;pi++){auto&p=spriteViews[1].sprites[pi];assert(reflection_selection::accepts(p.plane,p.clipTop,p.clipHeight,false,pi,pi*.2f,true));assert(!reflection_selection::accepts(p.plane,p.clipTop,p.clipHeight,false,pi^1,0,true));}
  assert(!memcmp(normalArrow.data(),spriteViews[0].sprites[0].vertices.data(),sizeof(normalArrow)));
  // Hidden original objects stay synchronized but never reach either eye/mode or picking.
  objects[0].unitID=10200;objects[0].selected=true;objects[0].rawFlags=0x04420610;

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0-pbr-like.3 — 2026-11-24
+
+- Share normal/reflection sprite preparation, add conservative early culling and shared reflection geometry selection.
+- Fix the film-playback crash at camera-plane/union boundaries.
+- Add reflection sprite size LOD (default 50 m / 2 px), optimize its CPU checks and extend the size slider to 32 px.
+- Record viewpoint/controllers and restore them for fixed-pose diagnostics, with initial-pose fallback and logging when no valid recording exists.
+- Update APK, Manager/source ZIP and English/Japanese guides. Reuse unchanged Preview 2 materials and shared runtime/skyboxes. Main is unchanged.
+
+
 **English** | [日本語](CHANGELOG.ja.md)
 
 ## 0.5.0-beta — 2026-11-20

@@ -58,3 +58,11 @@ Color correction and Bloom are independent and both default to OFF. Each bypasse
 Bloom extracts and blurs bright highlights, excluding sky and UI as glow sources. It does not identify fire or magic by object type. Above zero, increasing strength does not add rendering passes. Resolution and iteration count affect load; low-resolution Bloom still has full-screen capture/composition costs. Lower resolutions may give a coarser, wider glow. Bloom is a relatively expensive effect, so OFF is recommended if FPS is your priority, though a scene-rendering resolution of 1680 × 1760 may still give reasonable performance.
 
 A light scene reached 90 FPS with the lowest scene-rendering resolution and 1/8 Bloom. This is not a guarantee across levels or viewpoints. Adjust the settings to suit your preferred balance of image quality, effects and FPS.
+
+## Reflection sprite LOD (Preview 3)
+
+The launcher water settings include **Reflection sprite LOD** (default ON), **start distance** (0–100 m, default 50 m) and **size threshold** (0–32 px, steps of 0.5 px, default 2 px). Changes apply on the next VR entry. OFF or a zero size threshold disables this rejection.
+
+Beyond the start distance, sprites whose projected size is below the threshold are omitted from water reflections. Size is the longer dimension of the projected bounds overlapping the water draw rectangle, in reflection-texture pixels; the larger result from either eye is used. Hidden sprites reappear at 1.25 times the threshold to reduce flicker. Normal-view sprites, meshes, particles and shadows are unaffected. This is separate from the existing PBR shader distance LOD.
+
+32 px is an aggressive option and can visibly remove reflections. Start with the default and compare the same scene. Reducing sprite counts does not remove terrain, mesh, effect or pass setup costs, and does not guarantee a proportional FPS improvement.

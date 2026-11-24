@@ -52,7 +52,7 @@ static bool hitWristMap(Vec3 origin,Vec3 direction,Vec3&hit,float&u,float&v,bool
  return std::isfinite(u)&&std::isfinite(v)&&u>=0&&u<=1&&v>=0&&v<=1;
 }
 static bool warpFromWristMap(float u,float v,const XrPosef&head){
- if(scriptCameraBlocked||!std::isfinite(u)||!std::isfinite(v)||u<0||u>1||v<0||v>1||terrain.width<3||terrain.height<3)return false;
+ if(benchmarkPose.enabled||scriptCameraBlocked||!std::isfinite(u)||!std::isfinite(v)||u<0||u>1||v<0||v>1||terrain.width<3||terrain.height<3)return false;
  float gx=std::clamp(u*levelWidth,.5f,terrain.width-1.5f),gy=std::clamp(v*levelHeight,.5f,terrain.height-1.5f);
  Vec3 surface;if(!terrain.rayDownFromAbove(mythWorldX(gx,originX,scale),(gy-originY)*scale,surface)){return false;}
  Vec3 headOffset=turn({head.position.x,head.position.y,head.position.z},cameraYaw);
@@ -143,6 +143,8 @@ static void drawWristMap(const XrPosef&eye){
  };
  if(infoFont&&!originalDialogMode){
   if(shadowDebugEnabled&&(sunAngleAdjustment.active||seconds()<sunAngleAdjustment.noticeUntil))drawMapNotice(sunAngleAdjustment.label(),false,1);
+  if(seconds()<benchmarkPose.noticeUntil)drawMapNotice(benchmarkPose.notice,false,2);
+  if(seconds()<benchmarkPose.noticeUntil)drawMapNotice(benchmarkPose.notice,false,2);
   if(fpsDisplay.enabled)drawMapNotice(fpsDisplay.label(),false);
   if(gameSpeed.value>=0&&seconds()<gameSpeed.until)drawMapNotice(std::string("Game Speed ")+gameSpeed.label(),true);
  }

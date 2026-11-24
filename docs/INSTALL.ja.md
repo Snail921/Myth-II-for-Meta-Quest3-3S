@@ -11,7 +11,7 @@
 - Quest 3 / 3Sと、データ通信できるUSBケーブル
 - Windows PC
 - 自分のMyth II CD ISOとWindows用1.8.5アップデーター
-- [Release](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.5.0-pbr-like.2)から入手するManager、APK、初回ランタイム
+- [Release](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.5.0-pbr-like.3)から入手するManager、APK、初回ランタイム
 
 Myth II 1.8.5パッチ、高精細マップテクスチャ・ハイレゾスプライト（Twice Born Edition）、The Fallen Levelsなどのプラグインは、[Project Magma](https://projectmagma.net/)から入手できます。
 

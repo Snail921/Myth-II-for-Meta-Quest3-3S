@@ -52,6 +52,27 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
     private Switch reuseFollowDistance,aimOnJump,tapGroups,selectionHaptics,buttonGroups;
     private TextView status;
     private volatile boolean importing;
+    private void addReflectionSpriteLod(LinearLayout group,android.content.SharedPreferences prefs){
+        Switch toggle=new Switch(this);toggle.setText(ui("微小な反射スプライトを省略 / Omit tiny reflected sprites"));toggle.setTextSize(20);
+        toggle.setChecked(prefs.getBoolean("reflection-sprite-lod.enabled",true));group.addView(toggle);
+        saveLighting("reflection-sprite-lod.enabled",toggle.isChecked()?1:0);
+        toggle.setOnCheckedChangeListener((button,on)->{if(saveLighting("reflection-sprite-lod.enabled",on?1:0))prefs.edit().putBoolean("reflection-sprite-lod.enabled",on).apply();});
+        final String[] keys={"reflection-sprite-lod-distance","reflection-sprite-lod-half-pixels"};
+        final String[] titles={"反射スプライトの省略開始距離 / Reflected sprite omission start distance","反射像の省略サイズ / Reflected sprite omission size"};
+        final int[] defaults={50,4},maximum={100,64};
+        for(int i=0;i<2;i++){
+            final int index=i;final String key=keys[i];TextView label=new TextView(this);label.setTextSize(18);group.addView(label);
+            SeekBar slider=new ValueSeekBar();slider.setTag(key);slider.setMax(maximum[i]);slider.setProgress(Math.max(0,Math.min(maximum[i],prefs.getInt(key,defaults[i]))));group.addView(slider);
+            final Runnable update=()->label.setText(ui(titles[index])+": "+(index==0?slider.getProgress()+" m":String.format(java.util.Locale.ROOT,"%.1f px",slider.getProgress()*.5f)));
+            update.run();saveLighting(key,slider.getProgress());
+            slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+                public void onProgressChanged(SeekBar b,int value,boolean user){update.run();}
+                public void onStartTrackingTouch(SeekBar b){}
+                public void onStopTrackingTouch(SeekBar b){if(saveLighting(key,b.getProgress()))prefs.edit().putInt(key,b.getProgress()).apply();}
+            });
+        }
+        TextView help=new TextView(this);help.setText(ui("開始距離より近い物体は保持。反射画像上の幅・高さがともに指定サイズ未満の像を省略します。左右眼で大きい方を使用。0 pxは省略なし。高精細設定で判定が変わります。次回VR移行時に反映。 / Nearby objects are retained. Omit reflections whose width and height are both below the threshold, using the larger result from either eye. 0 px disables omission. Resolution affects the result. Applies on next VR entry."));group.addView(help);
+    }
     private void addSpritePbrDiagnostics(LinearLayout group,android.content.SharedPreferences prefs){
         Switch debug=new Switch(this);debug.setText("DebugSpecularLightingMode");debug.setTextSize(20);
         debug.setChecked(prefs.getBoolean("sprite-pbr.debug-specular",false));group.addView(debug);
@@ -149,12 +170,34 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
     @Override public void onTrimMemory(int level){recordLauncherLifecycle("trim-memory-"+level);super.onTrimMemory(level);}
     @Override public void onLowMemory(){recordLauncherLifecycle("low-memory");super.onLowMemory();}
     @Override public void onWindowFocusChanged(boolean focused){super.onWindowFocusChanged(focused);recordLauncherLifecycle("focus-"+focused);}
+    // Explicit diagnostic transfer; fixed filenames only, no arbitrary path access.
+    private void transferBenchmarkPose() {
+        String action=getIntent().getStringExtra("benchmark_pose_transfer");
+        if(!"export".equals(action)&&!"restore".equals(action))return;
+        try {
+            File internal=new File(getFilesDir(),"benchmark-pose.bin");
+            File external=new File(getExternalFilesDir(null),"benchmark-pose-export.bin");
+            if("export".equals(action)) {
+                java.nio.file.Files.copy(internal.toPath(),external.toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } else {
+                byte[] data=java.nio.file.Files.readAllBytes(new File(getExternalFilesDir(null),"benchmark-pose-restore.bin").toPath());
+                if(data.length!=360||!"MYTHBP01".equals(new String(data,0,8,java.nio.charset.StandardCharsets.US_ASCII)))throw new IOException("Invalid benchmark pose format");
+                if(internal.isFile())java.nio.file.Files.copy(internal.toPath(),new File(getFilesDir(),"benchmark-pose-before-restore.bin").toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                File temp=new File(getFilesDir(),"benchmark-pose-transfer.tmp");java.nio.file.Files.write(temp.toPath(),data);
+                java.nio.file.Files.move(temp.toPath(),internal.toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                java.nio.file.Files.copy(internal.toPath(),external.toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            if(!external.setReadable(true,false))throw new IOException("Cannot make exported pose readable");
+            android.util.Log.i("MythStandalone","Benchmark pose transfer success action="+action);
+        } catch(Exception e) {android.util.Log.e("MythStandalone","Benchmark pose transfer failed action="+action,e);}
+    }
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         recordLauncherLifecycle(state==null?"create":"recreate");
         try{java.nio.file.Files.write(new File(getExternalFilesDir(null),"external-layout.version").toPath(),new byte[]{'1'});}catch(IOException e){android.util.Log.e("MythStandalone","Layout marker",e);}
         final String purgeHash=getIntent().getStringExtra("purge_level_cache_sha256");
         if(purgeHash!=null)new Thread(()->{try{LevelAssets.purgeMatchingCache(this,purgeHash);}catch(Exception e){android.util.Log.e("MythStandalone","Cache removal failed",e);}},"RemoveLevelCache").start();
+        transferBenchmarkPose();
         StandaloneBridge.exportDiagnostics(this);
         LinearLayout layout=new LinearLayout(this);layout.setOrientation(1);layout.setPadding(32,32,32,32);
         UiLanguage.selector(this,layout,()->importing);
@@ -217,6 +260,7 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
             fullReflections.setEnabled(reflections.isChecked());highReflections.setEnabled(reflections.isChecked());
         };
         reflections.setOnCheckedChangeListener(graphicsChanged);fullReflections.setOnCheckedChangeListener(graphicsChanged);highReflections.setOnCheckedChangeListener(graphicsChanged);
+        addReflectionSpriteLod(water,graphics);
         Switch waves=new Switch(this);waves.setText(ui("水面の波・光沢 / Water waves & highlights"));waves.setTextSize(20);waves.setChecked(graphics.getBoolean("water_waves",true));saveWaterWaves(waves.isChecked());water.addView(waves);
         waves.setOnCheckedChangeListener((button,enabled)->{if(saveWaterWaves(enabled))graphics.edit().putBoolean("water_waves",enabled).apply();});
         TextView waveHelp=new TextView(this);waveHelp.setText(ui("鏡面反射ON時に有効。波による映り込みの揺れと光沢を追加します。"));water.addView(waveHelp);
@@ -335,10 +379,20 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         button(setupGroup,ui("Initial setup / 初回データ展開"),()->importSeed());
         button(setupGroup,ui("Status / 状態を更新"),()->show(StandaloneBridge.status()));
         TextView debugHelp=new TextView(this);debugHelp.setText(ui("詳細ログをADBへ出力します。PCへの保存にはUSB接続と収集ツールが必要です。"));setupGroup.addView(debugHelp);
-        Switch fixedPose=new Switch(this);fixedPose.setText(ui("計測用：視点・コントローラー固定 / Benchmark: fixed view and controllers"));fixedPose.setTextSize(20);fixedPose.setChecked(graphics.getBoolean("benchmark_pose",false));
-        saveLighting("benchmark-pose.enabled",fixedPose.isChecked()?1:0);setupGroup.addView(fixedPose);
-        fixedPose.setOnCheckedChangeListener((button,enabled)->{if(saveLighting("benchmark-pose.enabled",enabled?1:0))graphics.edit().putBoolean("benchmark_pose",enabled).apply();});
-        TextView fixedHelp=new TextView(this);fixedHelp.setText(ui("シーン初期位置で固定。ボタン入力は有効。診断ログONで1秒ごとに記録します。次回VR起動時に反映。 / Locks to the scene start. Buttons remain active. Enable diagnostic logging for one-second reports. Applies on next VR entry."));setupGroup.addView(fixedHelp);
+        Switch recordPose=new Switch(this);recordPose.setText(ui("診断用：視点・コントローラー位置を記録 / Diagnostic: record view and controllers"));recordPose.setTextSize(20);
+        Switch fixedPose=new Switch(this);fixedPose.setText(ui("診断用：視点・コントローラー位置を固定 / Diagnostic: lock view and controllers"));fixedPose.setTextSize(20);
+        fixedPose.setChecked(graphics.getBoolean("benchmark_pose",false));recordPose.setChecked(!fixedPose.isChecked()&&graphics.getBoolean("benchmark_record",false));
+        saveLighting("benchmark-pose.enabled",fixedPose.isChecked()?1:0);saveLighting("benchmark-record.enabled",recordPose.isChecked()?1:0);
+        setupGroup.addView(recordPose);setupGroup.addView(fixedPose);
+        recordPose.setOnCheckedChangeListener((button,enabled)->{
+            if(enabled)fixedPose.setChecked(false);
+            if(saveLighting("benchmark-record.enabled",enabled?1:0))graphics.edit().putBoolean("benchmark_record",enabled).apply();
+        });
+        fixedPose.setOnCheckedChangeListener((button,enabled)->{
+            if(enabled)recordPose.setChecked(false);
+            if(saveLighting("benchmark-pose.enabled",enabled?1:0))graphics.edit().putBoolean("benchmark_pose",enabled).apply();
+        });
+        TextView fixedHelp=new TextView(this);fixedHelp.setText(ui("記録：左スティック押し込みで位置・姿勢を保存（固定しません）。固定：VR移行時に保存位置で固定し自動計測。記録なし・別レベルの場合は開始視点を使用。左押し込みで計測終了・固定解除。次回VR移行時に反映。 / Record: click the left stick to save poses without locking. Lock: restore on VR entry and log automatically; use the scene start if missing or from another level. Click the left stick to stop logging and release. Applies on next VR entry."));setupGroup.addView(fixedHelp);
         Switch shadowDebug=new Switch(this);shadowDebug.setText(ui("診断用：強化影を地面に色表示 / Diagnostic: show enhanced shadows on terrain"));shadowDebug.setTextSize(20);shadowDebug.setChecked(graphics.getBoolean("shadow_debug_overlay",false));
         saveLighting("shadow-debug-overlay.enabled",shadowDebug.isChecked()?1:0);setupGroup.addView(shadowDebug);
         shadowDebug.setOnCheckedChangeListener((button,enabled)->{if(saveLighting("shadow-debug-overlay.enabled",enabled?1:0))graphics.edit().putBoolean("shadow_debug_overlay",enabled).apply();});
@@ -373,7 +427,7 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
     private void formatSwitches(LinearLayout layout){
         for(int i=0;i<layout.getChildCount();i++){android.view.View child=layout.getChildAt(i);if(child instanceof LinearLayout){formatSwitches((LinearLayout)child);continue;}if(!(child instanceof Switch))continue;Switch toggle=(Switch)child;CharSequence label=toggle.getText();toggle.setText("");layout.removeViewAt(i);LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(android.view.Gravity.CENTER_VERTICAL);row.setLayoutDirection(android.view.View.LAYOUT_DIRECTION_LTR);row.addView(toggle,new LinearLayout.LayoutParams(-2,-2));TextView text=new TextView(this);text.setText(label);text.setTextSize(20);text.setTextColor(toggle.getTextColors());text.setPadding(16,0,0,0);text.setOnClickListener(v->{if(toggle.isEnabled())toggle.toggle();});row.addView(text,new LinearLayout.LayoutParams(0,-2,1));toggle.setContentDescription(label);layout.addView(row,i,new LinearLayout.LayoutParams(-1,-2));}
     }
-    private String sliderValue(SeekBar bar){if("sprite-pbr.lod-start".equals(bar.getTag()))return (20+bar.getProgress())+" m";if("sprite-pbr.lod-width".equals(bar.getTag()))return (4+bar.getProgress())+" m";if(bar.getTag() instanceof String&&((String)bar.getTag()).startsWith("sprite-pbr."))return String.format(java.util.Locale.US,"%.2f",bar.getProgress()/100f);if("bloom_resolution".equals(bar.getTag()))return "1/"+new int[]{32,16,8,6,4,2}[bar.getProgress()];if("bloom_iterations".equals(bar.getTag()))return Integer.toString(bar.getProgress()+1);if("bloom_strength".equals(bar.getTag()))return bar.getProgress()+"%";if("scene-correction".equals(bar.getTag()))return bar.getProgress()+"%";if("keyboard-smoothing".equals(bar.getTag()))return (bar.getProgress()-493)+" ms";
+    private String sliderValue(SeekBar bar){if("reflection-sprite-lod-distance".equals(bar.getTag()))return bar.getProgress()+" m";if("reflection-sprite-lod-half-pixels".equals(bar.getTag()))return String.format(java.util.Locale.ROOT,"%.1f px",bar.getProgress()*.5f);if("sprite-pbr.lod-start".equals(bar.getTag()))return (20+bar.getProgress())+" m";if("sprite-pbr.lod-width".equals(bar.getTag()))return (4+bar.getProgress())+" m";if(bar.getTag() instanceof String&&((String)bar.getTag()).startsWith("sprite-pbr."))return String.format(java.util.Locale.US,"%.2f",bar.getProgress()/100f);if("bloom_resolution".equals(bar.getTag()))return "1/"+new int[]{32,16,8,6,4,2}[bar.getProgress()];if("bloom_iterations".equals(bar.getTag()))return Integer.toString(bar.getProgress()+1);if("bloom_strength".equals(bar.getTag()))return bar.getProgress()+"%";if("scene-correction".equals(bar.getTag()))return bar.getProgress()+"%";if("keyboard-smoothing".equals(bar.getTag()))return (bar.getProgress()-493)+" ms";
         if(bar.getTag() instanceof String&&((String)bar.getTag()).startsWith("keyboard-offset:"))return (bar.getProgress()+Integer.parseInt(((String)bar.getTag()).substring(16)))+" cm";
 
         if(bar==pointerThickness)return String.format(java.util.Locale.US,"%.1fx",(bar.getProgress()+10)/10f);

@@ -7,6 +7,9 @@ import java.util.*;
 final class UiLanguage {
  static final Map<String,String[]> translations=new HashMap<>();
  static {
+  translations.put("診断用：視点・コントローラー位置を記録 / Diagnostic: record view and controllers",new String[]{"診断用：視点・コントローラー位置を記録","Diagnostic: record view and controllers"});
+  translations.put("診断用：視点・コントローラー位置を固定 / Diagnostic: lock view and controllers",new String[]{"診断用：視点・コントローラー位置を固定","Diagnostic: lock view and controllers"});
+  translations.put("記録：左スティック押し込みで位置・姿勢を保存（固定しません）。固定：VR移行時に保存位置で固定し自動計測。記録なし・別レベルの場合は開始視点を使用。左押し込みで計測終了・固定解除。次回VR移行時に反映。 / Record: click the left stick to save poses without locking. Lock: restore on VR entry and log automatically; use the scene start if missing or from another level. Click the left stick to stop logging and release. Applies on next VR entry.",new String[]{"記録：左スティック押し込みで位置・姿勢を保存（固定しません）。固定：VR移行時に保存位置で固定し自動計測。記録なし・別レベルの場合は開始視点を使用。左押し込みで計測終了・固定解除。次回VR移行時に反映。","Record: click the left stick to save poses without locking. Lock: restore on VR entry and log automatically; use the scene start if missing or from another level. Click the left stick to stop logging and release. Applies on next VR entry."});
   translations.put("OFF：マップ専用の空。ON：シナリオを含む配置済みの全スカイボックスから対戦ごとに選択。協力プレイ・シナリオには適用しません。次の対戦から反映。 / OFF: map-specific sky. ON: choose from all installed skies, including campaigns, once per match. Does not affect co-op or campaign levels. Applies to the next match.",new String[]{"OFF：マップ専用の空。ON：シナリオを含む配置済みの全スカイボックスから対戦ごとに選択。協力プレイ・シナリオには適用しません。次の対戦から反映。","OFF: map-specific sky. ON: choose from all installed skies, including campaigns, once per match. Does not affect co-op or campaign levels. Applies to the next match."});
   translations.put("対戦専用：ランダムスカイボックス / Multiplayer matches: random skybox",new String[]{"対戦専用：ランダムスカイボックス","Multiplayer matches: random skybox"});
   translations.put("強調色 / Accent color",new String[]{"強調色","Accent color"});

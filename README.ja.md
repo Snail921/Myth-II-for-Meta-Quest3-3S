@@ -4,7 +4,7 @@
 
 ## 疑似PBR版を導入する
 
-| 主な違い | main（0.5.0-beta） | pbr-like（Preview 2） |
+| 主な違い | main（0.5.0-beta） | pbr-like（Preview 3） |
 |---|---|---|
 | 材質 | ノーマルマップ | 画像ごとに指定する疑似PBR。Smoothnessで光沢、Metallicで空の映り込み、Thicknessで透過光を調整 |
 | 対象 | 通常描画と強化影・ライティング | ユニット・シーンオブジェクト・メッシュごとに疑似PBRを選択。初期値はすべてOff |
@@ -12,8 +12,8 @@
 
 | ダウンロード | 使い方 |
 |---|---|
-| [Quest用APK](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.5.0-pbr-like.2/MythIIVR-PBR-like.2.apk) | Quest 3 / 3Sにインストール |
-| [Plugin Manager・Sprite Material Editor・ソース・日英ガイド（PC用ZIP）](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.5.0-pbr-like.2/MythIIVR-PBR-Source-PluginManager.2.zip) | 展開して Plugin Manager.cmd で転送、Sprite Material Editor.cmd で編集 |
+| [Quest用APK](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.5.0-pbr-like.3/MythIIVR-PBR-like.3.apk) | Quest 3 / 3Sにインストール |
+| [Plugin Manager・Sprite Material Editor・ソース・日英ガイド（PC用ZIP）](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.5.0-pbr-like.3/MythIIVR-PBR-Source-PluginManager.3.zip) | 展開して Plugin Manager.cmd で転送、Sprite Material Editor.cmd で編集 |
 | [通常版206ノーママップパック (206コレクション)](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.3.2-beta/MythIIVR-NormalMaps-0.3.2-beta.zip)| 展開し、.mvrnm が直接入ったフォルダをPluginManagerのノーマルマップフォルダで指定、"ノーマルマップをQuestへ転送"で転送してください。|
 | [PBR対応ノーマルマップパック（89コレクション）](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.5.0-pbr-like.2/MythIIVR-PBR-Materials.2.zip) | 展開し、.mvrnm が直接入ったフォルダをPlugin Managerで選択して転送。先に通常版を転送しておいてください。 |
 | [共通の初回ランタイム](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/download/v0.1.0-beta.2026.11.17/MythIIVR-Runtime-2026.11.16.zip) | 新規セットアップ時に使用。原作ISOと1.8.5アップデーターは各自で用意 |
@@ -25,7 +25,7 @@ Myth II: SoulblighterをQuest 3 / 3Sで遊ぶための非公式VRフロントエ
 
 **APK・初回ランタイム・Plugin Managerは下のリンクからダウンロードして下さい。** セットアップには原作のISOと1.8.5アップデーターが必要です。
 
-[ダウンロード](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.5.0-pbr-like.2) · [導入手順](docs/INSTALL.ja.md) · [操作方法](docs/CONTROLS.ja.md)
+[ダウンロード](https://github.com/Snail921/Myth-II-for-Meta-Quest3-3S/releases/tag/v0.5.0-pbr-like.3) · [導入手順](docs/INSTALL.ja.md) · [操作方法](docs/CONTROLS.ja.md)
 
 <p>
   <a href="https://raw.githubusercontent.com/Snail921/Myth-II-for-Meta-Quest3-3S/main/docs/images/screenshot-01.png"><img src="docs/images/screenshot-01.png" height="120" alt=""></a>
@@ -90,3 +90,5 @@ Myth II 1.8.5パッチ、高精細マップテクスチャ・ハイレゾスプ�
 ## 技術情報
 
 [VRフロントエンドの動作原理・構成図・最適化の記録](docs/TECHNICAL.ja.md) — 描画と原作の役割分担、最適化手法、検証結果、実プレイでの成果、計測上の注意点をまとめています。
+
+Preview 3では反射カリング・LODと診断用視点記録を更新しました。材質パックは変更のないPreview 2版を継続使用し、既存ランタイム・スカイボックスも再利用します。ゲームデータの再変換は不要です。[描画設定](docs/GRAPHICS.ja.md)と[診断操作](docs/CONTROLS.ja.md)を参照してください。

@@ -72,7 +72,7 @@ struct TouchInput {
  }
  bool boolean(XrSession s,XrAction a){XrActionStateGetInfo gi{XR_TYPE_ACTION_STATE_GET_INFO};gi.action=routed(a);XrActionStateBoolean v{XR_TYPE_ACTION_STATE_BOOLEAN};ck(xrGetActionStateBoolean(s,&gi,&v));return v.isActive&&v.currentState;}
  bool trigger(XrSession s,XrAction a,bool&held){XrActionStateGetInfo gi{XR_TYPE_ACTION_STATE_GET_INFO};gi.action=routed(a);XrActionStateFloat v{XR_TYPE_ACTION_STATE_FLOAT};ck(xrGetActionStateFloat(s,&gi,&v));held=v.isActive&&v.currentState>=(held?.40f:.55f);return held;}
- bool pose(XrSession s,XrAction a,XrSpace hand,XrSpace base,XrTime time,XrPosef&out){a=routed(a);if(a==aim)hand=aimSpace;else if(a==leftAim)hand=leftAimSpace;else if(a==grip)hand=gripSpace;else if(a==leftGrip)hand=leftGripSpace;if(benchmarkPose.enabled){out=benchmarkPose.hand(a==leftGrip||a==leftAim);return true;}XrActionStateGetInfo gi{XR_TYPE_ACTION_STATE_GET_INFO};gi.action=a;XrActionStatePose state{XR_TYPE_ACTION_STATE_POSE};ck(xrGetActionStatePose(s,&gi,&state));if(!state.isActive)return false;XrSpaceLocation loc{XR_TYPE_SPACE_LOCATION};ck(xrLocateSpace(hand,base,time,&loc));if(a==aim||a==leftAim)aimFlags[a==leftAim?1:0]=loc.locationFlags;if((loc.locationFlags&3)!=3)return false;out=loc.pose;return true;}
+ bool pose(XrSession s,XrAction a,XrSpace hand,XrSpace base,XrTime time,XrPosef&out){a=routed(a);if(a==aim)hand=aimSpace;else if(a==leftAim)hand=leftAimSpace;else if(a==grip)hand=gripSpace;else if(a==leftGrip)hand=leftGripSpace;if(benchmarkPose.enabled){out=benchmarkPose.hand(a==leftGrip||a==leftAim,a==aim||a==leftAim);return true;}XrActionStateGetInfo gi{XR_TYPE_ACTION_STATE_GET_INFO};gi.action=a;XrActionStatePose state{XR_TYPE_ACTION_STATE_POSE};ck(xrGetActionStatePose(s,&gi,&state));if(!state.isActive)return false;XrSpaceLocation loc{XR_TYPE_SPACE_LOCATION};ck(xrLocateSpace(hand,base,time,&loc));if(a==aim||a==leftAim)aimFlags[a==leftAim?1:0]=loc.locationFlags;if((loc.locationFlags&3)!=3)return false;out=loc.pose;return true;}
 };
 static TouchInput input;static Terrain terrain;
 static int infoPanelButton=0,originalDialogMode=0;
@@ -247,16 +247,34 @@ static void clickPointer(bool extend,bool groundAttack,bool fixedMove,Vec3 desti
  }else {routePoints=0;clearMoveMarkers();command(2);}
 }
 #include "coop_transfer_input.h"
-static void updateInput(XrSession session,XrSpace space,XrTime time,const XrView*views,float dt,bool focused){
- if(!cameraReady){followCamera.active=false;orbitCamera.active=false;if(levelInitialCamera){camera.x=mythWorldX(levelCamera[0],originX,scale);camera.z=(levelCamera[1]-originY)*scale;cameraYaw=levelCamera[3]+1.5707963268f;cameraGroundOffset=std::clamp((levelCamera[2]-originZ)*scale-terrain.elevation(camera.x,camera.z),1.6f,20.f);}camera.y=terrain.elevation(camera.x,camera.z)+cameraGroundOffset;cameraReady=true;if(benchmarkPose.enabled){benchmarkCamera=camera;benchmarkYaw=cameraYaw;benchmarkHeight=cameraGroundOffset;LOG("Benchmark initial camera=%.3f,%.3f,%.3f yaw=%.3f",camera.x,camera.y,camera.z,cameraYaw);}requestSeq=(uint32_t)(seconds()*1000);}
+static void updateInput(XrSession session,XrSpace space,XrTime time,XrView*views,float dt,bool focused){
+ if(!cameraReady){followCamera.active=false;orbitCamera.active=false;if(levelInitialCamera){camera.x=mythWorldX(levelCamera[0],originX,scale);camera.z=(levelCamera[1]-originY)*scale;cameraYaw=levelCamera[3]+1.5707963268f;cameraGroundOffset=std::clamp((levelCamera[2]-originZ)*scale-terrain.elevation(camera.x,camera.z),1.6f,20.f);}camera.y=terrain.elevation(camera.x,camera.z)+cameraGroundOffset;cameraReady=true;if(benchmarkPose.enabled){if(benchmarkPose.loaded){auto&r=benchmarkPose.saved;camera={r.camera[0],r.camera[1],r.camera[2]};cameraYaw=r.yaw;cameraGroundOffset=r.height;}benchmarkCamera=camera;benchmarkYaw=cameraYaw;benchmarkHeight=cameraGroundOffset;LOG("Benchmark initial camera=%.3f,%.3f,%.3f yaw=%.3f",camera.x,camera.y,camera.z,cameraYaw);}requestSeq=(uint32_t)(seconds()*1000);}
  if(requestPending&&seconds()-requestTime>2){LOG("Input ACK timeout seq=%u",requestPending);patrolRequest=0;routePoints=0;clearMoveMarkers();requestPending=0;commandQueue.clear();input.hapticRequests.clear();input.groupRequests.clear();commandFailed=true;}
  pollOriginalDialog();
  wristMapPoseValid=false;mapHovered=false;infoPanelHovered=false;originalDialogHovered=false;
  input.hapticFocused=focused;if(!focused)input.tap.reset();
- if(!focused){if(mapPenStroke)mapPenNeedsEnd=true;mapPenStroke=false;if(sunAngleAdjustment.moving)sunAngleAdjustment.step(0,0,0,seconds());coopMenuOpen=false;followCamera.active=false;input.lastNextGroup=true;input.lastFollowClick=input.lastWarpClick=true;orbitCamera.active=false;infoPanelGesture=false;mapGesture=false;input.lastMinimap=true;routePoints=0;clearMoveMarkers();pointerValid=false;radial.close();selectionGesture.cancel();selectionPreview.clear();lastTapID=0;commandQueue.clear();input.swallowRight=input.swallowLeft=true;input.lastSelect=input.lastClear=input.selectHeld=input.extendHeld=false;input.lastSpecial=input.lastOrders=input.lastFormations=true;return;}
- XrActiveActionSet active{input.set,XR_NULL_PATH};XrActionsSyncInfo sync{XR_TYPE_ACTIONS_SYNC_INFO};sync.countActiveActionSets=1;sync.activeActionSets=&active;XrResult synced=xrSyncActions(session,&sync);if(synced==XR_SESSION_NOT_FOCUSED){if(sunAngleAdjustment.moving)sunAngleAdjustment.step(0,0,0,seconds());followCamera.active=false;input.lastNextGroup=true;input.lastFollowClick=input.lastWarpClick=true;orbitCamera.active=false;pointerValid=false;return;}ck(synced);
+ if(!focused){benchmarkPose.lastLeft=true;if(mapPenStroke)mapPenNeedsEnd=true;mapPenStroke=false;if(sunAngleAdjustment.moving)sunAngleAdjustment.step(0,0,0,seconds());coopMenuOpen=false;followCamera.active=false;input.lastNextGroup=true;input.lastFollowClick=input.lastWarpClick=true;orbitCamera.active=false;infoPanelGesture=false;mapGesture=false;input.lastMinimap=true;routePoints=0;clearMoveMarkers();pointerValid=false;radial.close();selectionGesture.cancel();selectionPreview.clear();lastTapID=0;commandQueue.clear();input.swallowRight=input.swallowLeft=true;input.lastSelect=input.lastClear=input.selectHeld=input.extendHeld=false;input.lastSpecial=input.lastOrders=input.lastFormations=true;return;}
+ XrActiveActionSet active{input.set,XR_NULL_PATH};XrActionsSyncInfo sync{XR_TYPE_ACTIONS_SYNC_INFO};sync.countActiveActionSets=1;sync.activeActionSets=&active;XrResult synced=xrSyncActions(session,&sync);if(synced==XR_SESSION_NOT_FOCUSED){benchmarkPose.lastLeft=true;if(sunAngleAdjustment.moving)sunAngleAdjustment.step(0,0,0,seconds());followCamera.active=false;input.lastNextGroup=true;input.lastFollowClick=input.lastWarpClick=true;orbitCamera.active=false;pointerValid=false;return;}ck(synced);
+ // Diagnostic clicks are physical LEFT, independent of stick-swap preferences.
+ bool benchmarkConsumesLeft=benchmarkPose.recording||benchmarkPose.enabled||benchmarkPose.consumeLeftUntilRelease;
+ if(benchmarkConsumesLeft){
+  XrActionStateGetInfo gi{XR_TYPE_ACTION_STATE_GET_INFO};gi.action=input.warpClick;
+  XrActionStateBoolean state{XR_TYPE_ACTION_STATE_BOOLEAN};ck(xrGetActionStateBoolean(session,&gi,&state));
+  bool pressed=state.isActive&&state.currentState;
+  if(benchmarkPose.leftClick(state.isActive,pressed)){
+   if(benchmarkPose.enabled){
+    LOG("Benchmark END tick=%u saved_tick=%u reason=left_click",tick,benchmarkPose.loaded?benchmarkPose.saved.tick:0);
+    benchmarkPose.notice="Benchmark stopped / view released";benchmarkPose.noticeUntil=seconds()+5;
+    benchmarkPose.enabled=false;diagnosticBenchmarkActive=false;diagnosticBenchmarkStopped=true;diagnosticEnabled=false;
+    for(int i=0;i<2;i++)views[i]=benchmarkPose.tracked[i];
+    followCamera.active=false;orbitCamera.active=false;
+   }else if(benchmarkPose.recording)benchmarkPose.capturePending=true;
+   input.pulse(false);
+  }
+ }
  bool select=input.trigger(session,input.select,input.selectHeld),clear=input.boolean(session,input.clear),extend=input.trigger(session,input.extend,input.extendHeld);
  bool followPressed=input.boolean(session,input.followClick),warpPressed=input.boolean(session,input.warpClick),cameraJump=false;
+ if(benchmarkConsumesLeft){if(cameraSpeeds.swapSticks)followPressed=false;else warpPressed=false;}
  bool mapPressed=input.boolean(session,input.minimap);
  bool groundAttack=input.trigger(session,input.groundAttack,input.groundAttackHeld);
  auto clicks=speedClick(warpPressed,followPressed,input.lastWarpClick,input.lastFollowClick,groundAttack);
@@ -345,6 +363,7 @@ static void updateInput(XrSession session,XrSpace space,XrTime time,const XrView
  bool newScriptCamera=cameraInfo[0]==0x314d4143&&cameraInfo[1]&&cameraInfo[1]!=lastScriptSerial;
  scriptCameraBlocked=scriptCameraGate.update((cameraInfo[10]&0x10000)!=0,newScriptCamera,seconds());
  if(scriptCameraBlocked){followCamera.active=false;orbitCamera.active=false;}
+ if(newScriptCamera&&benchmarkPose.enabled)lastScriptSerial=cameraInfo[1];
  if(newScriptCamera&&!benchmarkPose.enabled){
   lastScriptSerial=cameraInfo[1];
   float gx=int32_t(cameraInfo[4])/512.f,gy=int32_t(cameraInfo[5])/512.f;
@@ -568,3 +587,30 @@ static void updateInput(XrSession session,XrSpace space,XrTime time,const XrView
  input.lastSpecial=special;input.lastOrders=orders;input.lastFormations=formations;input.lastExtend=extend;
 }
 
+
+static void captureBenchmarkPose(XrSession session,XrSpace space,XrTime time,const XrView*views){
+ if(benchmarkPose.enabled){camera=benchmarkCamera;cameraYaw=benchmarkYaw;cameraGroundOffset=benchmarkHeight;followCamera.active=false;orbitCamera.active=false;}
+ if(benchmarkPose.enabled&&!benchmarkPose.started){
+  perfStart=seconds();perfFrames=0;perfIPC=perfInput=perfSurface=perfScene=perfFX=perfControls=0;
+  benchmarkPose.started=true;benchmarkPose.notice=benchmarkPose.loaded?"Benchmark: saved pose":"Benchmark: scene start ("+benchmarkPose.reason+")";benchmarkPose.noticeUntil=seconds()+5;
+  LOG("Benchmark BEGIN source=%s level=%s saved_tick=%u current_tick=%u camera=%.6f,%.6f,%.6f yaw=%.6f",benchmarkPose.reason.c_str(),levelAssetPrefix.c_str(),benchmarkPose.loaded?benchmarkPose.saved.tick:0,tick,camera.x,camera.y,camera.z,cameraYaw);
+ }
+ if(!benchmarkPose.capturePending)return;benchmarkPose.capturePending=false;
+ BenchmarkPose::Saved record{};snprintf(record.level,sizeof(record.level),"%s",levelAssetPrefix.c_str());record.tick=tick;
+ record.camera[0]=camera.x;record.camera[1]=camera.y;record.camera[2]=camera.z;record.yaw=cameraYaw;record.height=cameraGroundOffset;
+ for(int i=0;i<2;i++){record.eyes[i].pose=views[i].pose;record.eyes[i].fov=views[i].fov;}
+ XrAction actions[]={input.grip,input.leftGrip,input.aim,input.leftAim};
+ XrSpace spaces[]={input.gripSpace,input.leftGripSpace,input.aimSpace,input.leftAimSpace};
+ bool valid=true;
+ for(int i=0;i<4;i++){
+  XrActionStateGetInfo gi{XR_TYPE_ACTION_STATE_GET_INFO};gi.action=actions[i];XrActionStatePose state{XR_TYPE_ACTION_STATE_POSE};
+  XrSpaceLocation loc{XR_TYPE_SPACE_LOCATION};
+  if(XR_FAILED(xrGetActionStatePose(session,&gi,&state))||!state.isActive||XR_FAILED(xrLocateSpace(spaces[i],space,time,&loc))||(loc.locationFlags&3)!=3){valid=false;break;}
+  record.hands[i]=loc.pose;
+ }
+ bool ok=valid&&benchmarkPose.save(record);
+ benchmarkPose.notice=ok?"View and controllers saved":valid?"Pose save failed":"Pose not saved: track both controllers";benchmarkPose.noticeUntil=seconds()+5;
+ // Recording feedback must be visible in logcat even when diagnostic logging is OFF.
+ __android_log_print(ANDROID_LOG_INFO,"MythVR","Benchmark SAVE result=%s level=%s tick=%u",ok?"saved":valid?"write_failed":"tracking_invalid",levelAssetPrefix.c_str(),tick);
+ if(ok)input.pulse(false);
+}

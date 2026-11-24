@@ -88,3 +88,11 @@ Click the eraser to clear drawings from the minimap.
 ## Keyboard and chat
 
 See [Keyboard and chat](KEYBOARD.md) for original-screen B/Y holds, two-hand typing, Yell/Whisper and fixed/follow placement.
+
+## Diagnostic recorded and fixed poses (Preview 3)
+
+Enable diagnostic pose recording in the launcher. Clicking the **physical left stick** records the viewpoint and both controllers' positions and orientations without freezing them. The saved pose persists across app restarts and APK updates.
+
+Enable the diagnostic fixed-pose mode to restore and lock the recorded viewpoint/controllers on VR entry and start logging. If no valid recording exists for the level, the initial pose is locked instead and logging still starts. Click the **physical left stick** to end logging and release the lock. These diagnostic clicks are independent of gameplay control swaps.
+
+A pose does not rewind the film: compare matching film ticks as well as the same view and settings. Keep diagnostic modes OFF for ordinary play.
