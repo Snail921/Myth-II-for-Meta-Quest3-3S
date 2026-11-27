@@ -13,7 +13,7 @@ def find_source(pack):
     data = Path(__file__).resolve().parents[1] / 'UserData'
     for folder in (pack.parent, data / 'UniqueCollections', data / 'HD Collections'):
         for ext in ('.bin', '.d256'):
-            source = folder / (pack.stem + ext)
+            source = folder / (pack.stem.removesuffix('--unshadowed') + ext)
             if source.is_file():
                 return source
 
@@ -30,7 +30,7 @@ def import_pack(pack, source=None, progress=lambda *args: None):
             return block
 
         magic = read(8)
-        if magic not in (b'MVRNORM1', b'MVRNORM2', b'MVRMAT03', b'MVRMAT04', b'MVRMAT05'):
+        if magic not in (b'MVRNORM1', b'MVRNORM2', b'MVRMAT03', b'MVRMAT04', b'MVRMAT05', b'MVRMAT06'):
             raise ValueError('Unknown Quest pack format')
         count, = struct.unpack('<I', read(4))
         if not 1 <= count <= 10000:
@@ -48,7 +48,7 @@ def import_pack(pack, source=None, progress=lambda *args: None):
                 raise ValueError('Invalid frame dimensions')
             length = size[0] * size[1] * 4
             packed = magic == b'MVRMAT03'
-            if magic in (b'MVRMAT04', b'MVRMAT05'):
+            if magic in (b'MVRMAT04', b'MVRMAT05', b'MVRMAT06'):
                 flag, = struct.unpack('<I', read(4))
                 if flag > 1:
                     raise ValueError('Invalid PBR flag')
@@ -62,10 +62,17 @@ def import_pack(pack, source=None, progress=lambda *args: None):
                 if frame.image.size != size or read(32) != fingerprint:
                     raise ValueError(f'Original source mismatch at bitmap {index}')
             normal = Image.frombytes('RGBA', size, read(length))
+            if magic == b'MVRMAT06':
+                from sprite_material_variants import runtime_hash, replace_albedo
+                project.variant = 'unshadowed'
+                frame.reference_image = Image.frombytes('RGBA', size, read(length))
+                if runtime_hash(frame.reference_image) != fingerprint.hex(): raise ValueError('Reference image mismatch')
+                frame.identity['source_runtime_sha256'] = fingerprint.hex()
+                replace_albedo(project, index, Image.frombytes('RGBA', size, read(length)))
             if packed:
                 red, green, frame.thickness, alpha = normal.split()
                 bits = np.asarray(alpha).astype(np.uint16)
-                if magic == b'MVRMAT05':
+                if magic in (b'MVRMAT05', b'MVRMAT06'):
                     frame.metallic = Image.fromarray(((bits >> 7) * 255).astype('uint8'))
                     frame.metallic_smoothness = Image.fromarray((((bits & 127) * 255 + 63) // 127).astype('uint8'))
                 else:
@@ -80,5 +87,9 @@ def import_pack(pack, source=None, progress=lambda *args: None):
             progress(index+1, count)
         if stream.read(1):
             raise ValueError('Unexpected trailing Quest pack data')
+    if project.variant == 'unshadowed':
+        from sprite_material_variants import collection_id, validate
+        project.source_collection_id = collection_id(project)
+        validate(project)
     return project
 

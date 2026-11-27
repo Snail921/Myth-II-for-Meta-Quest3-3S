@@ -1,5 +1,10 @@
 # Changelog
 
+## Preview 4 — unified shadows and noShadow (2026-11-28)
+
+Adds unified terrain/building/sprite shadows, cached static shadows and dynamic map resolutions through 8K; terrain base-color export/loading, interpolated terrain normals and shared mesh shader-state setup; independent shadowed/unshadowed projects, noShadow albedo priority over unedited HD textures, per-image normal inversion and the exit-recovery fix. Publishes a separate noShadow pack (10 collections / 97 images), updated APK and Manager/source ZIP. Existing normal/PBR packs, runtime and skyboxes remain available. Current performance is approximately 50–60 FPS as a guide due to rendering load and incomplete optimization, not a guaranteed rate. [noShadow setup and validation limits](docs/NOSHADOW.md).
+
+
 ## 0.5.0-pbr-like.3 — 2026-11-24
 
 - Share normal/reflection sprite preparation, add conservative early culling and shared reflection geometry selection.

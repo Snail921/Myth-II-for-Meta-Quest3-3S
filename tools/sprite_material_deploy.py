@@ -17,7 +17,7 @@ def validate(path):
         raise ValueError('Invalid material pack size: ' + path.name)
     with path.open('rb') as f:
         magic = f.read(8)
-        if magic not in (b'MVRNORM1', b'MVRNORM2', b'MVRMAT03', b'MVRMAT04', b'MVRMAT05'):
+        if magic not in (b'MVRNORM1', b'MVRNORM2', b'MVRMAT03', b'MVRMAT04', b'MVRMAT05', b'MVRMAT06'):
             raise ValueError('Invalid material pack format: ' + path.name)
         count, = struct.unpack('<I', f.read(4))
         if not 1 <= count <= 10000:
@@ -27,12 +27,19 @@ def validate(path):
             if len(header) != 8:
                 raise ValueError('Truncated material pack: ' + path.name)
             w, h = struct.unpack('<II', header)
-            if magic in (b'MVRMAT04',b'MVRMAT05'):
+            if magic in (b'MVRMAT04',b'MVRMAT05', b'MVRMAT06'):
                 flags=f.read(4)
                 if len(flags)!=4 or struct.unpack('<I',flags)[0] not in (0,1):raise ValueError('Invalid PBR flags')
-            if not (1 <= w <= 2048 and 1 <= h <= 2048) or f.tell() + (32+w*h*4 if magic!=b'MVRNORM1' else w*h*8) > size:
+            if not (1 <= w <= 2048 and 1 <= h <= 2048) or f.tell() + (32+w*h*4*(3 if magic==b'MVRMAT06' else 1) if magic!=b'MVRNORM1' else w*h*8) > size:
                 raise ValueError('Invalid material image: ' + path.name)
-            f.seek(32+w*h*4 if magic!=b'MVRNORM1' else w*h*8, 1)
+            if magic == b'MVRMAT06':
+                import hashlib
+                key=f.read(32); f.seek(w*h*4,1)
+                original=f.read(w*h*4); albedo=f.read(w*h*4)
+                if hashlib.sha256(struct.pack('<II',w,h)+original).digest()!=key or original[3::4]!=albedo[3::4]:
+                    raise ValueError('Variant source identity or alpha mismatch')
+            else:
+                f.seek(32+w*h*4 if magic!=b'MVRNORM1' else w*h*8, 1)
         if f.tell() != size:
             raise ValueError('Unexpected material data: ' + path.name)
     return size
@@ -66,6 +73,14 @@ def deploy(folder, device):
 
     q = shlex.quote
     shell('mkdir -p ' + q(REMOTE))
+    for p, name in zip(files, names):
+        dest = REMOTE + '/' + name
+        if device.exists(dest):
+            with p.open('rb') as stream:
+                unshadowed = stream.read(8) == b'MVRMAT06'
+            installed = shell('head -c 8 ' + q(dest)).strip() == 'MVRMAT06'
+            if unshadowed != installed:
+                raise ValueError('Cannot replace the other albedo variant on Quest: ' + name)
     # Keep existing files and staging together until verification succeeds.
     free = int(shell('df -k /sdcard').splitlines()[-1].split()[3]) * 1024
     if free < sum(sizes.values()) + 16 * 1024 * 1024:

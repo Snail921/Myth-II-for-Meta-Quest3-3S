@@ -66,3 +66,8 @@ The launcher water settings include **Reflection sprite LOD** (default ON), **st
 Beyond the start distance, sprites whose projected size is below the threshold are omitted from water reflections. Size is the longer dimension of the projected bounds overlapping the water draw rectangle, in reflection-texture pixels; the larger result from either eye is used. Hidden sprites reappear at 1.25 times the threshold to reduce flicker. Normal-view sprites, meshes, particles and shadows are unaffected. This is separate from the existing PBR shader distance LOD.
 
 32 px is an aggressive option and can visibly remove reflections. Start with the default and compare the same scene. Reducing sprite counts does not remove terrain, mesh, effect or pass setup costs, and does not guarantee a proportional FPS improvement.
+
+
+## Preview 4 — unified shadows and noShadow (2026-11-28)
+
+Adds unified terrain/building/sprite shadows, cached static shadows and dynamic map resolutions through 8K; terrain base-color export/loading, interpolated terrain normals and shared mesh shader-state setup; independent shadowed/unshadowed projects, noShadow albedo priority over unedited HD textures, per-image normal inversion and the exit-recovery fix. Publishes a separate noShadow pack (10 collections / 97 images), updated APK and Manager/source ZIP. Existing normal/PBR packs, runtime and skyboxes remain available. Current performance is approximately 50–60 FPS as a guide due to rendering load and incomplete optimization, not a guaranteed rate. [noShadow setup and validation limits](NOSHADOW.md).

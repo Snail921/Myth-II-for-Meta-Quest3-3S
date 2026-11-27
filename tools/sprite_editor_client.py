@@ -21,7 +21,7 @@ if __name__=='__main__':
     parser.add_argument('--connection',required=True)
     parser.add_argument('command',choices=['state','collections','open','source','command','history'])
     parser.add_argument('--collection-id');parser.add_argument('--session');parser.add_argument('--index',type=int);parser.add_argument('--out')
-    parser.add_argument('--route', choices=['/material-edit','/material-undo','/save-project','/load-project','/pbr-set'])
+    parser.add_argument('--route', choices=['/material-edit','/material-undo','/save-project','/load-project','/pbr-set','/duplicate-unshadowed','/copy-materials','/replace-albedo'])
     parser.add_argument('--body-file', help='UTF-8 JSON command body; session and revision are required')
     args=parser.parse_args()
     if args.command=='command':

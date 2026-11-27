@@ -61,7 +61,7 @@ def main():
  rows=[];fog=[];lights=[];detail=[]
  for key,tag,name in levels:
   progress('レベル変換',len(rows),len(levels),name);print('CONVERT',key,name,flush=True);checkpoint=dest/'work'/key/'catalog-row.txt'
-  if a.resume and checkpoint.is_file():rows.append(checkpoint.read_text(encoding='utf8'))
+  if a.resume and checkpoint.is_file() and (dest/'assets/levels'/key/'terrain-base.pack').is_file():rows.append(checkpoint.read_text(encoding='utf8'))
   else:
    rows.append(build(tag,name,{},tags));checkpoint.write_text(rows[-1],encoding='utf8')
   raw=raw_tag(tags,'mesh',tag);m=parse_mesh(raw,schemas());rgb=struct.unpack_from('>3H',raw,496);density=struct.unpack_from('>f',raw,504)[0];fog.append(tag.encode('ascii')+struct.pack('<4f',*(v/65535 for v in rgb),density))

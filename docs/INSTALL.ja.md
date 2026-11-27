@@ -135,3 +135,6 @@ Managerは「セットアップ」と「プラグイン・素材」のタブで�
 出力パスを実際の場所へ置き換えてください。転送後にアプリを起動し直します。
 
     adb push "C:/path/to/new-setup/SharedAssets" /sdcard/Android/data/org.mythvr.standalone/files/
+
+
+Preview 4の独立したnoShadowパックと地形の再変換については、[noShadow導入手順](NOSHADOW.ja.md)を参照してください。既存の通常／PBRパックは保持します。

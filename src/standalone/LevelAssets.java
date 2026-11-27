@@ -11,6 +11,10 @@ import org.json.*;
 /** Whole-level bundles: never mix external geometry with APK sprite indices. */
 final class LevelAssets {
  static final String[] REQUIRED={"collections.bin","scene.pack","sprite-indices.pack","models.pack","animated-models.pack","connectors.pack","particles.pack","reflection-water.pack","surface-effects.pack","minimap.rgba","hd-bindings.json","hd-tint.bin","detail-bindings.tsv","fog.pack","water-light.pack"};
+ static List<String> assetNames(JSONObject files)throws Exception{
+  List<String> names=new ArrayList<>(Arrays.asList(REQUIRED));if(files.has("terrain-base.pack"))names.add("terrain-base.pack");
+  if(files.length()!=names.size())throw new IOException("bundle file set");return names;
+ }
  static final Map<String,File> external=new HashMap<>();
  static final Map<String,String[]> builtin=new HashMap<>();
  static final Map<String[],File> candidates=new IdentityHashMap<>();
@@ -26,8 +30,8 @@ final class LevelAssets {
  static JSONObject manifest(File dir,String[] r)throws Exception{
   File f=child(dir,"manifest.json");if(f.length()>65536)throw new IOException("manifest size");JSONObject j=new JSONObject(new String(Files.readAllBytes(f.toPath()),StandardCharsets.UTF_8));
   if(j.getInt("version")!=1||!j.getString("catalog").equals(String.join("\t",r)))throw new IOException("manifest/catalog mismatch");
-  JSONObject files=j.getJSONObject("files");if(files.length()!=REQUIRED.length)throw new IOException("bundle file set");long total=0;
-  for(String name:REQUIRED){JSONObject spec=files.getJSONObject(name);long size=spec.getLong("size");if(size<0||size>512L*1024*1024||!spec.getString("sha256").matches("[0-9a-f]{64}"))throw new IOException("bundle file metadata");File data=child(dir,name);if(!data.isFile()||data.length()!=size)throw new IOException("bundle missing/size: "+name);total+=size;}
+  JSONObject files=j.getJSONObject("files");assetNames(files);long total=0;
+  for(String name:assetNames(files)){JSONObject spec=files.getJSONObject(name);long size=spec.getLong("size");if(size<0||size>512L*1024*1024||!spec.getString("sha256").matches("[0-9a-f]{64}"))throw new IOException("bundle file metadata");File data=child(dir,name);if(!data.isFile()||data.length()!=size)throw new IOException("bundle missing/size: "+name);total+=size;}
   if(total>1024L*1024*1024)throw new IOException("bundle total size");return j;
  }
  static List<String[]> catalog(Context c)throws Exception{
@@ -79,7 +83,7 @@ final class LevelAssets {
   active=null;activeKey="";File signal=new File(c.getFilesDir(),"active-level-assets.path");Files.write(signal.toPath(),new byte[0]);File source=candidates.get(requested);if(source==null)return requested;external.put(requested[0],source);
   File staging=new File(c.getFilesDir(),"external-level.tmp"),target=new File(c.getFilesDir(),"external-level");
   try{JSONObject metadata=manifest(source,requested);int verifiedSources=PluginSources.verify(source,metadata,DetailTextures.plugins().getParentFile(),EngineProfile.SHA256);if(verifiedSources>0)Log.i("MythStandalone","External source files verified: "+verifiedSources+" (active plugin order not checked)");JSONObject files=metadata.getJSONObject("files");clear(staging);if(!staging.mkdirs())throw new IOException("create level staging");
-   byte[] buf=new byte[65536];for(String name:REQUIRED){JSONObject spec=files.getJSONObject(name);MessageDigest sha=MessageDigest.getInstance("SHA-256");long size=0;try(InputStream in=new FileInputStream(child(source,name));OutputStream out=new FileOutputStream(new File(staging,name))){int n;while((n=in.read(buf))!=-1){size+=n;if(size>spec.getLong("size"))throw new IOException("bundle changed: "+name);sha.update(buf,0,n);out.write(buf,0,n);}}
+   byte[] buf=new byte[65536];for(String name:assetNames(files)){JSONObject spec=files.getJSONObject(name);MessageDigest sha=MessageDigest.getInstance("SHA-256");long size=0;try(InputStream in=new FileInputStream(child(source,name));OutputStream out=new FileOutputStream(new File(staging,name))){int n;while((n=in.read(buf))!=-1){size+=n;if(size>spec.getLong("size"))throw new IOException("bundle changed: "+name);sha.update(buf,0,n);out.write(buf,0,n);}}
     if(size!=spec.getLong("size")||!hex(sha.digest()).equals(spec.getString("sha256")))throw new IOException("bundle checksum: "+name);
    }
    clear(target);Files.move(staging.toPath(),target.toPath());active=target;activeKey=requested[0];Log.i("MythStandalone","External level verified and staged: "+requested[8]);return requested;

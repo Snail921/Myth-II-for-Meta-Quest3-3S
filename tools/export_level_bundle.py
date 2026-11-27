@@ -3,6 +3,8 @@ import argparse,hashlib,json,zipfile,re,os,shutil
 from contextlib import nullcontext
 from pathlib import Path
 FILES=['collections.bin','scene.pack','sprite-indices.pack','models.pack','animated-models.pack','connectors.pack','particles.pack','reflection-water.pack','surface-effects.pack','minimap.rgba','hd-bindings.json','hd-tint.bin','detail-bindings.tsv','fog.pack','water-light.pack']
+OPTIONAL=['terrain-base.pack']
+
 def export(apk,dest,keys,assets=None):
  dest=Path(dest)
  if dest.exists():raise ValueError('Output already exists; use a new directory to avoid stale files')
@@ -12,9 +14,12 @@ def export(apk,dest,keys,assets=None):
   catalog=read('assets/levels/catalog.tsv').decode().splitlines();selected=[r for r in catalog if r.split('\t')[0] in keys];assert len(selected)==len(set(keys)), 'Unknown or duplicate level key'
   for line in selected:
    key=line.split('\t')[0];folder=dest/'levels'/key;folder.mkdir(parents=True);spec={}
-   for name in FILES:
+   for name in FILES+OPTIONAL:
     path='assets/'+name if name in ('fog.pack','water-light.pack') else 'assets/levels/'+name if name=='detail-bindings.tsv' else 'assets/levels/'+key+'/'+name
-    b=read(path)
+    try:b=read(path)
+    except (FileNotFoundError,KeyError):
+     if name in OPTIONAL:continue
+     raise
     if name=='detail-bindings.tsv':b=(''.join(r+'\n' for r in b.decode().splitlines() if r.split('\t')[0]==key)).encode()
     
     if assets and os.environ.get('MYTH_COMPACT_BUILD')=='1' and name not in ('fog.pack','water-light.pack','detail-bindings.tsv'):shutil.move(str(Path(assets)/path.removeprefix('assets/')),folder/name)

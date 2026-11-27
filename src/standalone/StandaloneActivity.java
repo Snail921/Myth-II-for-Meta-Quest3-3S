@@ -271,7 +271,17 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         Switch detailShadows=new Switch(this);detailShadows.setText(ui("高精細な影 / Detailed shadows"));detailShadows.setTextSize(20);detailShadows.setChecked(graphics.getBoolean("detail_shadows",true));texturesGroup.addView(detailShadows);
         detailShadows.setOnCheckedChangeListener((button,enabled)->graphics.edit().putBoolean("detail_shadows",enabled).apply());
         Switch enhancedShadows=new Switch(this);enhancedShadows.setText(ui("強化された影 / Enhanced shadows"));enhancedShadows.setTextSize(20);enhancedShadows.setChecked(graphics.getBoolean("enhanced_shadows",true));saveEnhancedShadows(enhancedShadows.isChecked());texturesGroup.addView(enhancedShadows);
-        enhancedShadows.setOnCheckedChangeListener((button,enabled)->{if(saveEnhancedShadows(enabled))graphics.edit().putBoolean("enhanced_shadows",enabled).apply();});
+        Switch unifiedShadows=new Switch(this);unifiedShadows.setText(ui("ユニファイド影モード / Unified shadow mode"));unifiedShadows.setTextSize(20);unifiedShadows.setPadding(24,0,0,0);unifiedShadows.setChecked(graphics.getBoolean("unified_shadows",false));unifiedShadows.setEnabled(enhancedShadows.isChecked());texturesGroup.addView(unifiedShadows);
+        saveLighting("unified-shadows.enabled",unifiedShadows.isChecked()?1:0);
+        unifiedShadows.setOnCheckedChangeListener((button,enabled)->{if(saveLighting("unified-shadows.enabled",enabled?1:0))graphics.edit().putBoolean("unified_shadows",enabled).apply();});
+        TextView unifiedHelp=new TextView(this);unifiedHelp.setText(ui("樹木・ユニット・動くモデルの地面の影を、強化影の太陽方向に統一します。建物・地形の影も強化影で生成。基本色データが必要です。次回VR起動時に反映。 / Uses the enhanced sun direction for ground shadows from trees, units and moving models. Also generates building and terrain shadows when base-color data is available. Applies on next VR entry."));texturesGroup.addView(unifiedHelp);
+        final int[] dynamicSizes={512,1024,2048,4096,8192};
+        TextView dynamicLabel=new TextView(this);dynamicLabel.setTextSize(18);texturesGroup.addView(dynamicLabel);
+        SeekBar dynamicResolution=new ValueSeekBar();dynamicResolution.setMax(4);dynamicResolution.setTag("dynamic-shadow-resolution");int savedSize=graphics.getInt("dynamic_shadow_resolution",2048),sizeIndex=2;for(int i=0;i<dynamicSizes.length;i++)if(dynamicSizes[i]==savedSize)sizeIndex=i;dynamicResolution.setProgress(sizeIndex);dynamicResolution.setEnabled(enhancedShadows.isChecked());texturesGroup.addView(dynamicResolution);
+        dynamicLabel.setText(ui("動的シャドウマップ解像度 / Dynamic shadow map resolution")+": "+dynamicSizes[sizeIndex]);saveLighting("dynamic-shadow-resolution",dynamicSizes[sizeIndex]);
+        dynamicResolution.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onStartTrackingTouch(SeekBar b){}public void onProgressChanged(SeekBar b,int v,boolean user){b.invalidate();dynamicLabel.setText(ui("動的シャドウマップ解像度 / Dynamic shadow map resolution")+": "+dynamicSizes[v]);}public void onStopTrackingTouch(SeekBar b){int size=dynamicSizes[b.getProgress()];if(saveLighting("dynamic-shadow-resolution",size))graphics.edit().putInt("dynamic_shadow_resolution",size).apply();}});
+        TextView dynamicHelp=new TextView(this);dynamicHelp.setText(ui("高解像度ほど影が細かくなり、描画負荷とメモリ使用量が増えます。次回VR起動時に反映。 / Higher resolution adds detail, GPU work and memory use. Applies on next VR entry."));texturesGroup.addView(dynamicHelp);
+        enhancedShadows.setOnCheckedChangeListener((button,enabled)->{if(saveEnhancedShadows(enabled)){graphics.edit().putBoolean("enhanced_shadows",enabled).apply();unifiedShadows.setEnabled(enabled);dynamicResolution.setEnabled(enabled);}});
         shadowAmountLabel=new TextView(this);shadowAmountLabel.setTextSize(18);texturesGroup.addView(shadowAmountLabel);
         shadowAmount=new ValueSeekBar();shadowAmount.setMax(100);shadowAmount.setProgress(Math.max(0,Math.min(100,graphics.getInt("enhanced_shadow_amount",45))));
         shadowAmountLabel.setText(ui("影の最大減光量 / Maximum shadow dimming")+": "+shadowAmount.getProgress()+"%");saveShadowAmount(shadowAmount.getProgress());texturesGroup.addView(shadowAmount);
@@ -431,7 +441,7 @@ public final class StandaloneActivity extends Activity implements SeekBar.OnSeek
         if(bar.getTag() instanceof String&&((String)bar.getTag()).startsWith("keyboard-offset:"))return (bar.getProgress()+Integer.parseInt(((String)bar.getTag()).substring(16)))+" cm";
 
         if(bar==pointerThickness)return String.format(java.util.Locale.US,"%.1fx",(bar.getProgress()+10)/10f);
-        int v=bar.getProgress();if("rgb".equals(bar.getTag()))return Integer.toString(v);if(bar==shadowSamples)return Integer.toString(v+1);
+        int v=bar.getProgress();if("dynamic-shadow-resolution".equals(bar.getTag()))return Integer.toString(512<<v);if("rgb".equals(bar.getTag()))return Integer.toString(v);if(bar==shadowSamples)return Integer.toString(v+1);
         if(bar==shadowLod)return v==0?"OFF":v+" m";
         if(bar==lightingObject)return Integer.toString(v+1);if(bar==lightingLod)return Integer.toString(v);if(bar==lightingLimit)return Integer.toString(v+4);
         if(bar==shadowAmount||bar==lightingAmount)return v+"%";

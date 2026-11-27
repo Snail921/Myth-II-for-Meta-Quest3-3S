@@ -19,6 +19,18 @@ static void loadSurfaceEffects(android_app*a){
  glActiveTexture(GL_TEXTURE0);glGenTextures(1,&waterShadowTexture);glBindTexture(GL_TEXTURE_2D,waterShadowTexture);glPixelStorei(GL_UNPACK_ALIGNMENT,1);glTexImage2D(GL_TEXTURE_2D,0,GL_R8,w,height,0,GL_RED,GL_UNSIGNED_BYTE,g.shadow.data());glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
  initialSurfaceIndices=g.indices;initialSurfaceShade=g.base;appliedSurfaceEpoch=0;
  auto lut=take(256*256*4);g.lut.assign(lut,lut+256*256*4);
+ unifiedBaseReady=false;
+ if(unifiedGroundShadows()){
+  bool exists=false;
+  if(!levelExternalRoot.empty()){FILE*f=fopen((levelExternalRoot+"terrain-base.pack").c_str(),"rb");if(f){exists=true;fclose(f);}}
+  else{std::string name=levelAssetPrefix+"terrain-base.pack";AAsset*f=AAssetManager_open(a->activity->assetManager,name.c_str(),AASSET_MODE_BUFFER);if(f){exists=true;AAsset_close(f);}}
+  if(exists){auto color=asset(a,"terrain-base.pack");size_t count=size_t(w)*height*4;
+   if(color.size()!=16+1024+count||memcmp(color.data(),"MYTHBC01",8)||u32(color.data()+8)!=w||u32(color.data()+12)!=height)throw std::runtime_error("terrain base format");
+   g.unlitPalette.assign(color.begin()+16,color.begin()+1040);g.referenceShade=g.base;
+   glBindTexture(GL_TEXTURE_2D,textures[0]);glTexSubImage2D(GL_TEXTURE_2D,0,0,0,w,height,GL_RGBA,GL_UNSIGNED_BYTE,color.data()+1040);unifiedBaseReady=true;
+  }
+  LOG("Unified base color ready=%d level=%s; missing base requires Plugin Manager reconversion",unifiedBaseReady,levelName.c_str());
+ }
  ui_contrast::analyze(w,height,g.indices.data(),g.base.data(),g.lut.data());LOG("Auto UI contrast enabled=%d orange=%d samples=%u pale=%u yellow=%u level=%s",ui_contrast::enabled,ui_contrast::active,ui_contrast::samples,ui_contrast::pale,ui_contrast::yellow,levelName.c_str());
  for(unsigned i=0;i<nm;i++){auto h=take(24);unsigned id=u32(h),kind=u32(h+4),mw=u32(h+16),mh=u32(h+20);
   if(kind>2||!mw||!mh||mw>1024||mh>1024)throw std::runtime_error("surface mask size");
@@ -32,10 +44,10 @@ static void updateSurfaceEffects(){
  if(surfaceRevision==snapshotRevision||groundEffects.w==0)return;surfaceRevision=snapshotRevision;
  detailShadowBuilds=0;detailShadowPixels=0;double start=seconds();std::vector<surface::Stamp> stamps;unsigned modelCount=0,objectCount=0,lightCount=0,particleLights=0;
  // Original lists prepend model stamps after object collection: model minima first.
- if(modelPosesValid)for(auto it=modelPoses.rbegin();it!=modelPoses.rend();++it){const auto&p=*it;if(p.owner==65535)continue;auto mi=groundEffects.masks.find(p.geometry);if(mi==groundEffects.masks.end()||mi->second.kind!=2)continue;auto&m=mi->second;
+ if(!unifiedGroundShadows()&&modelPosesValid)for(auto it=modelPoses.rbegin();it!=modelPoses.rend();++it){const auto&p=*it;if(p.owner==65535)continue;auto mi=groundEffects.masks.find(p.geometry);if(mi==groundEffects.masks.end()||mi->second.kind!=2)continue;auto&m=mi->second;
   stamps.push_back({(uint64_t(1)<<63)|p.owner,p.geometry,p.pos[0]+m.ox,p.pos[1]+m.oy,65535});modelCount++;
  }
- for(auto it=objects.rbegin();it!=objects.rend();++it){const auto&o=*it;if(o.rawFlags&0x200000)continue;
+ if(!unifiedGroundShadows())for(auto it=objects.rbegin();it!=objects.rend();++it){const auto&o=*it;if(o.rawFlags&0x200000)continue;
   auto fi=groundFrames.find((uint64_t(o.col)<<32)|(o.seq<<16)|o.frame);if(fi==groundFrames.end())continue;unsigned maskID=fi->second;if(groundEffects.masks.at(maskID).kind!=0)continue;unsigned detailed=detailShadow(o);if(detailed)maskID=detailed;auto&m=groundEffects.masks.at(maskID);
   if(m.kind!=0)continue; // Lights arrive with their original runtime masks in the v6 light stream.
   float wx=mythWorldX(o.x,originX,scale),wz=(o.y-originY)*scale;

@@ -1,7 +1,7 @@
 """Validate a converted external level bundle before publishing it to Quest."""
 import argparse, hashlib, json, re, struct, math
 from pathlib import Path
-from export_level_bundle import FILES
+from export_level_bundle import FILES, OPTIONAL
 
 def verify(bundle):
     base = Path(bundle).resolve()
@@ -25,7 +25,7 @@ def verify(bundle):
         if not folder.is_relative_to(base):
             raise ValueError('Level path escapes bundle')
         manifest = json.loads((folder / 'manifest.json').read_text(encoding='utf8'))
-        if manifest.get('version') != 1 or manifest.get('catalog') != line or set(manifest['files']) != set(FILES):
+        if manifest.get('version') != 1 or manifest.get('catalog') != line or not set(FILES).issubset(manifest['files']) or not set(manifest['files']).issubset(FILES+OPTIONAL):
             raise ValueError('Manifest/catalog/file set mismatch: ' + row[0])
         if 'source_files_sha256' in manifest:
             source = (base / 'source-files.json').read_bytes()
@@ -35,7 +35,7 @@ def verify(bundle):
             if requirements.get('version') != 1 or not requirements.get('files'):
                 raise ValueError('Invalid source requirements')
         total = 0
-        for name in FILES:
+        for name in manifest['files']:
             p = (folder / name).resolve()
             if not p.is_relative_to(folder):
                 raise ValueError('Asset path escapes level')
@@ -50,6 +50,11 @@ def verify(bundle):
             total += size
         if total > 1024**3:
             raise ValueError('Level exceeds runtime size limit')
+        if 'terrain-base.pack' in manifest['files']:
+            color=(folder/'terrain-base.pack').read_bytes()
+            width,height=int(row[2])*8,int(row[3])*8
+            if len(color)!=1040+width*height*4 or color[:8]!=b'MYTHBC01' or struct.unpack_from('<II',color,8)!=(width,height):
+                raise ValueError('Invalid unlit terrain color data')
         b = (folder / 'collections.bin').read_bytes()
         if b[:8] != b'MVRCL002' or len(b) < 12:
             raise ValueError('Plugin bundle requires tagged collection identities')

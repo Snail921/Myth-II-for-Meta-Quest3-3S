@@ -73,7 +73,7 @@ class MaterialTests(unittest.TestCase):
             with zipfile.ZipFile(export) as z:
                 m=json.loads(z.read('manifest.json'));self.assertFalse(m['runtime_ready'])
                 self.assertEqual(m['frames'][0]['identity'],f.identity)
-                self.assertEqual(set(z.namelist()), {'manifest.json', 'height/00000.png', 'normal/00000.png', 'mask/00000.png', 'metallic_smoothness/00000.png', 'metallic/00000.png', 'thickness/00000.png'})
+                self.assertEqual(set(z.namelist()), {'manifest.json', 'albedo/00000.png', 'height/00000.png', 'normal/00000.png', 'mask/00000.png', 'metallic_smoothness/00000.png', 'metallic/00000.png', 'thickness/00000.png'})
 
     def test_material_layers_and_recovery(self):
         f=Frame('unit',Image.new('RGBA',(4,4),(30,40,50,255)))

@@ -29,6 +29,8 @@ class Device:
             self.files[args[2]] = Path(args[1]).read_bytes()
             return ''
         t = shlex.split(args[1])
+        if t[0] == 'head':
+            return self.files[t[-1]][:8].decode()
         if t[0] == 'df':
             return 'Filesystem Size Used Available Use Mounted\n/dev/fuse 999999999 0 999999999 0 /sdcard'
         if t[0] == 'find':
@@ -48,6 +50,21 @@ class Device:
 
 
 class Tests(unittest.TestCase):
+    def test_variant_collision_preserves_remote(self):
+        from PIL import Image
+        from sprite_material import Project, Frame
+        from sprite_material_variants import duplicate
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); p=Project([Frame('test',Image.new('RGBA',(1,1),(1,2,3,255)))])
+            duplicate(p).export_runtime(root/'warrior.mvrnm')
+            d=Device();before=dict(d.files)
+            with self.assertRaises(ValueError):deploy(root,d)
+            self.assertEqual(d.files,before)
+            d.files[REMOTE+'/warrior.mvrnm']=(root/'warrior.mvrnm').read_bytes()
+            (root/'warrior.mvrnm').unlink();p.export_runtime(root/'warrior.mvrnm');before=dict(d.files)
+            with self.assertRaises(ValueError):deploy(root,d)
+            self.assertEqual(d.files,before)
+
     def test_transfer_replaces_without_retaining_old_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

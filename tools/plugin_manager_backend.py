@@ -10,6 +10,7 @@ ADB_DEFAULT=Path(os.environ.get('LOCALAPPDATA',''))/'Android/Sdk/platform-tools/
 def digest(path):
  with Path(path).open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
 def run_conversion(game,plugin,output,list_only=False,log=print):
+ if not list_only:log('基本色画像とユニファイド影用データも生成します / Exporting unlit terrain colors for unified shadows')
  output=Path(output).resolve();cmd=[sys.executable,'-u',str(ROOT/'tools/convert_plugin_levels.py'),'--game-root',str(game),'--out',str(output)]
  if plugin:cmd.extend(['--plugin',str(plugin)])
  if list_only:cmd.append('--list')

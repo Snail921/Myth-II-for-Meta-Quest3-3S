@@ -141,6 +141,8 @@ float spriteVisibility(){
         vec2 uv=p.xy+offsets[i]*texel;
         if(any(lessThan(uv,vec2(0)))||any(greaterThan(uv,vec2(1))))continue;
         if(p.z-spriteShadowBias>texture(spriteStaticDepth,uv).r){blocked+=weight;continue;}
+        uv=p.xy+offsets[i]/vec2(textureSize(spriteLiveDepth,0));
+        if(any(lessThan(uv,vec2(0)))||any(greaterThan(uv,vec2(1))))continue;
         vec3 bytes=floor(texture(spriteLiveOwner,uv).rgb*255.0+.5);
         float owner=bytes.r+bytes.g*256.0+bytes.b*65536.0;
         if(owner>0.0&&abs(owner-spriteOwner)>.5&&p.z-spriteShadowBias>texture(spriteLiveDepth,uv).r)blocked+=weight;

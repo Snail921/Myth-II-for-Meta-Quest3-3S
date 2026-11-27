@@ -94,6 +94,8 @@ static void compositeReflections(const Mat&mvp){
  glUniform4f(glGetUniformLocation(reflectionProgram,"shadowUV"),-8.f/(scale*groundEffects.w),8.f/(scale*groundEffects.h),originX*8.f/groundEffects.w,originY*8.f/groundEffects.h);glActiveTexture(GL_TEXTURE0);
  glUniform1i(glGetUniformLocation(reflectionProgram,"sunShadowReady"),waterSunShadowReady);glUniformMatrix4fv(glGetUniformLocation(reflectionProgram,"sunMatrix"),1,GL_FALSE,waterSunMatrix.data());glUniform1f(glGetUniformLocation(reflectionProgram,"sunDepthBias"),waterSunDepthBias);
  glActiveTexture(GL_TEXTURE4);glBindTexture(GL_TEXTURE_2D,waterStaticDepth);glUniform1i(glGetUniformLocation(reflectionProgram,"staticSunDepth"),4);glActiveTexture(GL_TEXTURE0);
+ glUniform1i(glGetUniformLocation(reflectionProgram,"liveSunShadowReady"),unifiedGroundShadows()&&waterSunShadowReady&&spriteLiveDepth);
+ glActiveTexture(GL_TEXTURE5);glBindTexture(GL_TEXTURE_2D,spriteLiveDepth);glUniform1i(glGetUniformLocation(reflectionProgram,"liveSunDepth"),5);glActiveTexture(GL_TEXTURE0);
  glBindTexture(GL_TEXTURE_2D,reflectionTexture);attributes(reflectionWaterVBO);glBindBuffer(GL_ARRAY_BUFFER,reflectionFlowVBO);glEnableVertexAttribArray(2);glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,2*sizeof(float),0);glEnable(GL_BLEND);glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);glDrawArrays(GL_TRIANGLES,0,(GLsizei)reflectionWater.size());glDepthMask(GL_TRUE);glDisable(GL_BLEND);glDisableVertexAttribArray(2);glUseProgram(program);
 }
 

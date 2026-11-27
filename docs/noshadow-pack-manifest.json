@@ -1,0 +1,66 @@
+{
+  "collections": [
+    {
+      "name": "01 ba1 textures__a3e211f46ddd--unshadowed.mvrnm",
+      "frames": 8,
+      "size": 1966444,
+      "sha256": "1e69cddfe7225dc161ef5e46330e748dea10c19a634740290d68d94baf396335"
+    },
+    {
+      "name": "01 baker_textures__c31cff94c27e--unshadowed.mvrnm",
+      "frames": 19,
+      "size": 2483024,
+      "sha256": "ca70ac4e508b6275e2b2732c16740bc39f32e377b53b33437a8ecabef06f7420"
+    },
+    {
+      "name": "01 bb1 textures__9cc7bfd00479--unshadowed.mvrnm",
+      "frames": 8,
+      "size": 1180012,
+      "sha256": "8dc2467df344af0ad91d0471cf2e065300218ba1fffb58f0507992c16c071d13"
+    },
+    {
+      "name": "01 butcher textures__662194d4de70--unshadowed.mvrnm",
+      "frames": 21,
+      "size": 2249640,
+      "sha256": "b25d57b19036f3304f172f459882dd4eb9ec335fe4c86bfd7549e448a51ae853"
+    },
+    {
+      "name": "01 granary textures__ee6d23a95408--unshadowed.mvrnm",
+      "frames": 5,
+      "size": 393448,
+      "sha256": "e8e15d41e305abf6e3129e44d3a79af37987c405337a96f8be7e140a55a24600"
+    },
+    {
+      "name": "01 ruin1 textures__e906b708a140--unshadowed.mvrnm",
+      "frames": 6,
+      "size": 442644,
+      "sha256": "abd87347cfbf3aedabc40d74d832e1959b907657eeb38952ed5d505248b7963e"
+    },
+    {
+      "name": "01 stable textures__9e70fc5b7567--unshadowed.mvrnm",
+      "frames": 13,
+      "size": 2605640,
+      "sha256": "c9fc861363d5c6bbaef2a94bbebb03ff8b62ded0c93db29d70dc251eb43b6eee"
+    },
+    {
+      "name": "01 tavern textures__7589b5d34a8a--unshadowed.mvrnm",
+      "frames": 8,
+      "size": 3342700,
+      "sha256": "1df254b2286fc22976d487b021183ee7dedcd6d2fc6eb0b6ee883182808a9b27"
+    },
+    {
+      "name": "21 outhouse textures__66c20ca2a99b--unshadowed.mvrnm",
+      "frames": 6,
+      "size": 172308,
+      "sha256": "c6871537884a8b570f0b9ab4587321af441edb38b43ab1848870e039d7d8d260"
+    },
+    {
+      "name": "windmill textures__87c1d6281393--unshadowed.mvrnm",
+      "frames": 3,
+      "size": 1081488,
+      "sha256": "2bb5b319133893c99645eeea6a97684c0e8e9415fe9fe9e3c37ab9bf484fdee7"
+    }
+  ],
+  "images": 97,
+  "archive_sha256": "4daf6ebb2647dc5dff5a9c0fba6bc8721fef522471ad0740c50a18152689c6d2"
+}

@@ -17,6 +17,7 @@ class CommandsTests(unittest.TestCase):
         image.putdata([(10, 20, 30, 255), (20, 20, 30, 255), (10, 20, 30, 0)])
         p = Project([Frame('test', image)])
         p.material_hints[0]['colors'][0] = [10, 20, 30]
+        p.material_hints[0]['samples'][0] = [[10, 20, 30]]
         self.e = SimpleNamespace(project=p, project_session='session', dirty=True,
                                  refresh=lambda: None, view=SimpleNamespace(set=lambda _: None))
         self.b = SimpleNamespace(editor=self.e)

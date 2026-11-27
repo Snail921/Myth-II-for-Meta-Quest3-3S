@@ -11,7 +11,7 @@ static std::vector<std::string> packs;
 static size_t normalGpuBytes=0;
 static uint64_t bindingRevision=1;
 static uint64_t prefixHash(const unsigned char*p,size_t n){uint64_t h=1469598103934665603ull;for(size_t i=0;i<std::min(n,size_t(64));i++)h=(h^p[i])*1099511628211ull;return h;}
-struct Binding{GLuint texture=0;float sx=1,sy=1,ox=0,oy=0;bool packed=false;unsigned effects=0;};
+struct Binding{GLuint texture=0;float sx=1,sy=1,ox=0,oy=0;bool packed=false;unsigned effects=0;size_t albedoEntry=0;};
 static std::vector<Entry> entries;
 static std::map<GLuint,Binding> bindings;
 static std::map<GLuint,std::pair<unsigned,unsigned>> textureDimensions;
@@ -43,23 +43,37 @@ static void load(const char*root){
  std::vector<std::string> paths;while(auto*f=readdir(d)){std::string n=f->d_name;if(n.size()>6&&n.substr(n.size()-6)==".mvrnm")paths.push_back(folder+"/"+n);}closedir(d);std::sort(paths.begin(),paths.end());
  for(auto&path:paths){pumpLoadingEvents();try{
   std::ifstream in(path,std::ios::binary|std::ios::ate);auto length=in.tellg();if(length<12||length>64*1024*1024)throw std::runtime_error("material size limit");in.seekg(0);
-  auto read=[&](void*p,size_t n){if(!in.read((char*)p,n))throw std::runtime_error("material truncated");};auto word=[&](){unsigned v;read(&v,4);return v;};char magic[8];read(magic,8);bool split=!memcmp(magic,"MVRMAT05",8);bool flagged=split||!memcmp(magic,"MVRMAT04",8);bool packed=!memcmp(magic,"MVRMAT03",8);bool hashed=flagged||packed||!memcmp(magic,"MVRNORM2",8);if(!hashed&&memcmp(magic,"MVRNORM1",8))throw std::runtime_error("material version");unsigned count=word();if(!count||count>10000)throw std::runtime_error("material count");std::vector<Entry> pending;
-  size_t consumed=12;for(unsigned i=0;i<count;i++){pumpLoadingEvents();Entry e{};e.w=word();e.h=word();consumed+=8;if(!e.w||!e.h||e.w>2048||e.h>2048)throw std::runtime_error("material dimensions");size_t bytes=size_t(e.w)*e.h*4;if(consumed+(hashed?32+bytes:bytes*2)>size_t(length))throw std::runtime_error("material bounds");e.pack=packs.size();e.hashed=hashed;e.packed=packed;e.priority=split?5:flagged?4:packed?3:2;if(flagged){unsigned flags=word();consumed+=4;if(flags>1)throw std::runtime_error("material flags");e.packed=flags!=0;}if(hashed){read(e.digest.data(),32);e.offset=consumed+32;}else{e.offset=consumed;unsigned char prefix[64];size_t n=std::min(bytes,size_t(64));read(prefix,n);e.prefix=prefixHash(prefix,n);}consumed+=hashed?32+bytes:bytes*2;in.seekg(consumed);if(!in)throw std::runtime_error("material seek");pending.push_back(std::move(e));}
-  if(consumed!=size_t(length))throw std::runtime_error("material trailing data");packs.push_back(path);for(auto&e:pending){if(e.hashed){auto old=hashIndex.find(e.digest);if(old==hashIndex.end()||e.priority>=entries[old->second].priority)hashIndex[e.digest]=entries.size();hashDimensions[{e.w,e.h}]=true;}else dimensions[{e.w,e.h}].push_back(entries.size());entries.push_back(std::move(e));}totalBytes+=size_t(length);
-  LOG("Sprite material indexed %s frames=%u format=%s",path.c_str(),count,split?"MVRMAT05":flagged?"MVRMAT04":packed?"MVRMAT03":(hashed?"MVRNORM2":"MVRNORM1"));
+  auto read=[&](void*p,size_t n){if(!in.read((char*)p,n))throw std::runtime_error("material truncated");};auto word=[&](){unsigned v;read(&v,4);return v;};char magic[8];read(magic,8);bool variant=!memcmp(magic,"MVRMAT06",8);bool split=variant||!memcmp(magic,"MVRMAT05",8);bool flagged=split||!memcmp(magic,"MVRMAT04",8);bool packed=!memcmp(magic,"MVRMAT03",8);bool hashed=flagged||packed||!memcmp(magic,"MVRNORM2",8);if(!hashed&&memcmp(magic,"MVRNORM1",8))throw std::runtime_error("material version");unsigned count=word();if(!count||count>10000)throw std::runtime_error("material count");std::vector<Entry> pending;
+  size_t consumed=12;for(unsigned i=0;i<count;i++){pumpLoadingEvents();Entry e{};e.w=word();e.h=word();consumed+=8;if(!e.w||!e.h||e.w>2048||e.h>2048)throw std::runtime_error("material dimensions");size_t bytes=size_t(e.w)*e.h*4;if(consumed+(hashed?32+bytes:bytes*2)>size_t(length))throw std::runtime_error("material bounds");e.pack=packs.size();e.hashed=hashed;e.packed=packed;e.priority=variant?6:split?5:flagged?4:packed?3:2;if(flagged){unsigned flags=word();consumed+=4;if(flags>1)throw std::runtime_error("material flags");e.packed=flags!=0;}if(hashed){read(e.digest.data(),32);e.offset=consumed+32;}else{e.offset=consumed;unsigned char prefix[64];size_t n=std::min(bytes,size_t(64));read(prefix,n);e.prefix=prefixHash(prefix,n);}consumed+=hashed?32+bytes*(variant?3:1):bytes*2;if(consumed>size_t(length))throw std::runtime_error("material bounds");in.seekg(consumed);if(!in)throw std::runtime_error("material seek");pending.push_back(std::move(e));}
+  if(consumed!=size_t(length))throw std::runtime_error("material trailing data");packs.push_back(path);if(variant&&!unifiedGroundShadows())continue;for(auto&e:pending){if(e.hashed){auto old=hashIndex.find(e.digest);if(old==hashIndex.end()||e.priority>=entries[old->second].priority)hashIndex[e.digest]=entries.size();hashDimensions[{e.w,e.h}]=true;}else dimensions[{e.w,e.h}].push_back(entries.size());entries.push_back(std::move(e));}totalBytes+=size_t(length);
+  LOG("Sprite material indexed %s frames=%u format=%s",path.c_str(),count,variant?"MVRMAT06":split?"MVRMAT05":flagged?"MVRMAT04":packed?"MVRMAT03":(hashed?"MVRNORM2":"MVRNORM1"));
  }catch(const std::exception&e){if(loadingApp&&loadingApp->destroyRequested)throw;LOG("Sprite material skipped %s: %s",path.c_str(),e.what());}}
  LOG("Sprite material index packs=%zu entries=%zu hashed=%zu index_ms=%.3f",packs.size(),entries.size(),hashIndex.size(),(materialTime()-indexStart)*1000);
 }
 static Binding normalEntry(size_t index){
- auto&e=entries[index];if(e.texture)return {e.texture,1,1,0,0,e.packed,e.effects};
+ auto&e=entries[index];if(e.texture)return {e.texture,1,1,0,0,e.packed,e.effects,e.priority==6?index+1:0};
  double start=materialTime();size_t bytes=size_t(e.w)*e.h*4;std::ifstream in(packs[e.pack],std::ios::binary);in.seekg(e.offset+(e.hashed?0:bytes));std::vector<unsigned char> normal(bytes);
  if(!in.read((char*)normal.data(),bytes)){timing.read+=materialTime()-start;LOG("Sprite material read failed %s",packs[e.pack].c_str());return {};}
- if(e.packed&&e.priority==5){e.effects=8;for(size_t i=0;i<bytes;i+=4){unsigned a=normal[i+3];if(a&128)e.effects|=1;if(a)e.effects|=4;if(!(a&128)&&normal[i+2]<255)e.effects|=2;}}
+ if(e.packed&&e.priority>=5){e.effects=8;for(size_t i=0;i<bytes;i+=4){unsigned a=normal[i+3];if(a&128)e.effects|=1;if(a)e.effects|=4;if(!(a&128)&&normal[i+2]<255)e.effects|=2;}}
  else if(e.packed){bool metal=false,thin=false,nonmetal=false;for(size_t i=0;i<bytes;i+=4){metal|=normal[i+3]>0;thin|=normal[i+2]<255;nonmetal|=normal[i+3]<255;}e.effects=(metal?5u:0u)|((thin&&nonmetal)?2u:0u);}
  timing.read+=materialTime()-start;start=materialTime();
  glGenTextures(1,&e.texture);glBindTexture(GL_TEXTURE_2D,e.texture);glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,e.w,e.h,0,GL_RGBA,GL_UNSIGNED_BYTE,normal.data());glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);textureDimensions[e.texture]={e.w,e.h};normalGpuBytes+=bytes;timing.upload+=materialTime()-start;
  if(e.packed){packedUploads.resize(packs.size());++packedUploads[e.pack];}
- return {e.texture,1,1,0,0,e.packed,e.effects};
+ return {e.texture,1,1,0,0,e.packed,e.effects,e.priority==6?index+1:0};
+}
+// Read only a matched, active variant during texture creation, never per draw.
+// Apply the RGB edit to palette/tint-adjusted pixels; alpha stays owned by the source.
+static bool applyAlbedo(Binding b,unsigned w,unsigned h,std::vector<unsigned char>&rgba){
+ if(!b.albedoEntry||!unifiedGroundShadows())return false;
+ auto&e=entries.at(b.albedoEntry-1);size_t bytes=size_t(w)*h*4;
+ if(e.w!=w||e.h!=h||rgba.size()!=bytes)return false;
+ std::ifstream in(packs[e.pack],std::ios::binary);in.seekg(e.offset+bytes);
+ std::vector<unsigned char> original(bytes),replacement(bytes);
+ if(!in.read((char*)original.data(),bytes)||!in.read((char*)replacement.data(),bytes))return false;
+ for(size_t i=0;i<bytes;i+=4)if(original[i+3]!=replacement[i+3])return false;
+ for(size_t i=0;i<bytes;i+=4)for(unsigned c=0;c<3;c++)rgba[i+c]=std::max(0,std::min(255,int(rgba[i+c])+int(replacement[i+c])-int(original[i+c])));
+ LOG("Unified albedo applied pack=%s size=%ux%u",packs[e.pack].c_str(),w,h);
+ return true;
 }
 static Binding matchIdentity(unsigned w,unsigned h,const unsigned char*hash){
  material_hash::Digest digest{};memcpy(digest.data(),hash,32);auto it=hashIndex.find(digest);
@@ -87,7 +101,7 @@ static void assign(GLuint texture,Binding b){
  auto i=bindings.find(texture);
  if(!b.texture){if(i==bindings.end())return;bindings.erase(i);}
  else{
-  if(i!=bindings.end()){const auto& a=i->second;if(a.texture==b.texture&&a.sx==b.sx&&a.sy==b.sy&&a.ox==b.ox&&a.oy==b.oy&&a.packed==b.packed&&a.effects==b.effects)return;}
+  if(i!=bindings.end()){const auto& a=i->second;if(a.texture==b.texture&&a.sx==b.sx&&a.sy==b.sy&&a.ox==b.ox&&a.oy==b.oy&&a.packed==b.packed&&a.effects==b.effects&&a.albedoEntry==b.albedoEntry)return;}
   bindings[texture]=b;
  }
  ++bindingRevision;

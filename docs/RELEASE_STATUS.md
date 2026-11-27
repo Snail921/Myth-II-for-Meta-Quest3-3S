@@ -23,3 +23,8 @@ Color correction and Bloom were user-confirmed on Quest. GPU tests cover every B
 This release updates only `pbr-like`; `main` is unchanged. It includes reflection preparation/culling improvements, the film-crash fix, configurable reflection sprite LOD up to 32 px, and recorded/fixed diagnostic poses. The APK and Manager/source ZIP correspond to the same source revision and bilingual guides. The Manager itself has no functional changes in this preview.
 
 The release APK preserves the runtime from the headset-tested build and changes the release version metadata. It uses the existing signing certificate. This publication is not a new from-scratch runtime build. Existing data needs no reconversion: reuse the Preview 2 material pack and the linked initial runtime/skyboxes. See the README download links and the release checksums. Original game files are not included.
+
+
+## Preview 4 — unified shadows and noShadow (2026-11-28)
+
+Adds unified terrain/building/sprite shadows, cached static shadows and dynamic map resolutions through 8K; terrain base-color export/loading, interpolated terrain normals and shared mesh shader-state setup; independent shadowed/unshadowed projects, noShadow albedo priority over unedited HD textures, per-image normal inversion and the exit-recovery fix. Publishes a separate noShadow pack (10 collections / 97 images), updated APK and Manager/source ZIP. Existing normal/PBR packs, runtime and skyboxes remain available. Current performance is approximately 50–60 FPS as a guide due to rendering load and incomplete optimization, not a guaranteed rate. [noShadow setup and validation limits](NOSHADOW.md).

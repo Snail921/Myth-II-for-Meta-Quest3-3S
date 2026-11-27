@@ -53,7 +53,7 @@ class Editor:
             b = ttk.Button(top, command=fn); b.pack(side='left', padx=3); self.label(b,ja,en)
         language = ttk.Combobox(top, values=languages, textvariable=self.lang, state='readonly', width=9); language.pack(side='right'); language.bind('<<ComboboxSelected>>',lambda e:self.translate())
         tabs = ttk.Frame(root, padding=6); tabs.pack(fill='x')
-        for ja,en,fn in [('材質の代表色','Material colors',self.material_ui.open),('直接連携','Direct connection',self.toggle_bridge)]:
+        for ja,en,fn in [('材質の代表色','Material colors',self.material_ui.open),('影除去版を複製','Duplicate unshadowed',self.duplicate_unshadowed),('材質をコピー','Copy materials',self.copy_materials),('アルベドを差替え','Replace albedo',self.replace_albedo),('直接連携','Direct connection',self.toggle_bridge)]:
             b=ttk.Button(tabs,command=fn);b.pack(side='right',padx=3);self.label(b,ja,en)
         self.root.bind('<Escape>',lambda e:self.material_ui.cancel())
         self.view = tk.StringVar(value='source')
@@ -100,6 +100,8 @@ class Editor:
         b=ttk.Button(pbr,command=self.material_paint.open);b.pack(side='right');self.label(b,'材質ペイント','Material paint')
         b=ttk.Button(pbr,command=self.histogram.open);b.pack(side='right');self.label(b,'ヒストグラム','Histogram')
         self.pbr_summary=ttk.Label(pbr);self.pbr_summary.pack(side='left')
+        self.normal_inverted=tk.BooleanVar(value=False)
+        b=ttk.Checkbutton(pbr,variable=self.normal_inverted,command=self.toggle_normal_inverted);b.pack(side='left',padx=6);self.label(b,'この画像の凹凸を反転','Invert this image’s normals')
         edit=ttk.Frame(right,padding=6);edit.pack(fill='x')
         self.mode=tk.StringVar(value='pick')
         for value,ja,en in [('pick','スポイト（元画像）','Pick source color'),('paint','マスク追加','Paint mask'),('erase','マスク除外','Erase mask')]:
@@ -257,7 +259,7 @@ class Editor:
     def update_project_header(self,scan=False):
         current=getattr(self,'project_path',None)
         name=Path(current).name if current else self.project.name if self.project.frames else '—'
-        self.project_title.configure(text=self.tr('プロジェクト：','Project: ')+name)
+        self.project_title.configure(text=self.tr('プロジェクト：','Project: ')+name+' ['+self.project.variant+']')
         if scan or self.header_path!=current:
             self.header_path=current
             self.neighbours=[None,None]
@@ -279,6 +281,41 @@ class Editor:
         if target and self.replace_ok():
             self.task(self.tr('プロジェクト読込','Loading project'),lambda cb:Project.load(target,cb),
                       lambda project:self.loaded_project(project,target))
+
+    def duplicate_unshadowed(self):
+        if not self.guard() or not self.project.frames:return
+        if self.dirty:
+            messagebox.showerror('Duplicate',self.tr('先に元のプロジェクトを保存してください。','Save the original project first.'));return
+        p=self.dialog('project_save','asksaveasfilename',defaultextension='.smproj',initialfile=self.project.name+'--unshadowed.smproj')
+        if not p:return
+        if Path(p).exists():
+            messagebox.showerror('Duplicate','Choose a new file; existing projects are protected.');return
+        def work(cb):
+            from sprite_material_variants import duplicate
+            result=duplicate(self.project);result.save(p,cb);return result
+        self.task('Duplicate unshadowed',work,lambda result:self.loaded_project(result,p))
+
+    def copy_materials(self):
+        if not self.guard() or not self.project.frames:return
+        p=self.dialog('project_open','askopenfilename',title=self.tr('材質のコピー元','Copy materials from'),filetypes=[('Sprite project','*.smproj')])
+        if not p:return
+        def work(cb):
+            import copy
+            from sprite_material_variants import copy_materials
+            result=copy.deepcopy(self.project);copy_materials(result,Project.load(p,cb));return result
+        def done(result):
+            self.project=result;self.dirty=True;self.refresh()
+        self.task('Copy materials',work,done)
+
+    def replace_albedo(self):
+        if not self.guard() or not self.project.frames:return
+        p=self.dialog('albedo_open','askopenfilename',filetypes=[('PNG','*.png')])
+        if not p:return
+        try:
+            from sprite_material_variants import replace_albedo
+            with Image.open(p) as im:replace_albedo(self.project,self.index,im)
+            self.dirty=True;self.refresh()
+        except (ValueError,OSError) as exc:messagebox.showerror('Albedo',str(exc))
 
     def save(self):
         if not self.guard() or not self.project.frames:return
@@ -398,6 +435,13 @@ class Editor:
         for i in indices:
             if self.project.frames[i].pbr_enabled!=enabled:self.project.frames[i].pbr_enabled=enabled;self.dirty=True
         self.refresh()
+    def toggle_normal_inverted(self):
+        if not self.guard() or not self.project.frames:return
+        f=self.project.frames[self.index]
+        if f.normal_inverted!=self.normal_inverted.get():
+            f.normal_inverted=self.normal_inverted.get();self.dirty=True
+        self.refresh()
+
     def refresh(self):
         self.update_project_header()
         self.material_paint.finish()
@@ -408,6 +452,7 @@ class Editor:
         self.pages.configure(text=f'{self.page+1}/{pages} · {n} images')
         if self.view.get() in ('metallic_smoothness','metallic','thickness'):
             self.status.set(self.tr('材質レイヤー：黒=0、白=1（初期値：Metallic=0、Smoothness=0、Thickness=1）。Quest用材質パックに含まれます。','Material layer: black=0, white=1 (defaults: Metallic=0, Smoothness=0, Thickness=1). Included in Quest material output.'))
+        self.normal_inverted.set(self.project.frames[self.index].normal_inverted if n and 0<=self.index<n else False)
         self.pbr_summary.configure(text=f'PBR {sum(f.pbr_enabled for f in self.project.frames)}/{n}')
         self.colors.configure(text='RGB: '+', '.join(str(tuple(c)) for c in self.project.colors))
         for offset,f in enumerate(self.project.frames[self.page*48:self.page*48+48]):

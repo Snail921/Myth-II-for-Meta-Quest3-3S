@@ -135,3 +135,6 @@ Update the APK in place; do not repeat runtime Initial setup. The new Manager ex
 Replace the PC output path with your actual location. Restart the app after transfer.
 
     adb push "C:/path/to/new-setup/SharedAssets" /sdcard/Android/data/org.mythvr.standalone/files/
+
+
+For the separate Preview 4 noShadow pack and terrain reconversion steps, see [noShadow setup](NOSHADOW.md). Keep the existing normal/PBR libraries.

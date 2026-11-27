@@ -12,9 +12,12 @@ from PIL import Image
 
 def revision(project):
     h = hashlib.sha256(json.dumps(project.settings(), sort_keys=True).encode())
+    h.update(project.variant.encode())
+    h.update(str(project.source_collection_id).encode())
     for f in project.frames:
         h.update(json.dumps(f.identity, sort_keys=True).encode())
         h.update(b'PBR1' if f.pbr_enabled else b'PBR0')
+        h.update(b'INV1' if f.normal_inverted else b'INV0')
         for key in ('image', 'mask', 'correction', 'correction_mask', 'height_ink', 'normal_ink', 'metallic_smoothness', 'metallic', 'thickness'):
             layer = getattr(f, key)
             h.update(b'none' if layer is None else layer.tobytes())
@@ -32,6 +35,53 @@ def execute(bridge, route, body):
     if body.get('project_session') != e.project_session or body.get('revision') != current:
         return response(409, error='Project changed; fetch state and recompute the edit')
     try:
+        if route == '/duplicate-unshadowed':
+            from sprite_material_variants import duplicate
+            path = Path(body.get('path', ''))
+            if not path.is_absolute() or path.suffix.lower() != '.smproj' or path.exists():
+                raise ValueError('Choose a new absolute .smproj path')
+            if e.dirty:
+                return response(409, error='Save the live project before duplicating')
+            if p.variant != 'shadowed': raise ValueError('Duplicate the original shadowed project')
+            bridge.last_operation = dict(command=route, status='running', path=str(path))
+            def work(progress):
+                try:
+                    result=duplicate(p); result.save(path,progress); return result
+                except Exception as exc:
+                    bridge.last_operation=dict(command=route,status='error',error=str(exc)); raise
+            def done(result):
+                e.accept(result); e.project_path=str(path); e.dirty=False
+                bridge.last_operation=dict(command=route,status='complete',path=str(path))
+            e.task('Duplicate unshadowed',work,done)
+            return response(202, accepted=True)
+        if route == '/copy-materials':
+            from sprite_material import Project
+            from sprite_material_variants import copy_materials
+            path = Path(body.get('path', ''))
+            if not path.is_absolute() or path.suffix.lower() != '.smproj':
+                raise ValueError('An absolute source .smproj path is required')
+            bridge.last_operation=dict(command=route,status='running',path=str(path))
+            def work(progress):
+                try:
+                    import copy
+                    result=copy.deepcopy(p); copy_materials(result,Project.load(path,progress)); return result
+                except Exception as exc:
+                    bridge.last_operation=dict(command=route,status='error',error=str(exc)); raise
+            def done(result):
+                e.project=result; e.dirty=True; e.refresh()
+                bridge.last_operation=dict(command=route,status='complete',path=str(path))
+            e.task('Copy materials',work,done)
+            return response(202, accepted=True)
+        if route == '/replace-albedo':
+            from sprite_material_variants import replace_albedo
+            index = body.get('index')
+            if type(index) is not int or not 0 <= index < len(p.frames):
+                raise ValueError('Invalid frame index')
+            with Image.open(io.BytesIO(base64.b64decode(body['png_base64'], validate=True))) as im:
+                if im.format != 'PNG': raise ValueError('PNG required')
+                replace_albedo(p, index, im)
+            e.dirty = True; e.refresh()
+            return response(200, revision=revision(p))
         if route in ('/save-project', '/load-project'):
             path = Path(body.get('path') or getattr(e, 'project_path', '') or '')
             if not path.is_absolute() or path.suffix.lower() != '.smproj':

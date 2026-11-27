@@ -22,9 +22,16 @@ static std::map<uint64_t,sprite_material::Binding> materials; // per HD bitmap, 
 struct Alpha {unsigned w,h;std::vector<uint8_t> pixels;};
 static std::map<uint64_t,Alpha> alphas;static size_t alphaBytes=0;static uint64_t alphaRevision=0;
 static std::map<GLuint,uint64_t> modelKeys;
+static std::map<uint64_t,bool> albedoSelections;
+static bool preferStandardAlbedo(uint64_t id,sprite_material::Binding original){
+ if(!unifiedGroundShadows()||!original.albedoEntry)return false;
+ auto material=materials.find(id);bool standard=material==materials.end()||!material->second.albedoEntry;
+ auto previous=albedoSelections.find(id);if(previous==albedoSelections.end()||previous->second!=standard){albedoSelections[id]=standard;LOG("Unified albedo selection entry=%llu source=%s reason=unshadowed_priority",(unsigned long long)id,standard?"standard":"HD");}
+ return standard;
+}
 static std::deque<Job> jobs;static std::deque<Ready> ready;static std::set<uint64_t> pending,failed;
 static std::mutex mutex;static std::condition_variable cv;static std::thread worker;static bool quit=false;static uint64_t frame=0;static size_t gpuBytes=0;
-static void stop(){ {std::lock_guard<std::mutex> lock(mutex);quit=true;cv.notify_all();}if(worker.joinable())worker.join();jobs.clear();ready.clear();pending.clear();failed.clear();for(auto&c:cache)glDeleteTextures(1,&c.second.texture);cache.clear();materialSizes.clear();materials.clear();textures.clear();gpuBytes=0;entries.clear();modelKeys.clear();alphas.clear();alphaBytes=0;alphaRevision++;}
+static void stop(){ {std::lock_guard<std::mutex> lock(mutex);quit=true;cv.notify_all();}if(worker.joinable())worker.join();jobs.clear();ready.clear();pending.clear();failed.clear();for(auto&c:cache)glDeleteTextures(1,&c.second.texture);cache.clear();albedoSelections.clear();materialSizes.clear();materials.clear();textures.clear();gpuBytes=0;entries.clear();modelKeys.clear();alphas.clear();alphaBytes=0;alphaRevision++;}
 static void run(){
  for(;;){Job job;{std::unique_lock<std::mutex> lock(mutex);cv.wait(lock,[]{return quit||(!jobs.empty()&&ready.size()<4);});if(quit)return;job=jobs.front();jobs.pop_front();}
   try{const auto&e=entries.at(job.entry);std::ifstream file(e.path,std::ios::binary);file.seekg(e.offset);std::vector<uint8_t> bytes(e.size);if(!file.read((char*)bytes.data(),bytes.size()))throw std::runtime_error("HD file read");auto image=decode(bytes);
@@ -56,6 +63,7 @@ static void begin(){frame++;unsigned uploads=0;size_t bytes=0;
    materials.emplace(r.entry,binding);
    if(binding.texture)LOG("HD material matched entry=%llu size=%ux%u pbr=%d",(unsigned long long)r.entry,r.w,r.h,binding.packed);
   }
+  auto material=materials.find(r.entry);if(material!=materials.end())sprite_material::applyAlbedo(material->second,r.w,r.h,r.rgba);
   GLuint tx;glGenTextures(1,&tx);glBindTexture(GL_TEXTURE_2D,tx);glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,r.w,r.h,0,GL_RGBA,GL_UNSIGNED_BYTE,r.rgba.data());glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,((r.entry>>32)==1||(r.entry>>32)==2)?GL_REPEAT:GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,((r.entry>>32)==1||(r.entry>>32)==2)?GL_REPEAT:GL_CLAMP_TO_EDGE);textures.insert(tx);cache[r.key]={tx,r.rgba.size(),frame,sampleLightColor(r.w,r.h,[&](unsigned x,unsigned y){auto p=&r.rgba[(y*r.w+x)*4];return std::array<unsigned char,4>{p[0],p[1],p[2],p[3]};})};gpuBytes+=r.rgba.size();bytes+=r.rgba.size();uploads++;
  }
  while(gpuBytes>192*1024*1024){auto old=std::min_element(cache.begin(),cache.end(),[](auto&a,auto&b){return a.second.used<b.second.used;});if(old==cache.end()||old->second.used+2>=frame)break;gpuBytes-=old->second.bytes;textures.erase(old->second.texture);sprite_atlas::forget(old->second.texture);sprite_material::bindings.erase(old->second.texture);glDeleteTextures(1,&old->second.texture);cache.erase(old);}

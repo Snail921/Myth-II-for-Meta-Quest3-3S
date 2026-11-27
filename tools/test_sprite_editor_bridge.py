@@ -55,7 +55,8 @@ class BridgeTests(unittest.TestCase):
 
     def test_state_and_stale_image(self):
         status,_,data=self.call('/state');self.assertEqual(status,200)
-        self.assertEqual(len(json.loads(data)['material_hints']),5)
+        from sprite_material_hints import HINT_COUNT
+        self.assertEqual(len(json.loads(data)['material_hints']),HINT_COUNT)
         self.assertEqual(self.call('/source/old/0/image.png')[0],404)
         self.assertEqual(self.call('/state',{})[0],404)
 

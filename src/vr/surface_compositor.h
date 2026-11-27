@@ -43,7 +43,7 @@ inline int place(int height,unsigned kind,int transfer,int phase,int&offset,unsi
  return strength;
 }
 struct Compositor {
- int w=0,h=0;std::vector<uint8_t> indices,base,shade,lut,shadow;
+ int w=0,h=0;std::vector<uint8_t> indices,base,shade,lut,shadow,unlitPalette,referenceShade;
  void initShadow(){shadow.assign(size_t(w)*h,255);}
  std::map<unsigned,Mask> masks;std::map<uint64_t,Stamp> previous;
  std::vector<uint8_t> externalDirty,dirty;std::vector<unsigned> tiles;
@@ -72,7 +72,9 @@ struct Compositor {
  }
  void rgba(unsigned tile,std::vector<uint8_t>&out)const{
   int cols=(w+Tile-1)/Tile,x=(tile%cols)*Tile,y=(tile/cols)*Tile,tw=std::min(Tile,w-x),th=std::min(Tile,h-y);out.resize(tw*th*4);
-  for(int j=0;j<th;j++)for(int i=0;i<tw;i++){int at=(y+j)*w+x+i;auto p=lut.data()+(shade[at]*256+indices[at])*4;std::copy_n(p,4,out.data()+(j*tw+i)*4);}
+  for(int j=0;j<th;j++)for(int i=0;i<tw;i++){int at=(y+j)*w+x+i;auto p=lut.data()+(shade[at]*256+indices[at])*4;auto dst=out.data()+(j*tw+i)*4;
+   if(unlitPalette.empty())std::copy_n(p,4,dst);
+   else{auto reference=lut.data()+(referenceShade[at]*256+indices[at])*4;auto color=unlitPalette.data()+indices[at]*4;for(int k=0;k<3;k++)dst[k]=uint8_t(std::clamp(int(color[k])+int(p[k])-int(reference[k]),0,255));dst[3]=255;}}
  }
 };
 }

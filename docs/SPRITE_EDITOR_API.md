@@ -92,3 +92,14 @@ Indices are zero-based, nonempty, unique and validated as a complete batch. `ena
 `GET /history/{project_session}` returns `{project_session, history}`. A stale session returns 404. `/state` includes `history_count`; connection capabilities include `history`. Entries contain UTC time, operation, channel, origin, changed image indices/names, pixel counts and before/after hashes. Brush entries additionally include value, radius, softness, blend and image-space points. UI material strokes, height copies, inversions, contrast adjustments and undo are recorded; API material writes are marked `origin: api`. This is material edit history, not a general UI event recorder.
 
 CLI: `python tools/sprite_editor_client.py --connection sprite-editor-connection.json history --session SESSION`. History is saved in the project and can be read without changing editor state.
+
+
+## Albedo variants (Preview 4)
+
+All mutation requests require current `project_session` and `revision`.
+
+- `POST /duplicate-unshadowed`: new absolute `.smproj` `path`; requires a saved shadowed project. Returns 202; poll state for completion and obtain the new session/revision.
+- `POST /replace-albedo`: zero-based `index` and PNG `png_base64`; unshadowed projects only. Dimensions and alpha must match the original. Returns 200 and new revision.
+- `POST /copy-materials`: absolute source `.smproj` `path`; source and target must share the original collection identity. Copies evaluated height/normal and material layers, keeping destination albedo and PBR flags. Returns 202; poll state.
+
+Normal inversion is an image-specific Editor switch stored in project v8; there is no dedicated normal-inversion API route. Variant selection and source identities are exposed by state. Do not share connection tokens in published files. [noShadow workflow](NOSHADOW.md).

@@ -16,6 +16,7 @@ void main(){
  for(int i=0;i<9;i++){if(i>=samples)break;vec2 uv=p.xy+offsets[i]*texel;
  if(any(lessThan(uv,vec2(0)))||any(greaterThan(uv,vec2(1))))continue;
  bool fixedShadow=p.z-bias>texture(staticDepth,uv).r;
+ uv=p.xy+offsets[i]/vec2(textureSize(liveDepth,0));
  vec3 b=floor(texture(liveOwner,uv).rgb*255.+.5);float owner=b.r+b.g*256.+b.b*65536.;
  bool liveShadow=owner>0.&&p.z-bias>texture(liveDepth,uv).r;
  if(!fixedShadow&&!liveShadow)continue;

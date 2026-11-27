@@ -90,6 +90,8 @@ def main():
  palette=[struct.unpack_from('>3H',collection,c+32+i*8) for i in range(u(collection,c))]
  table=shading_table(palette,settings)
  mw,mh=dimensions();cols,rows=mw//32,mh//32
+ from terrain_base import export_terrain_base
+ export_terrain_base(collection,ims,palette,settings,mw*8,mh*8,out)
  land=Image.new('RGBA',(mw*8,mh*8))
  for i in tracked(range(cols*rows),'地形タイルを変換'):
   w,h,p=ims[2*i];sw,sh,shade=ims[2*i+1]

@@ -74,7 +74,7 @@ def build(mapid,name,canonical,tags):
  else:
   (out/'collections.bin').write_bytes(struct.pack('<I',len(assets))+b''.join(struct.pack('<7I',a['runtime_index'],*a['fields']) for a in assets))
  target=Path(os.environ.get("MYTH_OUTPUT_ASSETS",str(ROOT/"build/vr/assets")))/"levels"/key;target.mkdir(parents=True,exist_ok=True)
- for n in ('connectors.pack','scene.pack','models.pack','sprite-indices.pack','animated-models.pack','surface-effects.pack','particles.pack','reflection-water.pack','collections.bin'):(shutil.move if os.environ.get("MYTH_COMPACT_BUILD")=="1" else shutil.copyfile)(out/n,target/n)
+ for n in ('terrain-base.pack','terrain-base.png','connectors.pack','scene.pack','models.pack','sprite-indices.pack','animated-models.pack','surface-effects.pack','particles.pack','reflection-water.pack','collections.bin'):(shutil.move if os.environ.get("MYTH_COMPACT_BUILD")=="1" else shutil.copyfile)(out/n,target/n)
  from prepare_minimap_assets import build_minimap
  progress('ミニマップを作成',item=name)
  build_minimap(tags,mapid,target)
@@ -89,7 +89,7 @@ if __name__=='__main__':
  levels=campaign(tags)
  def one(level):
   m,n=level;key=m.encode('latin1').hex();row=ROOT/'build/levels'/key/'catalog-row-v2.txt'
-  if args.resume and row.is_file():
+  if args.resume and row.is_file() and (Path(os.environ.get('MYTH_OUTPUT_ASSETS',str(ROOT/'build/vr/assets')))/'levels'/key/'terrain-base.pack').is_file():
    from prepare_minimap_assets import build_minimap
    target=Path(os.environ.get("MYTH_OUTPUT_ASSETS",str(ROOT/"build/vr/assets")))/"levels"/key;target.mkdir(parents=True,exist_ok=True)
    if not (target/'minimap.rgba').is_file():build_minimap(tags,m,target)

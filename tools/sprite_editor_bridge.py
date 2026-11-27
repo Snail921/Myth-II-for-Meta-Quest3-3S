@@ -52,7 +52,7 @@ class EditorBridge:
 
     def connection(self):
         return dict(version=1, url='http://127.0.0.1:'+str(self.server.server_port), token=self.token,
-                    capabilities=['state', 'source_png', 'collections', 'open_collection', 'material_edit', 'material_undo', 'save_project', 'load_project', 'layer_png', 'pbr_set', 'history', 'color_selection'], read_only=False)
+                    capabilities=['state', 'source_png', 'collections', 'open_collection', 'material_edit', 'material_undo', 'save_project', 'load_project', 'layer_png', 'pbr_set', 'history', 'color_selection', 'duplicate_unshadowed', 'copy_materials', 'replace_albedo'], read_only=False)
 
     def poll(self):
         for _ in range(8):
@@ -65,7 +65,7 @@ class EditorBridge:
             if e.busy:
                 result = (503, 'text/plain', b'Editor busy')
             elif body is not None:
-                if path in ('/material-edit', '/material-undo', '/save-project', '/load-project', '/pbr-set'):
+                if path in ('/material-edit', '/material-undo', '/save-project', '/load-project', '/pbr-set', '/duplicate-unshadowed', '/copy-materials', '/replace-albedo'):
                     from sprite_editor_commands import execute
                     result=execute(self, path, body)
                 elif path != '/open-collection':
@@ -86,8 +86,8 @@ class EditorBridge:
             elif path == '/state':
                 from sprite_editor_commands import revision
                 data = dict(version=2, revision=revision(p), project_path=getattr(e,'project_path',None), last_operation=getattr(self,'last_operation',None), project=p.name, project_session=e.project_session,
-                    history_count=len(p.history), selected_index=e.index, dirty=e.dirty, busy=e.busy, material_hints=p.material_hints,
-                    frames=[dict(index=i, name=f.name, size=f.image.size, identity=f.identity, pbr_enabled=f.pbr_enabled) for i,f in enumerate(p.frames)])
+                    variant=p.variant, source_collection_id=p.source_collection_id, history_count=len(p.history), selected_index=e.index, dirty=e.dirty, busy=e.busy, material_hints=p.material_hints,
+                    frames=[dict(index=i, name=f.name, size=f.image.size, identity=f.identity, pbr_enabled=f.pbr_enabled, normal_inverted=f.normal_inverted) for i,f in enumerate(p.frames)])
                 if getattr(e,'selection',None):data['color_selection']=e.selection.api_state()
                 result = (200, 'application/json', json.dumps(data, ensure_ascii=False).encode('utf-8'))
             else:

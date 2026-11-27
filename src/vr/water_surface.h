@@ -43,6 +43,7 @@ static const char* waterFragmentShader=R"(#version 300 es
 precision highp float;
 uniform sampler2D tex,normalMap,sky,shadowMap;
 uniform vec4 shadowUV;
+uniform sampler2D liveSunDepth;uniform bool liveSunShadowReady;
 uniform sampler2D staticSunDepth;uniform mat4 sunMatrix;uniform bool sunShadowReady;uniform float sunDepthBias;
 uniform mat4 mvp;uniform vec4 viewport;uniform vec3 eye,sun;
 uniform float waveTime,worldScale,skyYaw,fogDensity;uniform bool waves,hasSky;
@@ -88,7 +89,7 @@ void main(){
  // Only direct sun glints are shadowed; reflection and alpha are unchanged.
  float visibility=texture(shadowMap,world.xz*shadowUV.xy+shadowUV.zw).r;
  float shadowVisibility=smoothstep(.85,.99,visibility);
- if(sunShadowReady){vec3 q=(sunMatrix*vec4(world,1.)).xyz*.5+.5;if(all(greaterThanEqual(q,vec3(0)))&&all(lessThanEqual(q,vec3(1))))shadowVisibility=min(shadowVisibility,sunVisibility(staticSunDepth,q));}
+ if(sunShadowReady){vec3 q=(sunMatrix*vec4(world,1.)).xyz*.5+.5;if(all(greaterThanEqual(q,vec3(0)))&&all(lessThanEqual(q,vec3(1)))){shadowVisibility=min(shadowVisibility,sunVisibility(staticSunDepth,q));if(liveSunShadowReady)shadowVisibility=min(shadowVisibility,sunVisibility(liveSunDepth,q));}}
  specular*=shadowVisibility;
  color=vec4(reflected.rgb*.38+specular,reflected.a*.38);
 })";
